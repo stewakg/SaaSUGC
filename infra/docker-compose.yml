@@ -1,0 +1,45 @@
+# =============================================================================
+# Local dev services for adgen-saas.
+#
+# Supabase (Postgres + Auth + Storage + Studio) is started via the `supabase`
+# CLI (it manages its own multi-container stack), NOT here — see `pnpm supabase start`.
+#
+# This compose file provides the remaining local dependency: **Redis** for the
+# BullMQ worker queue (apps/worker). It also persists generated assets under
+# ./storage so the MockStorage provider survives restarts.
+#
+# Usage:  docker compose -f infra/docker-compose.yml up -d
+#   (or: pnpm services:up  — defined in the root package.json)
+# =============================================================================
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: adgen-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Optional: redis-commander for inspecting the queue in dev.
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: adgen-redis-commander
+    restart: unless-stopped
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:

@@ -1,0 +1,52 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# next.js
+.next/
+out/
+build/
+dist/
+
+# env files (keep .env.example)
+.env
+.env.local
+.env.*.local
+apps/*/.env
+apps/*/.env.local
+packages/*/.env
+
+# supabase
+supabase/.branches
+supabase/.temp
+
+# local storage of generated assets
+storage/
+apps/web/public/generated/
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# os
+.DS_Store
+Thumbs.db
+
+# editor
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# typescript
+*.tsbuildinfo
+
+# testing
+coverage/
+
+# remotion bundle output
+remotion/out/
+remotion/.rodo/
