@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { JOB_DESCRIPTORS, SIGNUP_BONUS_CREDITS } from '@adgen/core';
 import { cn } from '@/lib/utils';
+import { ToolIcon } from '@/components/tool-icon';
 
 /**
  * Public landing page — EcomAlati-style hero + tool cards.
@@ -54,6 +55,7 @@ export default function LandingPage() {
           {tools.map((t) => (
             <ToolCard
               key={t.type}
+              icon={t.icon}
               label={t.label}
               description={t.description}
               cost={t.cost}
@@ -75,11 +77,13 @@ export default function LandingPage() {
 }
 
 function ToolCard({
+  icon,
   label,
   description,
   cost,
   soon,
 }: {
+  icon?: string;
   label: string;
   description: string;
   cost: number;
@@ -88,7 +92,10 @@ function ToolCard({
   return (
     <div className={cn('card-gradient group transition hover:shadow-glow')}>
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-lg font-semibold">{label}</h3>
+        <div className="flex items-center gap-3">
+          <ToolIcon icon={icon} />
+          <h3 className="font-display text-lg font-semibold">{label}</h3>
+        </div>
         {soon ? (
           <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400">
             Uskoro

@@ -9,20 +9,28 @@
  * placeholder data so the full pipeline runs end-to-end with zero accounts.
  */
 
-/** AI generation (images + video scenes). TTS and script are separate below. */
+/**
+ * AI generation (images + video scenes). TTS and script are separate below.
+ *
+ * `storageKey` is set only when the result was actually uploaded to our
+ * `Storage` under that key; providers that hand back an externally-hosted
+ * URL (mock placeholders today, provider CDN URLs in F5) omit it. Callers
+ * must not invent a storage key when this is absent — see INFRASTRUCTURE.md
+ * §3 `assets.storage_key` (nullable for exactly this reason).
+ */
 export interface AIProvider {
   readonly name: string;
   generateImage(input: {
     prompt: string;
     refImages?: string[];
     size?: string;
-  }): Promise<{ url: string }>;
+  }): Promise<{ url: string; storageKey?: string }>;
   generateVideo(input: {
     prompt: string;
     refImage?: string;
     model?: string;
     durationSec?: number;
-  }): Promise<{ url: string }>;
+  }): Promise<{ url: string; storageKey?: string }>;
 }
 
 /** Claude Opus. Mock returns canned Serbian ad scripts. */
@@ -55,13 +63,18 @@ export interface VoiceProvider {
   listVoices(): Promise<{ id: string; name: string; gender: string }[]>;
 }
 
-/** Remotion. Mock returns a placeholder mp4. Real = local render (dev) / Lambda (prod). */
+/**
+ * Remotion. Mock returns a placeholder mp4. Real = local render (dev) / Lambda (prod).
+ *
+ * `storageKey` mirrors the note on `AIProvider` above: present only when the
+ * render was actually uploaded to our `Storage` under that key.
+ */
 export interface Renderer {
   readonly name: string;
   render(input: {
     composition: string;
     props: Record<string, unknown>;
-  }): Promise<{ videoUrl: string }>;
+  }): Promise<{ videoUrl: string; storageKey?: string }>;
 }
 
 /** Local disk (dev) → R2/S3 (prod). */
@@ -80,8 +93,18 @@ export interface Billing {
   readonly name: string;
   listPacks(): Promise<{ id: string; credits: number; priceEUR: number }[]>;
   createCheckout(userId: string, packId: string): Promise<{ url: string }>;
-  /** Adds credits on a paid event (Lemon Squeezy webhook). No-op in mock. */
-  handleWebhook(req: Request): Promise<void>;
+  /**
+   * Verifies + parses an incoming payment-provider webhook request. Returns
+   * the credit grant to apply (userId + amount + reason) for a successful
+   * paid event, or null for an event that doesn't grant credits (refund,
+   * unhandled event type, etc). The DB write is the caller's job —
+   * providers in @adgen/core have no DB dependency, matching how the
+   * worker and apps/web routes already own all DB writes directly.
+   * Implementations should THROW on signature verification failure so the
+   * caller can reject the request (400), as distinct from returning null
+   * for a validly-signed but irrelevant event (caller should still ack 200).
+   */
+  parseWebhook(req: Request): Promise<{ userId: string; amount: number; reason: string } | null>;
 }
 
 /**

@@ -6,6 +6,7 @@ export {
 } from './client.ts';
 export type {
   Database,
+  Json,
   JobType,
   JobStatus,
   AssetKind,

@@ -117,7 +117,7 @@ export type Database = {
           job_id: string;
           user_id: string;
           kind: AssetKind;
-          storage_key: string;
+          storage_key: string | null;
           url: string;
           meta: Json;
           created_at: string;
@@ -127,7 +127,7 @@ export type Database = {
           job_id: string;
           user_id: string;
           kind: AssetKind;
-          storage_key: string;
+          storage_key?: string | null;
           url: string;
           meta?: Json;
           created_at?: string;
@@ -137,7 +137,7 @@ export type Database = {
           job_id?: string;
           user_id?: string;
           kind?: AssetKind;
-          storage_key?: string;
+          storage_key?: string | null;
           url?: string;
           meta?: Json;
           created_at?: string;
@@ -153,6 +153,7 @@ export type Database = {
       signup_bonus_credits: { Args: Record<string, never>; Returns: number };
       handle_new_user: { Args: Record<string, never>; Returns: undefined };
       charge_credits: { Args: { p_user_id: string; p_job_id: string; p_amount: number }; Returns: undefined };
+      add_credits: { Args: { p_user_id: string; p_amount: number; p_reason: string }; Returns: number };
       tg_set_updated_at: { Args: Record<string, never>; Returns: undefined };
     };
     Enums: {

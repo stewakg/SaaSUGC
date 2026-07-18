@@ -36,21 +36,25 @@ export function computeJobCost(type: JobType, count = 1): number {
   return unit * Math.max(1, Math.floor(count));
 }
 
-/** UI-facing descriptors for every tool (used on the landing/dashboard cards). */
+/**
+ * UI-facing descriptors for every tool (used on the landing/dashboard cards).
+ * `tier: 'main'` tools get a big colored card with 3 benefit bullets;
+ * `tier: 'utility'` tools get a compact list row (see apps/web's dashboard).
+ */
 export const JOB_DESCRIPTORS: JobDescriptor[] = [
-  {
-    type: 'image_ads',
-    label: 'AI slike',
-    description: 'Generiši reklamne slike iz URL-a proizvoda.',
-    cost: JOB_COST.image_ads,
-    icon: 'image',
-  },
   {
     type: 'matrix',
     label: 'Matrix',
     description: 'Kompletan video paket: skripta, glas, titl, muzika, CTA.',
     cost: JOB_COST.matrix,
     icon: 'video',
+    theme: 'orange',
+    tier: 'main',
+    benefits: [
+      'Svaka verzija sa drugim hook-om',
+      'Različite skripte, glasovi i titlovi',
+      'Napravljeno za A/B testiranje',
+    ],
   },
   {
     type: 'edit',
@@ -58,13 +62,27 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     description: 'Uredi i montiraj postojeći video.',
     cost: JOB_COST.edit,
     icon: 'scissors',
+    theme: 'blue',
+    tier: 'main',
+    benefits: [
+      'AI piše skriptu i čita je glasom',
+      'AI scene se smenjuju sa tvojim snimkom',
+      'Titlovi i tranzicije prate skriptu',
+    ],
   },
   {
-    type: 'enhance',
-    label: 'Enhance',
-    description: 'Popravlj kvalitet slike i videa.',
-    cost: JOB_COST.enhance,
-    icon: 'sparkles',
+    type: 'image_ads',
+    label: 'AI slike',
+    description: 'Generiši reklamne slike iz URL-a proizvoda.',
+    cost: JOB_COST.image_ads,
+    icon: 'image',
+    theme: 'purple',
+    tier: 'main',
+    benefits: [
+      'Srpski tekst direktno na slici',
+      'Pre/posle, problem, garancija — gotovi šabloni',
+      'Odmah spremne za objavu',
+    ],
   },
   {
     type: 'mix',
@@ -72,6 +90,13 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     description: 'Kombinuj više snimaka u jedan.',
     cost: JOB_COST.mix,
     icon: 'layers',
+    theme: 'teal',
+    tier: 'main',
+    benefits: [
+      'Ubaciš klipove jednom, dobiješ više vrsta reklama',
+      'Deo su Matrix videi sa AI titlovima',
+      'Deo su Edit videi sa AI scenama',
+    ],
   },
   {
     type: 'quick_test',
@@ -79,6 +104,13 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     description: 'Brza probna verzija sa minimalnim troškom.',
     cost: JOB_COST.quick_test,
     icon: 'zap',
+    theme: 'pink',
+    tier: 'main',
+    benefits: [
+      'Jedan klik, gotova reklama, nula podešavanja',
+      'Testiraj koncept pre punog paketa',
+      'Najmanji trošak od svih alata',
+    ],
   },
   {
     type: 'translate',
@@ -86,13 +118,29 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     description: 'Prevedi strani oglas na srpski (klonirani glas).',
     cost: JOB_COST.translate,
     icon: 'languages',
+    theme: 'red',
+    tier: 'main',
+    benefits: [
+      'Prirodan glas, kloniran original',
+      'Titlovi u istom stilu kao original',
+      'Ista muzika i koncept reklame',
+    ],
+  },
+  {
+    type: 'enhance',
+    label: 'Enhance',
+    description: 'Ubaciš mutan ili komprimovan klip → dobiješ oštar HD do 1080p.',
+    cost: JOB_COST.enhance,
+    icon: 'sparkles',
+    tier: 'utility',
   },
   {
     type: 'remove_text',
     label: 'Ukloni tekst',
-    description: 'Skloni tekst i titlove sa slike/videa.',
+    description: 'AI obriše titlove, watermark i svaki tekst sa slike/videa, bez blura i mrlja.',
     cost: JOB_COST.remove_text,
     icon: 'eraser',
+    tier: 'utility',
   },
   {
     type: 'ai_video',
@@ -100,6 +148,7 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     description: 'Upload influencer foto + proizvod → video oglas. (uskoro)',
     cost: JOB_COST.ai_video,
     icon: 'user',
+    tier: 'utility',
   },
 ];
 

@@ -1,0 +1,28 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["node"],
+    "noEmit": true,
+    "baseUrl": ".",
+    // Workaround, not a real fix: this workspace has two React majors —
+    // apps/web is on React 19 RC, but Remotion's renderer/bundler require
+    // React 18, so this package pins react/react-dom + @types/react(-dom)
+    // to 18.x in package.json. Plain "react" resolution can otherwise walk
+    // up to a hoisted/newer @types/react elsewhere in the pnpm workspace and
+    // typecheck this package's JSX against the wrong React version. Pinning
+    // the path here forces resolution to THIS package's own installed
+    // types. This only stays correct as long as @types/react and
+    // @types/react-dom in remotion/package.json remain exact pins (not
+    // ranges) — if either is ever loosened, this mapping can silently
+    // resolve against a different 18.x than what's actually installed.
+    "paths": {
+      "react": ["./node_modules/@types/react"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
+      "react/jsx-dev-runtime": ["./node_modules/@types/react/jsx-dev-runtime"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "react-dom/client": ["./node_modules/@types/react-dom/client"]
+    }
+  },
+  "include": ["src/**/*"]
+}

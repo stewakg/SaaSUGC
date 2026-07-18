@@ -9,6 +9,17 @@
  */
 import { z } from 'zod';
 
+/**
+ * z.string().url().optional() alone only tolerates a genuinely MISSING key
+ * (`undefined`) — an empty string still fails `.url()`. `.env` files (and
+ * Docker's `--env-file`) routinely write unset optional keys as `KEY=`,
+ * which loads as `''`, not `undefined`. Found live: this crashed the worker
+ * on its first real deploy (R2_PUBLIC_URL=, REMOTION_SERVE_URL= in the
+ * container's .env) even though both are genuinely optional. Treat '' the
+ * same as absent.
+ */
+const optionalUrl = () => z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional());
+
 const EnvSchema = z.object({
   /** Node env. */
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -19,10 +30,10 @@ const EnvSchema = z.object({
     .default(false),
 
   // --- Supabase (DB + Auth) ---
-  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_URL: optionalUrl(),
   SUPABASE_ANON_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
+  NEXT_PUBLIC_SUPABASE_URL: optionalUrl(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
 
   // --- Redis (worker / BullMQ) ---
@@ -39,21 +50,27 @@ const EnvSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET: z.string().optional(),
+  R2_PUBLIC_URL: optionalUrl(),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_REGION: z.string().optional(),
   AWS_S3_BUCKET: z.string().optional(),
+  AWS_S3_PUBLIC_URL: optionalUrl(),
 
   // --- Remotion Lambda (prod render) ---
   REMOTION_AWS_ACCESS_KEY_ID: z.string().optional(),
   REMOTION_AWS_SECRET_ACCESS_KEY: z.string().optional(),
   REMOTION_LAMBDA_FUNCTION_NAME: z.string().optional(),
-  REMOTION_SERVE_URL: z.string().url().optional(),
+  REMOTION_SERVE_URL: optionalUrl(),
+  // Distinct from AWS_REGION (the R2/S3 Storage region) — the Lambda function
+  // can be deployed in a different AWS region than the storage bucket.
+  REMOTION_AWS_REGION: z.string().optional(),
 
   // --- Billing ---
   LEMONSQUEEZY_API_KEY: z.string().optional(),
   LEMONSQUEEZY_STORE_ID: z.string().optional(),
   LEMONSQUEEZY_WEBHOOK_SECRET: z.string().optional(),
+  LEMONSQUEEZY_VARIANT_MAP: z.string().optional(),
 
   // --- Local storage root (dev mock Storage) ---
   LOCAL_STORAGE_DIR: z.string().default('./storage'),

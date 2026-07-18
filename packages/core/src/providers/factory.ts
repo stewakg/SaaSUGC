@@ -26,6 +26,13 @@ import {
   MockStorage,
   MockVoiceProvider,
 } from './mocks.ts';
+import { ClaudeScriptProvider } from './script.claude.ts';
+import { ElevenLabsVoiceProvider } from './voice.elevenlabs.ts';
+import { S3CompatibleStorage } from './storage.r2.ts';
+import { RemotionLambdaRenderer } from './renderer.lambda.ts';
+import type { AwsRegion } from '@remotion/lambda-client';
+import { LemonSqueezyBilling } from './billing.lemonsqueezy.ts';
+import { RealScraper } from './scraper.real.ts';
 
 export interface Providers {
   ai: AIProvider;
@@ -50,41 +57,138 @@ export function createProviders(overrides: Partial<Providers> = {}): Providers {
       ? loadReal('ai', env) // F5: returns KieAIFalRouter
       : new MockAIProvider());
 
-  const script: ScriptProvider =
-    overrides.script ??
-    (hasKey(env, 'ANTHROPIC_API_KEY')
-      ? loadReal('script', env) // F5: returns ClaudeScriptProvider
-      : new MockScriptProvider());
+  const script: ScriptProvider = overrides.script ?? createScriptProvider(env);
 
-  const voice: VoiceProvider =
-    overrides.voice ??
-    (hasKey(env, 'ELEVENLABS_API_KEY')
-      ? loadReal('voice', env) // F5: returns ElevenLabsVoiceProvider
-      : new MockVoiceProvider());
+  // storage must be constructed BEFORE voice — ElevenLabsVoiceProvider takes
+  // the Storage in its constructor (it persists the rendered MP3 there).
+  const storage: Storage = overrides.storage ?? createStorageProvider(env);
 
-  const renderer: Renderer =
-    overrides.renderer ??
-    (hasKey(env, 'REMOTION_LAMBDA_FUNCTION_NAME')
-      ? loadReal('renderer', env) // F5: returns RemotionLambdaRenderer
-      : new MockRenderer());
+  const voice: VoiceProvider = overrides.voice ?? createVoiceProvider(env, storage);
 
-  const storage: Storage =
-    overrides.storage ??
-    (hasKey(env, 'R2_BUCKET') || hasKey(env, 'AWS_S3_BUCKET')
-      ? loadReal('storage', env) // F5: returns R2Storage / S3Storage
-      : new MockStorage(env.LOCAL_STORAGE_DIR));
+  const renderer: Renderer = overrides.renderer ?? createRendererProvider(env);
 
-  const billing: Billing =
-    overrides.billing ??
-    (hasKey(env, 'LEMONSQUEEZY_API_KEY')
-      ? loadReal('billing', env) // F6: returns LemonSqueezyBilling
-      : new MockBilling());
+  const billing: Billing = overrides.billing ?? createBillingProvider(env);
 
-  // Scraper is REAL-capable from day one (no paid account), but we still gate
-  // it behind an explicit flag so tests stay deterministic. F3 enables it.
-  const scraper: Scraper = overrides.scraper ?? new MockScraper();
+  // Scraper is REAL-capable from day one (no paid account needed) — F3
+  // enables it by default. FORCE_MOCK still gates it for deterministic tests;
+  // RealScraper itself also falls back to mock data per-request on any
+  // fetch/parse failure, so a bad URL never hard-fails the wizard.
+  const scraper: Scraper = overrides.scraper ?? (env.FORCE_MOCK ? new MockScraper() : new RealScraper());
 
   return { ai, script, voice, renderer, storage, billing, scraper };
+}
+
+/**
+ * Script provider switch (F5). Never throws on partial config — a missing
+ * ANTHROPIC_API_KEY just means mock. Same pattern as createBillingProvider.
+ */
+function createScriptProvider(env: ReturnType<typeof loadEnv>): ScriptProvider {
+  if (!hasKey(env, 'ANTHROPIC_API_KEY')) return new MockScriptProvider();
+  return new ClaudeScriptProvider({ apiKey: env.ANTHROPIC_API_KEY! });
+}
+
+/**
+ * Voice provider switch (F5). Needs the Storage instance (ElevenLabs persists
+ * MP3s there). Never throws on partial config — missing ELEVENLABS_API_KEY
+ * means mock. Same pattern as createBillingProvider.
+ */
+function createVoiceProvider(env: ReturnType<typeof loadEnv>, storage: Storage): VoiceProvider {
+  if (!hasKey(env, 'ELEVENLABS_API_KEY')) return new MockVoiceProvider();
+  return new ElevenLabsVoiceProvider({ apiKey: env.ELEVENLABS_API_KEY! }, storage);
+}
+
+/**
+ * Storage provider switch (F5): R2 if R2_BUCKET is set, S3 if AWS_S3_BUCKET is
+ * set, otherwise mock local disk. Never throws on partial config — if a bucket
+ * var is present but its companion creds/public-URL are missing, warn and fall
+ * back to mock. Same pattern as createBillingProvider.
+ */
+function createStorageProvider(env: ReturnType<typeof loadEnv>): Storage {
+  if (hasKey(env, 'R2_BUCKET')) {
+    if (
+      !hasKey(env, 'R2_ACCOUNT_ID') ||
+      !hasKey(env, 'R2_ACCESS_KEY_ID') ||
+      !hasKey(env, 'R2_SECRET_ACCESS_KEY') ||
+      !hasKey(env, 'R2_PUBLIC_URL')
+    ) {
+      console.warn('[core] R2_BUCKET is set but R2 config is incomplete — falling back to mock storage.');
+      return new MockStorage(env.LOCAL_STORAGE_DIR);
+    }
+    return new S3CompatibleStorage({
+      bucket: env.R2_BUCKET!,
+      publicBaseUrl: env.R2_PUBLIC_URL!,
+      endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      accessKeyId: env.R2_ACCESS_KEY_ID!,
+      secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
+    });
+  }
+  if (hasKey(env, 'AWS_S3_BUCKET')) {
+    if (
+      !hasKey(env, 'AWS_ACCESS_KEY_ID') ||
+      !hasKey(env, 'AWS_SECRET_ACCESS_KEY') ||
+      !hasKey(env, 'AWS_S3_PUBLIC_URL')
+    ) {
+      console.warn('[core] AWS_S3_BUCKET is set but S3 config is incomplete — falling back to mock storage.');
+      return new MockStorage(env.LOCAL_STORAGE_DIR);
+    }
+    return new S3CompatibleStorage({
+      bucket: env.AWS_S3_BUCKET!,
+      publicBaseUrl: env.AWS_S3_PUBLIC_URL!,
+      region: env.AWS_REGION ?? 'us-east-1',
+      accessKeyId: env.AWS_ACCESS_KEY_ID!,
+      secretAccessKey: env.AWS_SECRET_ACCESS_KEY!,
+    });
+  }
+  return new MockStorage(env.LOCAL_STORAGE_DIR);
+}
+
+/**
+ * Renderer switch (F5). Never throws on partial config — a missing
+ * REMOTION_SERVE_URL means mock, same as the other create*Provider helpers.
+ * Does NOT validate REMOTION_AWS_ACCESS_KEY_ID/SECRET here (no cheap way to
+ * check AWS creds without a network call) — a bad/missing credential
+ * surfaces as a clear error from the actual render call instead.
+ */
+function createRendererProvider(env: ReturnType<typeof loadEnv>): Renderer {
+  if (!hasKey(env, 'REMOTION_LAMBDA_FUNCTION_NAME')) return new MockRenderer();
+  if (!hasKey(env, 'REMOTION_SERVE_URL')) {
+    console.warn(
+      '[core] REMOTION_LAMBDA_FUNCTION_NAME is set but REMOTION_SERVE_URL is missing — falling back to mock renderer.',
+    );
+    return new MockRenderer();
+  }
+  return new RemotionLambdaRenderer({
+    functionName: env.REMOTION_LAMBDA_FUNCTION_NAME!,
+    serveUrl: env.REMOTION_SERVE_URL!,
+    region: (env.REMOTION_AWS_REGION ?? 'eu-central-1') as AwsRegion,
+  });
+}
+
+/**
+ * Billing provider switch (F6). Kept out of `loadReal` on purpose: Lemon
+ * Squeezy is wired now (code-complete, never live-tested), whereas the other
+ * providers still throw from loadReal until F5. Must not throw on a partial
+ * config — a user who sets only LEMONSQUEEZY_API_KEY without the
+ * store/webhook/variant-map vars yet must NOT crash the whole worker/web
+ * process at module load; fall back to mock with a warning instead.
+ */
+function createBillingProvider(env: ReturnType<typeof loadEnv>): Billing {
+  if (!hasKey(env, 'LEMONSQUEEZY_API_KEY')) return new MockBilling();
+  try {
+    return new LemonSqueezyBilling({
+      apiKey: env.LEMONSQUEEZY_API_KEY!,
+      storeId: env.LEMONSQUEEZY_STORE_ID ?? '',
+      webhookSecret: env.LEMONSQUEEZY_WEBHOOK_SECRET ?? '',
+      variantMapJson: env.LEMONSQUEEZY_VARIANT_MAP,
+    });
+  } catch (err) {
+    console.warn(
+      `[core] LEMONSQUEEZY_API_KEY is set but billing config is incomplete — falling back to mock billing: ${
+        err instanceof Error ? err.message : err
+      }`,
+    );
+    return new MockBilling();
+  }
 }
 
 /**

@@ -9,7 +9,7 @@ const nextConfig = {
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'placehold.co' },
-      { protocol: 'https', hostname: 'commondatastorage.googleapis.com' },
+      { protocol: 'https', hostname: 'www.w3schools.com' },
       { protocol: 'https', hostname: '**.supabase.co' },
     ],
   },

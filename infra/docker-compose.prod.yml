@@ -1,0 +1,53 @@
+# =============================================================================
+# Production worker deployment (F6) — for the user's existing Hetzner VPS.
+# Isolated via its own compose project name (-p adgen) and container names,
+# so it can't collide with anything else on that box.
+#
+# LIVE-VERIFIED 2026-07-18: running as `adgen-worker-prod` + `adgen-redis-prod`
+# at /opt/adgen-saas on the VPS; a real job was processed end-to-end through
+# this exact stack (see INFRASTRUCTURE.md F2/F6).
+#
+# Usage (from the repo root on the VPS):
+#   docker compose -f infra/docker-compose.prod.yml -p adgen up -d --build
+# =============================================================================
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: adgen-redis-prod
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    ports:
+      # Loopback-only: reachable from processes ON this VPS (and via an SSH
+      # port-forward tunneled to that same loopback address) but NOT from the
+      # public internet — unauthenticated Redis exposed publicly is a classic
+      # botnet target. The worker itself reaches this over the internal
+      # compose network by service name, not through this port.
+      - '127.0.0.1:6379:6379'
+
+  worker:
+    build:
+      context: ../
+      dockerfile: apps/worker/Dockerfile
+    container_name: adgen-worker-prod
+    restart: unless-stopped
+    env_file:
+      - ../apps/worker/.env
+    environment:
+      # Overrides whatever REDIS_URL is in .env — the worker must talk to
+      # THIS compose stack's redis service (by its service name on the
+      # compose network), not localhost or a dev instance.
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:

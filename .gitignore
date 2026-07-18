@@ -41,6 +41,9 @@ Thumbs.db
 !.vscode/extensions.json
 !.vscode/settings.json
 
+# claude code — personal/local settings, not shared config
+.claude/settings.local.json
+
 # typescript
 *.tsbuildinfo
 

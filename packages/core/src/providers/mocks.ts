@@ -8,7 +8,6 @@
 import type {
   AIProvider,
   Billing,
-  Logger,
   Renderer,
   ScriptProvider,
   Scraper,
@@ -16,6 +15,7 @@ import type {
   VoiceProvider,
 } from '../interfaces.ts';
 import { CREDIT_PACKS } from '../pricing.ts';
+import { resolveLocalStorageDir } from '../storage-path.ts';
 
 /** Deterministic small delay so progress/loading states are testable. */
 const fakeLatency = (ms = 600) => new Promise<void>((r) => setTimeout(r, ms));
@@ -23,8 +23,10 @@ const fakeLatency = (ms = 600) => new Promise<void>((r) => setTimeout(r, ms));
 /** Stable mock asset URL — points to a public placeholder (no key needed). */
 const placeholderImage = (label: string, seed = 1) =>
   `https://placehold.co/1080x1080/0a0a0a/FFE000/png?text=${encodeURIComponent(label)}&${seed}`;
+// The old googleapis gtv-videos-bucket sample now 403s (bucket locked down) —
+// this w3schools tutorial asset has been a stable public sample for years.
 const placeholderVideo = (label: string) =>
-  `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4#mock=${encodeURIComponent(label)}`;
+  `https://www.w3schools.com/html/mov_bbb.mp4#mock=${encodeURIComponent(label)}`;
 
 // ----------------------------------------------------------------------------
 export class MockAIProvider implements AIProvider {
@@ -107,15 +109,19 @@ export class MockRenderer implements Renderer {
 
 // ----------------------------------------------------------------------------
 /**
- * Mock storage: writes to local disk under LOCAL_STORAGE_DIR and serves a
- * relative URL. Used in dev; real R2/S3 is wired in F5.
+ * Mock storage: writes to local disk under LOCAL_STORAGE_DIR and serves it
+ * back via apps/web's `/api/storage/[...path]` route. Used in dev; real R2/S3
+ * is wired in F5.
  */
 export class MockStorage implements Storage {
   readonly name = 'mock-storage';
+  private readonly rootDir: string;
   constructor(
-    private readonly rootDir = './storage',
-    private readonly publicPrefix = '/storage',
-  ) {}
+    rootDir = './storage',
+    private readonly publicPrefix = '/api/storage',
+  ) {
+    this.rootDir = resolveLocalStorageDir(rootDir);
+  }
 
   async upload(
     key: string,
@@ -155,8 +161,9 @@ export class MockBilling implements Billing {
     // internal URL the dev "add credits" button recognises.
     return { url: `/api/dev/credits/add?pack=${packId}&mock=1` };
   }
-  async handleWebhook(_req: Request) {
+  async parseWebhook(_req: Request) {
     /* no-op in mock; credits are added synchronously by the dev endpoint */
+    return null;
   }
 }
 
@@ -173,12 +180,5 @@ export class MockScraper implements Scraper {
     };
   }
 }
-
-// ----------------------------------------------------------------------------
-export const consoleLogger: Logger = {
-  info: (msg, meta) => console.info(`[INFO] ${msg}`, meta ?? ''),
-  warn: (msg, meta) => console.warn(`[WARN] ${msg}`, meta ?? ''),
-  error: (msg, meta) => console.error(`[ERROR] ${msg}`, meta ?? ''),
-};
 
 let seedCounter = 1;

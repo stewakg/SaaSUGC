@@ -8,10 +8,13 @@ export * from './types.ts';
 export * from './interfaces.ts';
 export * from './pricing.ts';
 export * from './credits.ts';
+export * from './captions.ts';
+export * from './constants.ts';
 export { loadEnv, hasKey } from './env.ts';
 export type { Env } from './env.ts';
 export { createProviders, getAI } from './providers/factory.ts';
 export type { Providers } from './providers/factory.ts';
+export { consoleLogger } from './logger.ts';
 export {
   MockAIProvider,
   MockBilling,
@@ -20,5 +23,4 @@ export {
   MockScraper,
   MockStorage,
   MockVoiceProvider,
-  consoleLogger,
 } from './providers/mocks.ts';

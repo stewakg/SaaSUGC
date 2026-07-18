@@ -3,9 +3,21 @@ packages:
   - "packages/*"
   - "remotion"
 
-# Allow native build scripts for these packages (pnpm 11+ setting location).
+# Allow native build scripts for these packages.
 onlyBuiltDependencies:
   - esbuild
   - msgpackr-extract
   - sharp
   - unrs-resolver
+
+# apps/web pins React 19 RC preview types (@types/react -> types-react@rc).
+# Without a scoped override, pnpm's shared peer-dependency slot picks that
+# alias for OTHER packages' unrelated "react" type resolution too (e.g. the
+# `remotion` npm package's own .d.ts files climb up to this shared slot when
+# resolving react types, since remotion pins real React 18) — breaking their
+# JSX types. Force the real @types/react everywhere except apps/web itself.
+overrides:
+  "@adgen/web>@types/react": "npm:types-react@rc"
+  "@adgen/web>@types/react-dom": "npm:types-react-dom@rc"
+  "@types/react": "18.3.12"
+  "@types/react-dom": "18.3.1"

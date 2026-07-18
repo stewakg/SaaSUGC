@@ -1,0 +1,27 @@
+{
+  "name": "@adgen/remotion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@adgen/core": "workspace:*",
+    "@remotion/google-fonts": "4.0.490",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.490"
+  },
+  "devDependencies": {
+    "@remotion/bundler": "4.0.490",
+    "@remotion/cli": "4.0.490",
+    "@remotion/renderer": "4.0.490",
+    "@types/node": "^22.9.0",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "typescript": "^5.6.3"
+  }
+}

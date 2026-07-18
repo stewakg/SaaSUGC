@@ -75,11 +75,12 @@
 
 ```
 /apps/web            Next.js app (Vercel)         — UI, auth, API routes, enqueues jobs
-/apps/worker         Node worker (Hetzner/Docker) — queue consumer, generation orchestration
+/apps/worker         Node worker (Hetzner/Docker) — queue consumer, generation orchestration; Dockerfile lives here
 /packages/core       shared TS: interfaces + mock impls (AIProvider, Renderer, Storage, Billing), zod env, types
 /packages/db         Supabase schema, SQL migrations, generated types, typed client helpers
 /remotion            Remotion project — ad compositions (templates, captions, transitions)
-/infra               docker-compose (local Supabase + Redis), worker Dockerfile, deploy scripts
+/infra               docker-compose (local Redis; prod worker+Redis in docker-compose.prod.yml)
+/scripts             small repo-wide Node scripts (currently just sync-env.mjs — see §6)
 INFRASTRUCTURE.md    (this file)
 ACCOUNTS.md          signup checklist + which env var each key maps to
 ```
@@ -114,9 +115,13 @@ and returns the real impl if its key exists, else the mock.
 
 ```ts
 // AI generation (images + video scenes). TTS and script are separate below.
+// `storageKey` is set only when the result was actually uploaded to our Storage under
+// that key; providers that hand back an externally-hosted URL (mock placeholders today,
+// provider CDN URLs in F5) omit it. Callers must never invent a storage key when absent
+// — `assets.storage_key` is nullable for exactly this reason (see §3).
 interface AIProvider {
-  generateImage(input: { prompt: string; refImages?: string[]; size?: string }): Promise<{ url: string }>;
-  generateVideo(input: { prompt: string; refImage?: string; model?: string; durationSec?: number }): Promise<{ url: string }>;
+  generateImage(input: { prompt: string; refImages?: string[]; size?: string }): Promise<{ url: string; storageKey?: string }>;
+  generateVideo(input: { prompt: string; refImage?: string; model?: string; durationSec?: number }): Promise<{ url: string; storageKey?: string }>;
 }
 // Router: try primary (kie.ai), on failure fall back to fal.ai. Mock returns placeholder asset URLs.
 
@@ -134,7 +139,7 @@ interface VoiceProvider {    // ElevenLabs. Mock returns a silent/placeholder mp
 }
 
 interface Renderer {         // Remotion. Mock returns a placeholder mp4. Real = local render (dev) / Lambda (prod).
-  render(input: { composition: string; props: Record<string, unknown> }): Promise<{ videoUrl: string }>;
+  render(input: { composition: string; props: Record<string, unknown> }): Promise<{ videoUrl: string; storageKey?: string }>;
 }
 
 interface Storage {          // Local disk (dev) → R2/S3 (prod).
@@ -145,7 +150,11 @@ interface Storage {          // Local disk (dev) → R2/S3 (prod).
 interface Billing {          // Mock (instant credit in dev) → Lemon Squeezy (launch).
   listPacks(): Promise<{ id: string; credits: number; priceEUR: number }[]>;
   createCheckout(userId: string, packId: string): Promise<{ url: string }>;
-  handleWebhook(req: Request): Promise<void>; // adds credits on paid event
+  // Verifies + parses a webhook. Returns the credit grant (userId+amount+reason)
+  // for a paid event, or null for a validly-signed but irrelevant event. THROWS
+  // on signature verification failure. The DB write is the caller's job —
+  // providers in @adgen/core have no DB dependency (worker/web routes own writes).
+  parseWebhook(req: Request): Promise<{ userId: string; amount: number; reason: string } | null>;
 }
 
 interface Scraper {          // Product page → {title, price, images}. Can be REAL from day one (no paid account): fetch + cheerio. Mock as fallback.
@@ -163,62 +172,96 @@ interface Scraper {          // Product page → {title, price, images}. Can be 
 - [x] `packages/core`: zod-validated env loader; the interfaces in §4 with **mock implementations**; `pricing.ts`.
 - [x] `packages/db`: Supabase schema + migrations from §3; typed client helpers; seed script (a dev user with credits).
 - [x] `infra/docker-compose.yml`: local **Supabase** (via `supabase` CLI) + **Redis**. `pnpm dev` boots web + worker + services.
-- [ ] Commit `INFRASTRUCTURE.md` + `ACCOUNTS.md` into the repo.
+- [x] Commit `INFRASTRUCTURE.md` + `ACCOUNTS.md` into the repo.
 - **DoD:** `pnpm dev` runs; local Supabase reachable; empty app shell loads; no secrets required. ✅ (verified: all packages typecheck; `next build` succeeds; worker boots in mock mode)
 
 ### F1 — Shell: auth + credits (mock) 🟢
-- [ ] Supabase Auth: email/password sign-up + login (Google OAuth deferred to F5). Session via `@supabase/ssr`.
-- [ ] App shell: left sidebar (Početna, Moje reklame), topbar with **credit balance** + account link.
-- [ ] Landing page (public) in EcomAlati style: hero, tool cards (VideoGen), "3 free videos on signup", pricing placeholder.
-- [ ] Credit system end-to-end on mock: signup grants 3 credits; **dev-only** "add credits" button; ledger + balance display.
-- [ ] "Moje reklame" page: lists the user's `jobs`/`assets` (empty state for now).
-- **DoD:** a user can sign up, log in, see balance, and the credit ledger updates correctly (all local).
+- [x] Supabase Auth: email/password sign-up + login (Google OAuth deferred to F5). Session via `@supabase/ssr`.
+- [x] App shell: left sidebar (Početna, Moje reklame), topbar with **credit balance** + account link.
+- [x] Landing page (public) in EcomAlati style: hero, tool cards (VideoGen), "3 free videos on signup", pricing placeholder.
+- [x] Credit system end-to-end on mock: signup grants 3 credits; **dev-only** "add credits" button; ledger + balance display.
+- [x] "Moje reklame" page: lists the user's `jobs`/`assets` (empty state for now).
+- **DoD:** a user can sign up, log in, see balance, and the credit ledger updates correctly (all local). ✅ (code-complete: typecheck + `next build` pass; NOT yet run live end-to-end — no local Supabase/Docker in this environment, needs a real click-through pass)
 
 ### F2 — Job pipeline + mocks 🟢
-- [ ] `apps/worker`: BullMQ queue + Redis; consumer that reads a `jobs` row, runs the (mock) pipeline, writes status/result.
-- [ ] Web → `POST /api/jobs` enqueues (after balance check) → returns job id → client **polls** `GET /api/jobs/:id`.
-- [ ] Wire mock providers through the worker so a fake job goes `queued → running → done` and deducts credits **on success only**.
-- [ ] Reusable wizard UI shell (steps, progress bar, "Dalje/Nazad", cost estimate) matching EcomAlati's 3-step flow.
-- **DoD:** submitting any job type produces a mock result, correct credit deduction, visible in "Moje reklame".
+- [x] `apps/worker`: BullMQ queue + Redis; consumer that reads a `jobs` row, runs the (mock) pipeline, writes status/result.
+- [x] Web → `POST /api/jobs` enqueues (after balance check) → returns job id → client **polls** `GET /api/jobs/:id`.
+- [x] Wire mock providers through the worker so a fake job goes `queued → running → done` and deducts credits **on success only**.
+- [x] Reusable wizard UI shell (steps, progress bar, "Dalje/Nazad", cost estimate) matching EcomAlati's 3-step flow — proved out with a 2-step `quick_test` wizard; per-tool wizards land in F3+.
+- **DoD:** submitting any job type produces a mock result, correct credit deduction, visible in "Moje reklame". ✅ **LIVE-VERIFIED 2026-07-18** against the real worker deployed to the Hetzner VPS (see the F6 deploy bullet): submitted a `quick_test` job from the local web app → `POST /api/jobs` enqueued it on the VPS's Redis (reached over an SSH tunnel) → the VPS worker container picked it up, logged `"job done"`, and the dashboard showed `Gotovo!` with `2 kredita · naplaćeno` — balance dropped exactly 2 (31→29), confirmed via `docker logs adgen-worker-prod` showing the matching `jobId`. First real end-to-end proof of `queued → running → done` + charge-on-success outside a typecheck.
 
 ### F3 — First real tool: "AI slike" (mock AI, real scrape) 🟢
-- [ ] `Scraper` **real** impl (fetch + cheerio) — product URL → title/price/images. Mock fallback if it fails.
-- [ ] AI slike wizard: step 1 import product URL (auto-fill), step 2 settings (count, language, offer notes), generate.
-- [ ] `image_ads` job: mock `AIProvider.generateImage` returns a placeholder ad image with Serbian text overlay concept.
-- [ ] Result gallery + download; charge 4 credits/image on success.
-- **DoD:** full AI-slike flow works locally end-to-end with a real scrape + mock image + correct billing.
+- [x] `Scraper` **real** impl (fetch + cheerio) — product URL → title/price/images. Mock fallback if it fails.
+- [x] AI slike wizard: step 1 import product URL (auto-fill), step 2 settings (count, language, offer notes), generate. (3rd step: generate + result gallery.)
+- [x] `image_ads` job: mock `AIProvider.generateImage` returns a placeholder ad image with Serbian text overlay concept (now prompted from the scraped/edited product title + price + offer notes).
+- [x] Result gallery + download; charge 4 credits/image on success.
+- **DoD:** full AI-slike flow works locally end-to-end with a real scrape + mock image + correct billing. ✅ (code-complete: typecheck + `next build` pass; NOT yet run live — needs `supabase start` + Redis + a real product URL to verify the scrape/generate/charge loop)
 
 ### F4 — Matrix + Remotion compositions (the core; mock AI, REAL render) 🟢 ⭐
 > This is the differentiator. Remotion renders **locally** — no accounts needed. Build the real ad templates here.
-- [ ] `/remotion`: Remotion project. Build the **ad composition(s)** replicating EcomAlati's recipe:
-  - Vertical 1080×1920, background clip layer, **karaoke captions** (font **Impact**, white words + 2px black stroke,
-    active word highlight color, e.g. `#FFE000`), configurable via a `caption_style` prop of the form
-    `cap:<font>:<anim>:<hexcolor>` (fonts: Impact/Montserrat; anims: smooth/pop/none), `caption_scale`.
-  - Intro/outro transitions (fade / zoom-punch / flash+whoosh / color-pop), **Outro CTA card** ("NARUČI ODMAH · Plaćaš pouzećem"), SFX-on-CTA hook, background music track + volume mix.
-- [ ] Caption timing: Whisper (run locally, e.g. `whisper.cpp` or faster-whisper) to get word-level timestamps → feed the composition. Mock timings if Whisper unavailable.
-- [ ] `matrix` job pipeline (all mock AI, real assembly):
-  `generateVariants` (mock Claude → canned scripts) → `tts` per variant (mock → placeholder audio) →
-  Remotion **local render** per item → upload to local Storage → charge 15/video on success.
-- [ ] Matrix settings screen (voice, script-style presets, caption style, count, music, SFX, transitions, outro) matching EcomAlati.
-- **DoD:** Matrix produces **real MP4 files** locally (real captions/transitions/assembly, mock voice/script), correct billing, visible + downloadable.
+- [x] `/remotion`: Remotion project. Built the **matrix-ad** composition:
+  - Vertical 1080×1920, background clip layer, **karaoke captions** (white words + 2px black stroke, active word
+    highlight color e.g. `#FFE000`), driven by `caption_style` = `cap:<font>:<anim>:<hexcolor>` (anims: smooth/pop/none).
+    `Impact` maps to **Anton** (Google Font) — Impact is a proprietary system font not guaranteed present on a
+    headless render host; the `cap:Impact:...` convention is kept so a real Impact .ttf can be swapped in later.
+    `Montserrat` maps to real Montserrat.
+  - Intro transition (fade / zoom-punch / flash-whoosh / color-pop), **Outro CTA card** ("NARUČI ODMAH · Plaćaš
+    pouzećem"), SFX-on-CTA **hook** (`sfxUrl` prop, rendered if set — unset in mock mode, no real SFX asset yet).
+    Background music: optional `musicUrl` prop, mixed in only if a real http(s) URL is supplied.
+- [x] Caption timing: **mocked** (`mockWordTimestamps` in `packages/core/src/captions.ts`) — evenly distributes
+  script words across an estimated speaking duration. Whisper integration deferred; the spec explicitly allows
+  mocking timings when Whisper is unavailable, and no local Whisper binary exists in this environment.
+- [x] `matrix` job pipeline (all mock AI, real assembly):
+  `generateVariants` (mock Claude → canned scripts) → `tts` per variant (mock — tracked but not muxed, since
+  MockVoiceProvider's placeholder isn't decodable audio) → **real local Remotion render** per variant via
+  `LocalRemotionRenderer` (`packages/core/src/providers/renderer.local.ts`, bundles once per process, renders with
+  `@remotion/renderer`) → uploads to local Storage, served via `apps/web`'s `GET /api/storage/[...path]` → charges
+  15/video on success (existing charge-on-success path from F2).
+- [x] Matrix settings screen (`/app/matrix`): voice, script tone preset, caption font/anim/color, count, transitions,
+  outro text. Music/SFX shown as "uskoro" — no real audio asset source in mock mode.
+- **DoD:** Matrix produces **real MP4 files** locally. ✅ **Verified live in this environment**: a standalone render
+  (bundle → Chrome Headless Shell auto-download → render → local-disk upload) produced a real, valid 1080×1920 h264
+  mp4 in ~9s (`ftyp isom / avc1` header confirmed). The full web→queue→worker→credits loop is still code-complete
+  only — not run end-to-end (no local Supabase/Redis in this environment) — needs a live click-through pass.
+  One fix made along the way: the mock placeholder video URL (`commondatastorage.googleapis.com/gtv-videos-bucket`)
+  now 403s — replaced everywhere with `https://www.w3schools.com/html/mov_bbb.mp4`.
+
+> **F0–F4 signed off by user 2026-07-18.** Code-complete, typechecked, linted, one real Remotion render verified
+> live. The full web→queue→worker→Supabase click-through has NOT been run live (no local Supabase/Redis in Cline's
+> sandbox) — non-blocking for now, worth doing opportunistically once F5 sets up real accounts anyway.
+>
+> **Update 2026-07-18 (same day, after real Supabase cloud was wired in F5):** the **web→Supabase** half of that
+> click-through is now live-verified — real signup, the `handle_new_user()` trigger, `profiles`/`credits_ledger`,
+> and the dashboard all confirmed working against the real cloud project (see the Supabase bullet under F5).
+>
+> **Update 2026-07-18 (later same day):** the **→queue→worker** half is now ALSO live-verified — rather than
+> installing Docker Desktop locally just to test, the worker was deployed straight to its real production home (the
+> Hetzner VPS, see F6) and a job was run through it over an SSH tunnel to the VPS's Redis. See the F2 DoD note for
+> the result. The whole `web → Supabase → Redis → worker → Supabase → credits` loop is now confirmed working
+> end-to-end, not just typechecked.
 
 ### F5 — Go real (needs accounts — see `ACCOUNTS.md`) 🟡
 > Do the one-time signup batch (`ACCOUNTS.md`), drop keys in `.env`, then swap mocks → real one by one.
-- [ ] Supabase **cloud** project; point env at it; run migrations; enable Google OAuth.
-- [ ] `ScriptProvider` real = **Claude Opus** (Anthropic SDK).
-- [ ] `VoiceProvider` real = **ElevenLabs** (eleven_v3, stability/voice_id/speed); real `listVoices`.
+- [x] Supabase **cloud** project; point env at it; run migrations. — *Project created, all 3 migrations (0001–0003) run via the SQL Editor (no Supabase CLI available, so no `supabase link`/`db push` — ran the combined SQL by hand instead). `.env` points at the real project. **LIVE-VERIFIED 2026-07-18**: real signup → `handle_new_user()` trigger → `profiles`/`credits_ledger` rows → dashboard correctly shows a balance of 3 — the first real click-through of any part of this app against a live backend (see the note above F5). Google OAuth still NOT enabled — deferred, email/password is enough for now, not blocking.*
+- [x] `ScriptProvider` real = **Claude Opus** (plain fetch, no SDK dependency — matches `scraper.real.ts`/`billing.lemonsqueezy.ts` style). — *code-complete + typechecked, NEVER live-tested (no Anthropic account exists yet).*
+- [x] `VoiceProvider` real = **ElevenLabs** (eleven_v3 default model, stability/voice_id/speed → `voice_settings`, persists the MP3 through `Storage`); real `listVoices`. — *code-complete + typechecked, NEVER live-tested (no ElevenLabs account exists yet); re-verify the `speed` field against current ElevenLabs docs the first time this runs for real.*
 - [ ] `AIProvider` real = **kie.ai** (primary) + **fal.ai** (fallback) with auto-retry; per-model routing config.
 - [ ] ⚠️ **Quality + reliability test: kie.ai vs fal.ai** on the same prompts/models (Veo3, Kling, nano-banana/Flux). Record results; finalize routing based on them.
-- [ ] `Storage` real = **Cloudflare R2** (or S3); serve via CDN, auto-expire old renders.
-- [ ] `Renderer` real = **Remotion Lambda** (AWS, eu-central-1); deploy the Remotion bundle; site function.
-- [ ] Remaining tools: `edit`, `mix`, `quick_test`, `translate` (foreign ad → Serbian, cloned voice), `enhance`, `remove_text`.
+- [x] `Storage` real = **Cloudflare R2** (or S3), same `S3CompatibleStorage` class for both (R2 via `endpoint` override); serve via `R2_PUBLIC_URL`/`AWS_S3_PUBLIC_URL`. — *code-complete + typechecked, NEVER live-tested (no bucket exists yet). Auto-expire old renders still TODO — deferred, needs real usage data to size a retention policy.*
+- [x] `Renderer` real = **Remotion Lambda** (`renderMediaOnLambda` + `getRenderProgress` polling via `@remotion/lambda-client`, pinned to the same version as `@remotion/bundler`/`@remotion/renderer`). — *client code complete + typechecked, but UNLIKE Script/Voice/Storage above, this one genuinely cannot go live on a key alone: it also needs a one-time `remotion lambda functions deploy` + `remotion lambda sites create` run against a real AWS account (see `ACCOUNTS.md` #7) — `REMOTION_LAMBDA_FUNCTION_NAME`/`REMOTION_SERVE_URL` are the OUTPUT of that deploy, not values you invent. Not live-tested; no function is deployed yet.*
+- [x] Remaining tool **wizards**: `edit`, `mix`, `translate` (foreign ad → Serbian, cloned voice), `enhance`, `remove_text` (`quick_test` already existed from F2). — *wizard UI + job pipeline wiring code-complete + typechecked + built; all five run the existing mock-first pipeline end-to-end (upload → enqueue → generic worker branch → mock renderer result → charge-on-success), same as `image_ads`/`matrix` before their real providers landed. New this round: `POST /api/upload` (auth'd, persists a user file through the active `Storage` provider under `uploads/<user id>/…`) since these five start from an uploaded file, not a scraped URL or a script — `mix` uploads multiple; the others one. `/api/storage/[...path]` gained an ownership fast-path for `uploads/<own user id>/…` paths (no `assets` row exists for them — `assets.job_id` is `NOT NULL` and no job exists yet at upload time). **Known gap, not yet solved:** `enhance`/`remove_text` accept an image or video, but the generic worker pipeline branch always returns a video result (`Renderer` is inherently video-shaped) — harmless today since the mock result isn't actually derived from the source, but real per-tool pipelines will need to branch on source kind, likely routing image inputs through `AIProvider` instead. NOT live-tested against real providers — same status as everything else in this phase.*
 - **DoD:** each tool works with real providers behind the same interfaces; failures don't bill users; mocks still usable when keys absent.
 
 ### F6 — Billing + launch 🟡
-- [ ] `Billing` real = **Lemon Squeezy** (Merchant of Record): credit packs, checkout, webhook → add credits. (Needs USt-IdNr — wire when available.)
-- [ ] Deploy: **web → Vercel**, **worker → Hetzner** (Docker container next to "aikutak", + Redis), domain + DNS.
-- [ ] Production hardening: per-user **rate limiting**, worker endpoints authenticated by verified Supabase JWT (NO shared secret), structured logging + error alerting, cost dashboards.
-- [ ] Legal pages (Uslovi/Privatnost/Impressum under the Gewerbe holder), cookie/consent (privacy-first).
+- [x] `Billing` real = **Lemon Squeezy** (Merchant of Record): credit packs, checkout, webhook → add credits. (Needs USt-IdNr — wire when available.) — *code-complete + typechecked, but NEVER live-tested against a real Lemon Squeezy account/webhook (none exists yet, same situation as `scraper.real.ts` was in F3). Lemon Squeezy's dashboard has a "send test event" feature — use it to verify `parseWebhook` once the account exists.*
+- [~] Deploy: **web → Vercel** (still manual/TODO — no Vercel account exists yet), **worker → Hetzner** (Docker container next to "aikutak", + Redis) — *`apps/worker/Dockerfile` + `infra/docker-compose.prod.yml` written, isolated container/volume names (compose project `adgen`) so it can't collide with "aikutak" on the same box. **LIVE-VERIFIED 2026-07-18**: built and deployed for real on the VPS (`/opt/adgen-saas`), `adgen-worker-prod` + `adgen-redis-prod` running stably, and a real job was processed end-to-end (see the F2 DoD note). Two real bugs surfaced only by this live deploy and fixed: (1) `packages/core/src/env.ts` — `z.string().url().optional()` rejects an empty string, but `.env`/Docker `--env-file` write unset optional keys as `KEY=` (empty string, not absent) — added an `optionalUrl()` preprocessor treating `''` as `undefined`; (2) `packages/core/src/queue.ts` — same failure class, `??` doesn't fall through on `''`, so a blank `REDIS_URL=` tried to connect to Redis at the literal empty string instead of defaulting — fixed with explicit `|| undefined` before the `??` chain; (3) `apps/worker/Dockerfile` — the Playwright `v1.48.0-jammy` base image ships Node 20.18.0, but `@supabase/supabase-js` needs Node 22+'s native `WebSocket` global, causing a crash loop until a NodeSource Node 22 install was added right after the `FROM` line. The Playwright base image tag itself needed no change. Domain + DNS still TODO (needs a registrar decision + money — your call, not autonomous).*
+  ⚠️ **If web does end up on Vercel:** `POST /api/upload` (F5 tool wizards) proxies the file through the server, but
+  Vercel Serverless Functions have a platform-level request-body limit (historically ~4.5MB) that isn't
+  configurable from Next.js App Router code — a real video upload would 413 there before the route's own size check
+  even runs. Fine on a self-hosted Node server (no such limit); if Vercel is the final call, the real fix is a
+  presigned-URL upload straight from the browser to Storage, not a retrofit of this route.
+- [x] Production hardening: per-user **rate limiting** (Redis-backed fixed-window, fails open if Redis is down — `apps/web/src/lib/rate-limit.ts`, applied to `/api/jobs`, `/api/upload`, `/api/billing/checkout`), **structured logging** (`consoleLogger` now emits one JSON line per entry instead of a human-oriented string — moved out of `providers/mocks.ts` since it isn't a mock with a "real" counterpart, into its own `packages/core/src/logger.ts`; wired into the worker, replacing every ad-hoc `console.*` call). — *code-complete + typechecked; rate limiter's Redis behavior not live-tested (no Redis running in this environment) but the fail-open path means a Redis outage degrades gracefully either way.* **Not done / reconsidered:** "worker endpoints authenticated by verified Supabase JWT" — moot as originally worded: the worker has no HTTP endpoints of its own (BullMQ pulls jobs via Redis; job status is read through `/api/jobs/:id` in apps/web, which is already Supabase-session-authenticated) — there's no shared-secret-shaped surface to close here, unlike the competitor's `?pw=` pattern this rule was written to avoid. Error alerting (e.g. Sentry) and cost dashboards still open — both need a real account/service to be worth wiring (same class of blocker as Supabase cloud).
+- [ ] Legal pages (Uslovi/Privatnost/Impressum under the Gewerbe holder), cookie/consent (privacy-first). — *Deliberately NOT drafted: these carry real legal weight (GDPR-relevant, cross-border DE/RS/EU) and fabricating placeholder legal text risks the user mistaking it for real coverage. Needs your Steuerberater/a real legal review, not generated boilerplate.*
 - **DoD:** a real user can sign up, buy credits, generate an ad, and download it in production.
 
 ### F7 (later) — AI influencer UGC 🔵
@@ -229,8 +272,15 @@ interface Scraper {          // Product page → {title, price, images}. Can be 
 
 ## 6. Environment variables (all optional in dev → fall back to mock)
 
-See `ACCOUNTS.md` for where each key comes from. Web and worker each get their own `.env` (never commit real values;
-commit `.env.example`).
+See `ACCOUNTS.md` for where each key comes from.
+
+**Single source of truth: the root `.env`** (gitignored, never `.env.example`). Edit only that file — `apps/web/.env`
+and `apps/worker/.env` are generated FROM it by `scripts/sync-env.mjs`, which runs automatically before `pnpm dev`
+(a `predev` hook) or manually via `pnpm env:sync`. This exists because neither app reads a root-level `.env` on its
+own: Next.js only loads `.env` from `apps/web/` itself, and the worker only loads what `tsx --env-file=.env` points
+at (added to `apps/worker/package.json`'s `dev`/`start` scripts — the worker did NOT auto-load any `.env` before
+this, a real gap since without it `SUPABASE_SERVICE_ROLE_KEY` etc. would silently never reach `process.env`). Don't
+hand-edit the per-app `.env` files — the next sync overwrites them.
 
 ```
 # Supabase
@@ -242,11 +292,11 @@ REDIS_URL=
 # AI
 ANTHROPIC_API_KEY=         KIE_API_KEY=        FAL_API_KEY=        ELEVENLABS_API_KEY=
 # Storage
-R2_ACCOUNT_ID= R2_ACCESS_KEY_ID= R2_SECRET_ACCESS_KEY= R2_BUCKET=   # or AWS_* for S3
+R2_ACCOUNT_ID= R2_ACCESS_KEY_ID= R2_SECRET_ACCESS_KEY= R2_BUCKET= R2_PUBLIC_URL=   # or AWS_* + AWS_S3_PUBLIC_URL for S3
 # Remotion Lambda (prod)
-REMOTION_AWS_ACCESS_KEY_ID= REMOTION_AWS_SECRET_ACCESS_KEY= REMOTION_LAMBDA_FUNCTION_NAME= REMOTION_SERVE_URL=
+REMOTION_AWS_ACCESS_KEY_ID= REMOTION_AWS_SECRET_ACCESS_KEY= REMOTION_LAMBDA_FUNCTION_NAME= REMOTION_SERVE_URL= REMOTION_AWS_REGION=
 # Billing (F6)
-LEMONSQUEEZY_API_KEY= LEMONSQUEEZY_STORE_ID= LEMONSQUEEZY_WEBHOOK_SECRET=
+LEMONSQUEEZY_API_KEY= LEMONSQUEEZY_STORE_ID= LEMONSQUEEZY_WEBHOOK_SECRET= LEMONSQUEEZY_VARIANT_MAP=
 ```
 
 ---
@@ -257,4 +307,29 @@ LEMONSQUEEZY_API_KEY= LEMONSQUEEZY_STORE_ID= LEMONSQUEEZY_WEBHOOK_SECRET=
 - Serbian UI copy (with Bosanski/Hrvatski/Rumunski/English selectable, as the competitor has).
 - No secrets in client bundles. Server-only keys stay in the worker / Next server routes.
 - Every external call goes through an interface in `packages/core` — no direct provider calls scattered in features.
-```
+
+---
+
+## 8. Open design/branding decisions (deferred — not urgent, revisit before final release)
+
+Dashboard visual pass (2026-07-18) deliberately mirrored EcomAlati's "VideoGen" layout closely (per-tool colored
+gradient cards, white icon badge, benefit bullets, main/utility tier split) to get a real reference point fast.
+User feedback: doesn't want to ship a 1:1 look-alike — needs a pass to make it ours before launch. Not blocking
+current work; parked here so it isn't lost.
+
+- [ ] **Naming**: `matrix` job type is literally the competitor's product name — needs a unique name before launch
+      (candidate discussed: "Rafal"; user rejected initial round of suggestions, undecided). `edit`/`image_ads` (AI
+      slike)/`mix`/`quick_test` (Brzi test)/`translate` (Prevod) are generic functional terms, not the competitor's
+      branding — lower priority to rename, may be fine to keep.
+- [ ] **Colors**: tool cards currently use one distinct gradient per tool (orange/blue/purple/teal/pink/red),
+      matching the competitor's pattern of "each tool = its own color." Consider: different specific hues/shades,
+      a different visual motif (texture, radial vs linear), or a different assignment of which tool gets which
+      color, so it doesn't read as a copy even though the *pattern* (colored main cards + bullets) stays.
+- [ ] **Wizard pages** (`/app/matrix`, `/app/edit`, etc.): currently plain/functional (step counter, form fields,
+      no icons or visual richness) — competitor's equivalent has per-step icons, a colored accent bar, drag-drop
+      upload zones, and live previews (e.g. a caption preview box). Needs the same kind of visual pass the
+      dashboard just got. Bigger job than the dashboard — touches all 8 wizard pages.
+- [ ] Job type **copy** (labels/descriptions/benefit bullets) should get a final editorial pass "kako korisnik
+      odluči" before release — current copy is a reasonable first draft, not treated as final.
+
+**DoD:** none yet — this section exists to hold the decision, not to track phase completion.

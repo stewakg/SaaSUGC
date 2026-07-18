@@ -1,30 +1,19 @@
 /**
- * Supabase clients for the Next.js App Router (@supabase/ssr).
+ * Server-only Supabase clients (@supabase/ssr). Never import from a "use client" file —
+ * pulls in `next/headers`, which breaks the client bundle.
  *
- * - createBrowserClient: client components (RLS-enforced, reads session cookie).
- * - createServerClient:  server components / route handlers (RLS-enforced,
- *                        reads the user's session from cookies()).
- * - createAdminClient:   service-role, bypasses RLS. SERVER-ONLY (route handlers
- *                        that need to write jobs/assets for a user). Never import
- *                        in a "use client" file.
- *
- * Mock-first: if the public env vars are unset (no local Supabase running yet),
- * these still construct clients pointing at the local default URL; auth calls
- * will simply fail until `supabase start` is run. The app shell still renders.
+ * - createServerClient: server components / route handlers (RLS-enforced, reads the
+ *                        user's session from cookies()).
+ * - createAdminClient:  service-role, bypasses RLS. Route handlers that need to write
+ *                        jobs/assets for a user.
  */
 import { cookies } from 'next/headers';
-import { createBrowserClient as ssrBrowserClient } from '@supabase/ssr';
 import { createServerClient as ssrServerClient } from '@supabase/ssr';
 import type { CookieOptions } from '@supabase/ssr';
 import { createServiceClient } from '@adgen/db';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
-
-/** Client component Supabase client. */
-export function createBrowserClient() {
-  return ssrBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-}
 
 /**
  * Server component / route handler Supabase client (reads cookies async).
