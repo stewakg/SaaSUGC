@@ -127,13 +127,14 @@ async function runMatrixPipeline(params: Record<string, unknown>): Promise<Pipel
  * video via the Renderer. Per-tool real pipelines replace this branch one
  * job type at a time starting F3.
  *
- * KNOWN GAP: enhance/remove_text accept an image OR video upload (their
- * wizards' `sourceUrl` may point at either), but this generic branch always
- * returns `kind: 'video'` regardless — Renderer is inherently video-shaped.
- * Harmless today (the mock result is never actually derived from the source
- * file), but real per-tool pipelines will need to branch on the uploaded
- * file's kind and likely route image inputs through AIProvider instead of
- * Renderer. Not solved here — flagging so it isn't mistaken for settled.
+ * MOCK GAP: enhance/remove_text accept an image OR video upload (their
+ * wizards' `sourceUrl` may point at either). In mock mode the OUTPUT kind
+ * now follows the SOURCE kind — an image source is routed through
+ * AIProvider (a placeholder image), a video/absent source through the
+ * Renderer. The remaining gap is only that the mock result is NOT a real
+ * transform of the source (the real image-in / image-out per-tool pipelines
+ * land in F5); `assets.kind` is already honest so the wizard UIs render
+ * <img> vs <video> correctly today.
  */
 async function runPipeline(type: string, params: Record<string, unknown>): Promise<PipelineAsset[]> {
   const count = typeof params.count === 'number' && params.count > 0 ? Math.floor(params.count) : 1;
@@ -152,6 +153,17 @@ async function runPipeline(type: string, params: Record<string, unknown>): Promi
 
   if (type === 'matrix') {
     return runMatrixPipeline(params);
+  }
+
+  // enhance/remove_text may hand us an image OR video source. Match the OUTPUT
+  // kind to the source: an image source flows through AIProvider (mock:
+  // placeholder image), a video/absent source through the Renderer. Mirrors how
+  // the real per-tool pipelines (F5) will route image inputs, and keeps
+  // assets.kind honest so the wizard UIs render <img> vs <video> correctly.
+  const sourceUrl = typeof params.sourceUrl === 'string' ? params.sourceUrl : '';
+  if (/\.(png|jpe?g|webp|gif|avif)(\?|#|$)/i.test(sourceUrl)) {
+    const { url } = await providers.ai.generateImage({ prompt: `${type} result`, size: '1080x1080' });
+    return [{ kind: 'image', url, storageKey: null }];
   }
 
   const { videoUrl, storageKey } = await providers.renderer.render({ composition: type, props: params });

@@ -208,7 +208,12 @@ function GenerateStep({
       <div className="space-y-4">
         {assets.map((a) => (
           <div key={a.url} className="space-y-1">
-            <video src={a.url} controls className="w-full max-w-[240px] rounded-lg border border-white/10" />
+            {a.kind === 'image' ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={a.url} alt="" className="w-full max-w-[240px] rounded-lg border border-white/10" />
+            ) : (
+              <video src={a.url} controls className="w-full max-w-[240px] rounded-lg border border-white/10" />
+            )}
             <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-brand-300 underline">
               Preuzmi
             </a>

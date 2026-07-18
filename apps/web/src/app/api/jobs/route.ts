@@ -61,7 +61,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_type' }, { status: 400 });
   }
   const type = body.type;
+  const MAX_JOB_COUNT = 10;
   const count = Number.isInteger(body.count) && (body.count as number) > 0 ? (body.count as number) : 1;
+  if (count > MAX_JOB_COUNT) {
+    return NextResponse.json({ error: 'invalid_count', max: MAX_JOB_COUNT }, { status: 400 });
+  }
   const cost = computeJobCost(type, count);
   const params = {
     ...(typeof body.params === 'object' && body.params !== null ? (body.params as Record<string, unknown>) : {}),
