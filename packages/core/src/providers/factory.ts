@@ -27,6 +27,7 @@ import {
   MockVoiceProvider,
 } from './mocks.ts';
 import { ClaudeScriptProvider } from './script.claude.ts';
+import { KieAIFalRouter } from './ai.kiefal.ts';
 import { ElevenLabsVoiceProvider } from './voice.elevenlabs.ts';
 import { S3CompatibleStorage } from './storage.r2.ts';
 import { RemotionLambdaRenderer } from './renderer.lambda.ts';
@@ -51,11 +52,7 @@ export interface Providers {
 export function createProviders(overrides: Partial<Providers> = {}): Providers {
   const env = loadEnv();
 
-  const ai: AIProvider =
-    overrides.ai ??
-    (hasKey(env, 'KIE_API_KEY') || hasKey(env, 'FAL_API_KEY')
-      ? loadReal('ai', env) // F5: returns KieAIFalRouter
-      : new MockAIProvider());
+  const ai: AIProvider = overrides.ai ?? createAIProvider(env);
 
   const script: ScriptProvider = overrides.script ?? createScriptProvider(env);
 
@@ -76,6 +73,18 @@ export function createProviders(overrides: Partial<Providers> = {}): Providers {
   const scraper: Scraper = overrides.scraper ?? (env.FORCE_MOCK ? new MockScraper() : new RealScraper());
 
   return { ai, script, voice, renderer, storage, billing, scraper };
+}
+
+/**
+ * AI (image/video) provider switch (F5). kie.ai and fal.ai are independent
+ * keys — either one alone is enough to go real (the router falls back
+ * between them internally); MockAIProvider only when NEITHER is set.
+ */
+function createAIProvider(env: ReturnType<typeof loadEnv>): AIProvider {
+  const kieApiKey = hasKey(env, 'KIE_API_KEY') ? env.KIE_API_KEY : undefined;
+  const falApiKey = hasKey(env, 'FAL_API_KEY') ? env.FAL_API_KEY : undefined;
+  if (!kieApiKey && !falApiKey) return new MockAIProvider();
+  return new KieAIFalRouter({ kieApiKey, falApiKey });
 }
 
 /**
@@ -189,22 +198,6 @@ function createBillingProvider(env: ReturnType<typeof loadEnv>): Billing {
     );
     return new MockBilling();
   }
-}
-
-/**
- * Lazy real-provider loader. Each branch dynamically imports the F5 module so
- * that F0–F4 never depends on provider SDKs being installed. If the module is
- * absent we log and fall back to mock.
- *
- * (Implemented in F5 — placeholders return mocks for now.)
- */
-function loadReal(kind: keyof Providers, _env: ReturnType<typeof loadEnv>): never {
-  // Until F5, no real SDK modules exist. Throw a descriptive error so an early
-  // key accidentally triggers a clear message instead of an opaque import fail.
-  throw new Error(
-    `Real "${kind}" provider is not implemented yet (Phase F5). ` +
-      `Remove the corresponding env key or set FORCE_MOCK=1 to use the mock.`,
-  );
 }
 
 /** Quick helper for code that only needs one provider. */
