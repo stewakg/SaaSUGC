@@ -11,7 +11,7 @@ import { createAdminClient } from '@/lib/supabase/server';
 export async function POST(request: NextRequest) {
   const { billing } = createProviders();
 
-  let grant: { userId: string; amount: number; reason: string } | null;
+  let grant: { userId: string; amount: number; reason: string; orderId: string } | null;
   try {
     grant = await billing.parseWebhook(request);
   } catch {
@@ -23,10 +23,11 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.rpc('add_credits', {
+  const { error } = await admin.rpc('add_credits_idempotent', {
     p_user_id: grant.userId,
     p_amount: grant.amount,
     p_reason: grant.reason,
+    p_external_ref: grant.orderId,
   });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

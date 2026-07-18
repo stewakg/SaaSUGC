@@ -104,7 +104,7 @@ export interface Billing {
    * caller can reject the request (400), as distinct from returning null
    * for a validly-signed but irrelevant event (caller should still ack 200).
    */
-  parseWebhook(req: Request): Promise<{ userId: string; amount: number; reason: string } | null>;
+  parseWebhook(req: Request): Promise<{ userId: string; amount: number; reason: string; orderId: string } | null>;
 }
 
 /**

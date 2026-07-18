@@ -48,6 +48,7 @@ export type Database = {
           delta: number;
           reason: string;
           job_id: string | null;
+          external_ref: string | null;
           created_at: string;
         };
         Insert: {
@@ -56,6 +57,7 @@ export type Database = {
           delta: number;
           reason: string;
           job_id?: string | null;
+          external_ref?: string | null;
           created_at?: string;
         };
         Update: {
@@ -64,6 +66,7 @@ export type Database = {
           delta?: number;
           reason?: string;
           job_id?: string | null;
+          external_ref?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -154,6 +157,7 @@ export type Database = {
       handle_new_user: { Args: Record<string, never>; Returns: undefined };
       charge_credits: { Args: { p_user_id: string; p_job_id: string; p_amount: number }; Returns: undefined };
       add_credits: { Args: { p_user_id: string; p_amount: number; p_reason: string }; Returns: number };
+      add_credits_idempotent: { Args: { p_user_id: string; p_amount: number; p_reason: string; p_external_ref: string }; Returns: number };
       tg_set_updated_at: { Args: Record<string, never>; Returns: undefined };
     };
     Enums: {

@@ -101,7 +101,7 @@ export class LemonSqueezyBilling implements Billing {
     return { url: json.data.attributes.url };
   }
 
-  async parseWebhook(req: Request): Promise<{ userId: string; amount: number; reason: string } | null> {
+  async parseWebhook(req: Request): Promise<{ userId: string; amount: number; reason: string; orderId: string } | null> {
     const rawBody = await req.text();
     const signatureHeader = req.headers.get('x-signature') ?? '';
 
@@ -115,7 +115,7 @@ export class LemonSqueezyBilling implements Billing {
 
     const payload = JSON.parse(rawBody) as {
       meta: { event_name: string; custom_data?: Record<string, string> };
-      data: { attributes: { status: string } };
+      data: { id: string; attributes: { status: string } };
     };
 
     if (payload.meta.event_name !== 'order_created' || payload.data.attributes.status !== 'paid') {
@@ -133,6 +133,7 @@ export class LemonSqueezyBilling implements Billing {
       userId,
       amount: pack.credits + (pack.bonus ?? 0),
       reason: `lemonsqueezy:${packId}`,
+      orderId: payload.data.id,
     };
   }
 }
