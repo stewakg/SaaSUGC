@@ -6,9 +6,21 @@ account (A or B) you're on so the history shows the alternation.
 
 ---
 
+## Review ledger
+Greppable review verdicts, newest first, each anchored to a commit. Before reviewing an
+area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>` — empty
+means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
+unchanged code".
+
+REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only.
+NOT-REVIEWED (as of 591e2cd): factory.ts (grep-only), rate-limit.ts, logger.ts, env.ts (optionalUrl fix), apps/web/src/app/api/billing/*, apps/worker/Dockerfile, infra/docker-compose.prod.yml.
+
+---
+
 ## 2026-07-23 — review reconciliation + session-sync setup
 **Account:** _(unrecorded — fill in going forward)_
-**Commits this session:** _(this doc + CLAUDE.md about to be committed)_
+**Commits this session:** 8e5617d (count cap + honest asset kind), 591e2cd (CLAUDE.md +
+SESSION_LOG.md), + this update (review-reuse mechanism + F5 verdict).
 
 **Done:**
 - Reconciled state against git + code: working tree clean at `aba9455`; `origin/main`
@@ -16,6 +28,10 @@ account (A or B) you're on so the history shows the alternation.
 - Re-ran gates: `pnpm -r typecheck` (all 5 packages) + `pnpm --filter @adgen/web build`
   → both PASS. (VERIFIED)
 - Set up cross-session workflow: added `CLAUDE.md` (auto-loaded ritual) + this file.
+- Added the **review-reuse mechanism**: greppable `REVIEWED:` verdicts anchored to commits
+  (Review ledger above) + a CLAUDE.md rule to review only the git-diff since the last
+  verdict — so unchanged-and-clean code isn't re-reviewed across sessions/accounts.
+- Statically reviewed the 5 F5 real provider clients → all CLEAN (see ledger). (VERIFIED, static-only)
 
 **Correction to handover.md (it drifted):**
 - handover §6 says the kie.ai + fal.ai `AIProvider` client "already exists" — **FALSE**.
@@ -40,14 +56,14 @@ account (A or B) you're on so the history shows the alternation.
 **Minor nit (not fixed):** Cline stripped the trailing newline on
 `apps/worker/src/index.ts` — harmless, but `pnpm format:check` (prettier) would flag it.
 
-**NOT yet reviewed at all — the F5/F6 "dodaci":** real provider clients
-(`script.claude.ts`, `voice.elevenlabs.ts`, `storage.r2.ts`, `renderer.lambda.ts`,
-`billing.lemonsqueezy.ts`), billing routes, rate-limit, logger, deploy infra. All
-CODE-COMPLETE, none ever called with a real key. A static review of this layer is the
-obvious next big task (most likely source of "works-only-on-first-real-call" bugs —
-auth headers / response shapes, same class as handover §4's three deploy bugs).
+**F5/F6 review:** the 5 real provider clients were statically reviewed this session —
+all CLEAN (see the Review ledger up top, `REVIEWED: … @ 591e2cd`). Still un-reviewed:
+factory.ts, rate-limit.ts, logger.ts, env.ts, `api/billing/*`, Dockerfile/compose
+(see the `NOT-REVIEWED:` line in the ledger). All F5/F6 code is still CODE-COMPLETE —
+none ever called with a real key.
 
 **Next:**
-- Run Cline Prompt A (count cap) + Prompt B (asset kind) — both already written in chat.
-- Then either: static review of the F5/F6 provider layer, OR wait for kie.ai/fal.ai
-  accounts (owner action) to write + live-test the real `AIProvider`.
+- Prompts A + B are DONE and committed (8e5617d); F5 provider clients reviewed (clean).
+- Remaining options: review the rest of the F5/F6 infra (rate-limit / env / billing routes
+  — see the ledger's NOT-REVIEWED line), OR wait for kie.ai/fal.ai accounts (owner action)
+  to write + live-test the real `AIProvider`.

@@ -33,6 +33,22 @@ hash or `file:line`, never a vague statement:
 "exists" — it does not; `packages/core/src/providers/factory.ts` still throws from
 `loadReal('ai')`). Don't repeat that.
 
+## Review reuse — never re-review unchanged code
+A code review is expensive the first time; don't repeat it for code that hasn't changed
+(the biggest wasted cost when alternating two accounts). Verdicts live as greppable
+`REVIEWED:` lines in `SESSION_LOG.md`'s Review ledger, each anchored to a commit hash.
+
+Before reviewing any area:
+1. `grep "^REVIEWED:" SESSION_LOG.md` — find the latest verdict covering it.
+2. `git log --oneline <verdict-commit>..HEAD -- <those paths>`:
+   - empty → nothing changed since the verdict → trust it, **skip the review**;
+   - non-empty → review ONLY the changed files, then append a fresh `REVIEWED:` line.
+3. Git is authoritative: files changed since a verdict's commit with no newer verdict
+   must be reviewed, even if the narrative doesn't mention them.
+
+Verdict format (one line):
+`REVIEWED: <area> (<paths/glob>) — <CLEAN | ISSUES: …> @ <commit> (<date>). <notes>`
+
 ## Sources of truth
 - `INFRASTRUCTURE.md` — phases F0–F7 with checkboxes. THE status file.
 - `SESSION_LOG.md` — per-session intent / next steps / gotchas.
