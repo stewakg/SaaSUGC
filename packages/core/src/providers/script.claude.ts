@@ -68,7 +68,13 @@ export class ClaudeScriptProvider implements ScriptProvider {
       throw new Error(`Claude script generation failed (${res.status}): ${body}`);
     }
 
-    const json = (await res.json()) as { content: { type: string; text?: string }[] };
+    const json = (await res.json()) as {
+      stop_reason?: string;
+      content: { type: string; text?: string }[];
+    };
+    if (json.stop_reason === 'refusal') {
+      throw new Error('Claude declined the script request (stop_reason: refusal).');
+    }
     const text = json.content.find((b) => b.type === 'text')?.text ?? '';
 
     const variants = parseVariantsJson(text);
