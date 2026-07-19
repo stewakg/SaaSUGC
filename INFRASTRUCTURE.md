@@ -199,6 +199,20 @@ interface Scraper {          // Product page → {title, price, images}. Can be 
 
 ### F4 — Matrix + Remotion compositions (the core; mock AI, REAL render) 🟢 ⭐
 > This is the differentiator. Remotion renders **locally** — no accounts needed. Build the real ad templates here.
+
+> **⚠️ ARCHITECTURE GAP found 2026-07-19 — the checkboxes below are MISLEADING.** Owner walked
+> through the real competitor Matrix UI. The real Matrix is a **multi-clip MONTAGE editor**:
+> (1) user uploads MULTIPLE source clips OR imports them from a TikTok/YouTube/Instagram/any
+> link; (2) product is SCRAPED in the wizard (not typed); (3) each of N creatives (count
+> **5/10/15**) is a DIFFERENT montage of those source clips + a different AI script + voiceover +
+> captions/music/SFX. What we built is a **single-clip caption-overlay renderer** — `MatrixAd.tsx`
+> takes one `backgroundVideoUrl` (singular) and plays it full-length; the wizard has no upload, no
+> link import, no scrape step, count 1-3, and no sound/music panel. Treat every "[x]" in F4 as
+> "single-clip prototype done", NOT "Matrix done". Turning this into the real montage editor is a
+> **core rework** (multi-clip upload/import, montage sequencing engine with per-clip in/out/order
+> synced to the voiceover, source-clip analysis for safe cut points, sound panel) — see
+> SESSION_LOG.md's 2026-07-19 CRITICAL note. Owner confirmed: montage of user-supplied REAL clips,
+> NOT AI-generating video from them.
 - [x] `/remotion`: Remotion project. Built the **matrix-ad** composition:
   - Vertical 1080×1920, background clip layer, **karaoke captions** (white words + 2px black stroke, active word
     highlight color e.g. `#FFE000`), driven by `caption_style` = `cap:<font>:<anim>:<hexcolor>` (anims: smooth/pop/none).

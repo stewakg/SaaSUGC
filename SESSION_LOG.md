@@ -12,6 +12,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: apps/worker/src/index.ts (Matrix tts() credit-leak fix, matrixVoiceTracker) — CLEAN @ 080f855 (2026-07-19). Cline diff matched spec exactly (import MockVoiceProvider, dedicated mock instance with warning comment, swap the one call site, doc-comment update); Cline additionally typed the instance as `VoiceProvider` — fine, documents intent. Only `providers.voice` reference left is in a comment. typecheck + web build pass.
 REVIEWED: packages/core/src/providers/ai.kiefal.ts (KieAIFalRouter) + factory.ts's createAIProvider — static CLEAN @ f49eebf (2026-07-19). Real AIProvider replacing the loadReal('ai') stub: kie.ai (generic Jobs API, nano-banana-2) primary, fal.ai (queue API, fal-ai/nano-banana-2) fallback for generateImage; kie.ai's DEDICATED Veo endpoints (different response shape than the image Jobs API — verified, not assumed) primary, fal.ai veo3.1/image-to-video fallback for generateVideo (unexercised — ai_video is F7). All endpoints/fields cross-verified against kie.ai + fal.ai's live docs (WebFetch, 2026-07), not guessed. Diff matched spec exactly (new file byte-identical, factory.ts's 4 edits — import, ai wiring, createAIProvider helper, loadReal deletion — all landed correctly). typecheck + build pass. **✅ LIVE-TESTED 2026-07-19**: `generateImage` called for real against kie.ai-only and fal.ai-only independently (throwaway script driving `getAI()`/direct `KieAIFalRouter` construction, deleted after use) — both succeeded 1st try (13.9s / 14.2s), outputs visually confirmed correct (see `tests/kie-vs-fal.md`). `generateVideo` still CODE-COMPLETE / not live-tested (no wired caller — ai_video is F7).
 REVIEWED: billing webhook idempotency — ISSUE CLOSED @ 5fc43fc (2026-07-23): the webhook now dedups on the Lemon Squeezy order id via migration 0004 (credits_ledger.external_ref + partial unique index + add_credits_idempotent RPC that no-ops on unique_violation). parseWebhook returns data.id; route passes it as p_external_ref. Cline diff matched spec, typecheck+build pass. Supersedes the ISSUE in the F5/F6-infra verdict below. ✅ Migration 0004 APPLIED to the real cloud project (gczikdrskcpqqlyzvnby) 2026-07-23 — this also confirmed 0001–0003 are present there (the earlier "no credits_ledger" error was a wrong-project/wrong-account mixup in the dashboard, not doc drift).
 REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added `stop_reason:"refusal"` check before parsing (Cline diff matched spec, typecheck passes). Supersedes the "low-pri gap" note in the F5-provider-clients verdict below — that verdict otherwise still stands (rest of file unchanged).
@@ -24,8 +25,8 @@ NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewe
 ## 2026-07-19 — live-tested KieAIFalRouter + ElevenLabsVoiceProvider (real API calls)
 **Account:** _(unrecorded)_
 **Commits this session:** 03f150a (F5/F7 doc reconciliation, uncommitted-from-other-
-session), 4efed7d (KieAIFalRouter live-test results), + this update (ElevenLabs live-test
-results).
+session), 4efed7d (KieAIFalRouter live-test results), 1750f8a (ElevenLabs live-test
+results), 080f855 (Matrix tts() credit-leak fix), + this update (Matrix architecture gap).
 
 **Done:**
 - Found `KIE_API_KEY`/`FAL_API_KEY` already set in root `.env` (owner sorted these
@@ -63,8 +64,54 @@ results).
   error page), 71KB ≈ 4-5s of audio for the test sentence. (VERIFIED)
 - Deleted the throwaway script and the test-generated `storage/` directory. Updated
   `INFRASTRUCTURE.md`'s `VoiceProvider` line to VERIFIED.
+- **Matrix ElevenLabs credit-leak fix (`080f855`, Cline diff reviewed, matched spec):**
+  because `ELEVENLABS_API_KEY` is now real, `runMatrixPipeline`'s `tts()` call was
+  resolving to the REAL `ElevenLabsVoiceProvider` — but its `audioUrl` is discarded
+  (Matrix doesn't mux voice into the render yet). Every Matrix run would silently burn
+  real ElevenLabs credits on throwaway audio. Fix: a dedicated `matrixVoiceTracker =
+  new MockVoiceProvider()` (apps/worker/src/index.ts) that the Matrix tracking-call
+  always uses; rest of the app still uses the real voice provider. typecheck + web
+  build pass. (VERIFIED)
+
+**⚠️ CRITICAL — our Matrix is architecturally WRONG, not just incomplete (2026-07-19):**
+Owner walked me through the REAL Matrix UI (3 screenshots of the competitor VideoGen).
+The real Matrix is a **multi-clip MONTAGE editor**, and INFRASTRUCTURE.md's F4 checkboxes
+that call it "done" are misleading. The real flow:
+- **Step 1 (missing entirely from ours):** user supplies MULTIPLE source video clips —
+  drag-drop MP4/MOV/WEBM (≤200MB each) OR **import from a link** (TikTok / YouTube /
+  Instagram / any URL). This is the raw B-roll pool.
+- **Step 2:** scrape the PRODUCT url (title/price/images) + optional offer notes → feeds
+  the AI script writer. (Ours makes the user TYPE the product by hand; no scrape in the
+  Matrix wizard.)
+- **Step 3:** output settings — voice (ElevenLabs M/F/Mix + "try voice"), **count 5/10/15**
+  (ours: 1/2/3), subtitles (font/anim/color + live preview), and a whole **sound & music**
+  panel we don't have at all (bg music auto-per-creative, keep-original-audio, SFX-on-CTA,
+  sound-on-keywords, Edit+ smart effects, video transitions, review-scripts-before-render,
+  color-pop, outro CTA card).
+- **Generate → N creatives, each a DIFFERENT montage** of the source clips + different AI
+  script + voiceover + captions/music. "Od više snimaka napraviš jedan" = cut/sequence
+  the source clips together into one ad, N times.
+
+**What we actually built (F4):** `MatrixAd.tsx` takes a SINGLE `backgroundVideoUrl:
+string` (see `packages/core/src/types.ts:128`), plays it full-length with
+`objectFit:cover`, overlays karaoke captions + intro transition + outro card. It is a
+**single-clip caption-overlay renderer, NOT a multi-clip montage editor.** The very
+premise (one clip, singular) is wrong. The matrix wizard (`apps/web/src/app/app/matrix/
+page.tsx`) has NO upload step, NO link import, NO scrape step, count 1-3, no audio panel.
+This is a **core rework**, not a patch. The "does it cut half a second of something
+important" question the owner raised earlier only makes sense in THIS (correct) framing:
+a montage engine must choose per-clip in/out points + order + duration synced to the
+voiceover — which is exactly where **source-clip analysis** (scene/motion/silence
+detection) becomes relevant. That design discussion is the next big topic (deferred,
+not started). Owner was explicit: Matrix must montage user-supplied real clips — NOT
+generate AI video from them.
 
 **Next:**
+- **BIG: design the Matrix multi-clip montage rework** (see the CRITICAL note above) —
+  multi-clip upload + link import (TikTok/YT/IG), scrape in the wizard, the montage
+  engine (per-clip in/out/order/duration synced to voiceover), and the sound/music
+  panel. Decide the source-clip analysis approach as part of this. Not started — this
+  is the headline item.
 - Video path (Veo3/Kling) still untested — lower priority now since the harness code
   itself is proven correct on the image side and no job wires `ai_video` yet.
 - Provider choice for `enhance`/`remove_text` still open (candidates noted in F5).
