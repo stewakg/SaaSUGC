@@ -76,6 +76,14 @@ async function runMatrixPipeline(params: Record<string, unknown>): Promise<Pipel
   const count = typeof params.count === 'number' && params.count > 0 ? Math.floor(params.count) : 1;
   const language = typeof params.language === 'string' && params.language ? params.language : 'sr';
 
+  // M2a: the wizard now uploads real source clips; use the first uploaded clip as the
+  // background instead of the hardcoded placeholder. (Multi-clip scene-detected montage
+  // lands in M2b/M2c.) Falls back to the placeholder when no clip was uploaded.
+  const sourceVideoUrls = Array.isArray(params.sourceVideoUrls)
+    ? params.sourceVideoUrls.filter((u): u is string => typeof u === 'string' && u.length > 0)
+    : [];
+  const firstClipUrl = sourceVideoUrls[0];
+
   // Build a richer product/benefits string from the wizard's imported product
   // data (title/price/description) + manual offer notes so the script generator
   // has real context — the ScriptProvider interface stays unchanged (product +
@@ -119,10 +127,7 @@ async function runMatrixPipeline(params: Record<string, unknown>): Promise<Pipel
     const durationInFrames = Math.round((lastEnd + MATRIX_OUTRO_SECONDS) * MATRIX_FPS);
 
     const matrixProps: MatrixAdProps = {
-      backgroundVideoUrl:
-        typeof params.backgroundVideoUrl === 'string' && params.backgroundVideoUrl
-          ? params.backgroundVideoUrl
-          : DEFAULT_BACKGROUND_VIDEO_URL,
+      backgroundVideoUrl: firstClipUrl ?? DEFAULT_BACKGROUND_VIDEO_URL,
       captionWords,
       captionStyle:
         typeof params.captionStyle === 'string' && params.captionStyle

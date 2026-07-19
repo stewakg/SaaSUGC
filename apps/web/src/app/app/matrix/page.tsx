@@ -11,6 +11,7 @@ import {
 } from '@adgen/core/constants';
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
+import { uploadFile, type UploadedFile } from '@/lib/upload-file';
 
 interface ScrapeResult {
   title: string;
@@ -49,6 +50,11 @@ export default function MatrixPage() {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
 
+  // Step 0 — upload source clips (the raw montage material)
+  const [clips, setClips] = useState<UploadedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   // Step 1 — product import (scrape)
   const [url, setUrl] = useState('');
   const [scrapePhase, setScrapePhase] = useState<ScrapePhase>('idle');
@@ -78,6 +84,26 @@ export default function MatrixPage() {
 
   const cost = computeJobCost('matrix', count);
   const captionStyle = `cap:${captionFont}:${captionAnim}:${captionColor}`;
+
+  async function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const uploaded = await Promise.all(files.map((f) => uploadFile(f)));
+      setClips((prev) => [...prev, ...uploaded]);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Nepoznata greška.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  }
+
+  function removeClip(index: number) {
+    setClips((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function handleImport() {
     setScrapePhase('loading');
@@ -123,6 +149,7 @@ export default function MatrixPage() {
             transitionIn,
             outroText,
             sourceImages: images,
+            sourceVideoUrls: clips.map((c) => c.url),
           },
         }),
       });
@@ -143,6 +170,49 @@ export default function MatrixPage() {
   }
 
   const steps: WizardStep[] = [
+    {
+      id: 'clips',
+      label: 'Upload klipova',
+      content: (
+        <div className="space-y-4">
+          <p className="text-sm text-zinc-400">
+            Otpremi jedan ili više video snimaka — od njih se pravi reklama. Svaki snimak može biti kompilacija više kadrova.
+          </p>
+          <label className="block">
+            <input
+              type="file"
+              accept="video/mp4,video/quicktime,video/webm"
+              multiple
+              onChange={(e) => void handleFilesChange(e)}
+              className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-400/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-400/20"
+            />
+          </label>
+          {uploading && <p className="text-sm text-zinc-300">Otpremam…</p>}
+          {uploadError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{uploadError}</p>}
+          {clips.length > 0 && (
+            <ul className="space-y-2">
+              {clips.map((c, i) => (
+                <li
+                  key={c.url}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-ink-900 px-3 py-2"
+                >
+                  <span className="truncate text-sm text-zinc-300">
+                    {i + 1}. {c.name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeClip(i)}
+                    className="shrink-0 text-xs text-red-300 hover:text-red-200"
+                  >
+                    Ukloni
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ),
+    },
     {
       id: 'import',
       label: 'Uvezi proizvod',
@@ -367,13 +437,14 @@ export default function MatrixPage() {
   ];
 
   const canNext =
-    (stepIndex === 0 && productTitle.trim().length > 0) ||
-    stepIndex === 1 ||
+    (stepIndex === 0 && clips.length >= 1) ||
+    (stepIndex === 1 && productTitle.trim().length > 0) ||
     stepIndex === 2 ||
-    (stepIndex === 3 && phase !== 'running');
+    stepIndex === 3 ||
+    (stepIndex === 4 && phase !== 'running');
 
   const nextLabel =
-    stepIndex < 3
+    stepIndex < 4
       ? 'Dalje'
       : phase === 'done'
         ? 'Vidi u Moje reklame'
@@ -388,7 +459,7 @@ export default function MatrixPage() {
         activeIndex={stepIndex}
         onBack={() => setStepIndex((i) => Math.max(0, i - 1))}
         onNext={() => {
-          if (stepIndex < 3) {
+          if (stepIndex < 4) {
             setStepIndex((i) => i + 1);
             return;
           }
