@@ -36,5 +36,31 @@
 - **fal deprecated Veo3 i2v** → version drift vs kie's Veo3. For "latest Veo" we'd compare fal Veo3.1 vs kie Veo3/3.1 (note the mismatch).
 - **fal playground is not automation-friendly** for image→video (hangs). The clean, reproducible way to benchmark provider quality/reliability is the **API** (identical params to both, save outputs) — which is also what F5 needs anyway.
 
+## Live code-path test — 2026-07-19 (KieAIFalRouter, real keys, via API not UI)
+
+Separate from the browser-driven benchmark above: this exercised the actual shipped
+code (`packages/core/src/providers/ai.kiefal.ts`, commit `f49eebf`) via a throwaway
+script (`getAI()` / direct `KieAIFalRouter` construction), one `generateImage` call per
+provider, same prompt as the Image/nano-banana row above, `size: '1080x1920'`.
+
+| Provider | Model (as coded) | Result | Time | Notes |
+|---|---|---|---|---|
+| kie.ai | `nano-banana-2` (generic Jobs API) | ✅ success, 1st try | 13.9s | `createTask`→`recordInfo` contract confirmed correct against the real API. Output: photorealistic, on-prompt, vertical, legible bottle label ("Glow Serum"). |
+| fal.ai | `fal-ai/nano-banana-2` (queue API) | ✅ success, 1st try | 14.2s | Tested in isolation (fal-only router instance) — the fallback path itself, not just "kie succeeded so fal was never tried". Output: photorealistic, on-prompt, vertical, legible bottle label. |
+
+Both images visually inspected (not just "got a 200") — both fully match the prompt,
+no artifacts, no watermarks, correct 9:16-ish portrait framing. **Cost per call not
+captured from the API response** (no price field returned) — check each dashboard's
+usage log if exact per-image cost is needed; the fal.ai nano-banana (non-`-2`) row above
+was $0.039 for reference but that's a different model tier, not this one.
+
+`generateVideo` (Veo3 kie.ai + fal.ai veo3.1) still NOT live-tested — no wired job calls
+it yet (`ai_video` is F7, deferred).
+
 ## Verdict
-_pending — fill after all runs_
+**Both kie.ai and fal.ai work correctly end-to-end for image generation as coded** —
+routing/fallback logic is confirmed sound, not just typechecked. Raw quality is a wash
+at this sample size (n=1 each); no reason yet to change the kie-primary/fal-fallback
+order (kie.ai chosen primary for cost — see F5 notes). Video (Veo3/Kling) benchmark
+still pending — lower priority than before since the harness code itself is now proven
+correct on the image side, and `ai_video` isn't wired into any job yet (F7).

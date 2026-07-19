@@ -12,12 +12,46 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
-REVIEWED: packages/core/src/providers/ai.kiefal.ts (KieAIFalRouter) + factory.ts's createAIProvider — static CLEAN @ f49eebf (2026-07-19). Real AIProvider replacing the loadReal('ai') stub: kie.ai (generic Jobs API, nano-banana-2) primary, fal.ai (queue API, fal-ai/nano-banana-2) fallback for generateImage; kie.ai's DEDICATED Veo endpoints (different response shape than the image Jobs API — verified, not assumed) primary, fal.ai veo3.1/image-to-video fallback for generateVideo (unexercised — ai_video is F7). All endpoints/fields cross-verified against kie.ai + fal.ai's live docs (WebFetch, 2026-07), not guessed. Diff matched spec exactly (new file byte-identical, factory.ts's 4 edits — import, ai wiring, createAIProvider helper, loadReal deletion — all landed correctly). typecheck + build pass. NOT live-tested — no real KIE_API_KEY/FAL_API_KEY call has been made yet (owner has both keys sorted, no Anthropic key yet).
+REVIEWED: packages/core/src/providers/ai.kiefal.ts (KieAIFalRouter) + factory.ts's createAIProvider — static CLEAN @ f49eebf (2026-07-19). Real AIProvider replacing the loadReal('ai') stub: kie.ai (generic Jobs API, nano-banana-2) primary, fal.ai (queue API, fal-ai/nano-banana-2) fallback for generateImage; kie.ai's DEDICATED Veo endpoints (different response shape than the image Jobs API — verified, not assumed) primary, fal.ai veo3.1/image-to-video fallback for generateVideo (unexercised — ai_video is F7). All endpoints/fields cross-verified against kie.ai + fal.ai's live docs (WebFetch, 2026-07), not guessed. Diff matched spec exactly (new file byte-identical, factory.ts's 4 edits — import, ai wiring, createAIProvider helper, loadReal deletion — all landed correctly). typecheck + build pass. **✅ LIVE-TESTED 2026-07-19**: `generateImage` called for real against kie.ai-only and fal.ai-only independently (throwaway script driving `getAI()`/direct `KieAIFalRouter` construction, deleted after use) — both succeeded 1st try (13.9s / 14.2s), outputs visually confirmed correct (see `tests/kie-vs-fal.md`). `generateVideo` still CODE-COMPLETE / not live-tested (no wired caller — ai_video is F7).
 REVIEWED: billing webhook idempotency — ISSUE CLOSED @ 5fc43fc (2026-07-23): the webhook now dedups on the Lemon Squeezy order id via migration 0004 (credits_ledger.external_ref + partial unique index + add_credits_idempotent RPC that no-ops on unique_violation). parseWebhook returns data.id; route passes it as p_external_ref. Cline diff matched spec, typecheck+build pass. Supersedes the ISSUE in the F5/F6-infra verdict below. ✅ Migration 0004 APPLIED to the real cloud project (gczikdrskcpqqlyzvnby) 2026-07-23 — this also confirmed 0001–0003 are present there (the earlier "no credits_ledger" error was a wrong-project/wrong-account mixup in the dashboard, not doc drift).
 REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added `stop_reason:"refusal"` check before parsing (Cline diff matched spec, typecheck passes). Supersedes the "low-pri gap" note in the F5-provider-clients verdict below — that verdict otherwise still stands (rest of file unchanged).
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-07-19 — live-tested KieAIFalRouter (real kie.ai + fal.ai calls)
+**Account:** _(unrecorded)_
+**Commits this session:** 03f150a (F5/F7 doc reconciliation, uncommitted-from-other-
+session), + this update (live-test results).
+
+**Done:**
+- Found `KIE_API_KEY`/`FAL_API_KEY` already set in root `.env` (owner sorted these
+  earlier) but `apps/worker/.env` was stale (0 chars for both) — ran `pnpm env:sync`
+  to refresh it. (VERIFIED)
+- Wrote a throwaway script (`apps/worker/src/test-ai-provider.ts`, deleted after use)
+  driving the real production code path — `getAI()` then direct `KieAIFalRouter`
+  construction — to call `generateImage` against kie.ai and fal.ai **independently**
+  (not just "kie succeeded so fal was never exercised"). Same prompt as the existing
+  `tests/kie-vs-fal.md` scenario for comparability.
+- **Both succeeded on the first try**: kie.ai 13.9s, fal.ai 14.2s. Downloaded both
+  output images and visually inspected them (not just HTTP 200) — both photorealistic,
+  on-prompt, correct vertical framing, legible product label. (VERIFIED — real call,
+  real output, eyeballed)
+- This confirms the kie.ai `createTask`/`recordInfo` contract AND the fal.ai
+  submit/status/result contract are both coded correctly — the F5 AIProvider is no
+  longer "code-complete, never called," it actually works. `generateVideo` (Veo path)
+  remains untested — no wired caller yet (`ai_video` is F7).
+- Updated `INFRASTRUCTURE.md` F5 checkbox, `tests/kie-vs-fal.md` (new "Live code-path
+  test" section), and the Review ledger's `ai.kiefal.ts` line to reflect VERIFIED
+  status.
+
+**Next:**
+- Video path (Veo3/Kling) still untested — lower priority now since the harness code
+  itself is proven correct on the image side and no job wires `ai_video` yet.
+- Provider choice for `enhance`/`remove_text` still open (candidates noted in F5).
+- Waiting on Anthropic key to live-test `ClaudeScriptProvider`.
 
 ---
 
