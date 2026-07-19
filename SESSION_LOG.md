@@ -133,8 +133,14 @@ sub-range via `<OffthreadVideo trimBefore/trimAfter>` inside a `<Series>`.
   clip(s) instead of the hardcoded `DEFAULT_BACKGROUND_VIDEO_URL` placeholder. Safe
   Cline delegation (same shape as M1). Verify: typecheck + build.
 - **M2b** — ffmpeg scene detection in the worker: `detectShots(video) → [{startSec,
-  endSec}]`. Needs ffmpeg added to the worker Dockerfile + available locally. Delicate
-  (external process + parsing) — verify against a real sample video.
+  endSec}]`. Use the **`ffmpeg-static` + `ffprobe-static`** npm packages (portable
+  binary, works on Windows dev AND the Docker worker identically — NO system install /
+  apt-get needed; ffmpeg/ffprobe confirmed NOT on PATH locally 2026-07-19). detectShots:
+  download the source to a temp file → run `ffmpeg -i in -filter:v "select='gt(scene,
+  0.3)',showinfo" -f null -` (or the `scdet` filter) → parse the scene-change timestamps
+  from stderr → return shot ranges. Delicate (external process + stderr parsing) — NOT a
+  blind Cline delegation; verify against a REAL sample compilation video (one that
+  actually cuts between shots) — owner needs to provide/point at such a sample.
 - **M2c** — random shot selection per variant + composition rewrite: `MatrixAdProps`
   goes from single `backgroundVideoUrl` to a shot list; `MatrixAd.tsx` renders shots via
   `<Series>` + `<OffthreadVideo trimBefore>`. Verify with a REAL local render (F4-style),
