@@ -23,10 +23,11 @@ import {
   DEFAULT_MATRIX_OUTRO_TEXT,
   DEFAULT_VOICE_MODEL,
 } from '@adgen/core';
-import type { MatrixAdProps, MatrixTransition } from '@adgen/core';
+import type { MatrixAdProps, MatrixTransition, VoiceProvider } from '@adgen/core';
 import { JOB_COST } from '@adgen/core/pricing';
 import { createRedisConnection, JOB_QUEUE_NAME, type JobQueueData } from '@adgen/core/queue';
 import { LocalRemotionRenderer } from '@adgen/core/providers/renderer.local';
+import { MockVoiceProvider } from '@adgen/core/providers/mocks';
 import { createServiceClient } from '@adgen/db';
 import type { AssetKind, JobType, Json } from '@adgen/db';
 
@@ -35,6 +36,17 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const providers = createProviders();
 const matrixRenderer = new LocalRemotionRenderer(providers.storage);
+
+/**
+ * Matrix's tts() call is a placeholder that mirrors the pipeline shape real
+ * audio muxing will need later (see runMatrixPipeline below) — its result
+ * isn't muxed into the render yet. It MUST stay on MockVoiceProvider even
+ * when a real ELEVENLABS_API_KEY is configured for the rest of the app:
+ * otherwise every Matrix job silently spends real ElevenLabs credits
+ * generating audio that gets discarded. Swap this for `providers.voice` only
+ * once MatrixAd.tsx actually muxes the returned audioUrl into the video.
+ */
+const matrixVoiceTracker: VoiceProvider = new MockVoiceProvider();
 
 interface PipelineAsset {
   kind: AssetKind;
@@ -54,11 +66,11 @@ function buildImageAdsPrompt(params: Record<string, unknown>, index: number): st
 
 /**
  * `matrix` job (F4, the differentiator): mock script (Claude) → mock TTS
- * (ElevenLabs) per variant → real local Remotion render, one mp4 per
- * variant. Voice audio is tracked (the tts() call happens, matching the
- * pipeline shape real providers will fill in at F5) but NOT muxed into the
- * video — MockVoiceProvider's placeholder isn't decodable audio; captions
- * still play out on mocked word timings. See MatrixAd.tsx.
+ * (ElevenLabs, via `matrixVoiceTracker` — ALWAYS mock here, see its comment
+ * above) per variant → real local Remotion render, one mp4 per variant.
+ * Voice audio is tracked (the tts() call happens, matching the pipeline
+ * shape real audio muxing will fill in later) but NOT muxed into the video
+ * yet — captions still play out on mocked word timings. See MatrixAd.tsx.
  */
 async function runMatrixPipeline(params: Record<string, unknown>): Promise<PipelineAsset[]> {
   const count = typeof params.count === 'number' && params.count > 0 ? Math.floor(params.count) : 1;
@@ -82,7 +94,7 @@ async function runMatrixPipeline(params: Record<string, unknown>): Promise<Pipel
   for (let i = 0; i < variants.length; i++) {
     const variant = variants[i];
 
-    await providers.voice.tts({
+    await matrixVoiceTracker.tts({
       script: variant.script,
       voiceId: typeof params.voiceId === 'string' && params.voiceId ? params.voiceId : 'voice_srp_f1',
       model: DEFAULT_VOICE_MODEL,
