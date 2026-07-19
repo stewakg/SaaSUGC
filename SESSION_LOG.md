@@ -151,7 +151,18 @@ sub-range via `<OffthreadVideo trimBefore/trimAfter>` inside a `<Series>`.
 - **M2c** — random shot selection per variant + composition rewrite: `MatrixAdProps`
   goes from single `backgroundVideoUrl` to a shot list; `MatrixAd.tsx` renders shots via
   `<Series>` + `<OffthreadVideo trimBefore>`. Verify with a REAL local render (F4-style),
-  NOT just typecheck — timing/order bugs don't show up in tsc.
+  NOT just typecheck — timing/order bugs don't show up in tsc. **✅ PROTOTYPED &
+  WATCHED 2026-07-19:** a throwaway render (remotion/proto-entry.tsx + proto-render.mjs,
+  both DELETED after) did the full chain — scene-detect the 5 samples → 31-shot pool →
+  randomly pick 11 shots (~20s, each capped at 3s for pace, trimBefore = shot start) →
+  `<Series>`/`<OffthreadVideo>` render at 1080x1920 → real MP4. Extracted frames confirm
+  it cuts between genuinely different scenes. Sample clips served to OffthreadVideo over a
+  tiny local http server (range-capable) since they're local files. Output was
+  `Video samples/montage-test.mp4` (gitignored). So M2c is DE-RISKED end-to-end — the real
+  version just needs: MatrixAdProps shot-list type (packages/core), the composition change,
+  per-variant randomization in the worker (calling detectShots from M2b), captions/outro
+  overlaid on top, and clips served via the real Storage URLs (not the throwaway http
+  server).
 
 **Cline-CLI-as-worker experiment (2026-07-19) — ✅ LOOP VERIFIED WORKING:**
 UNBLOCKED 2026-07-19: reconfigured z.ai via `cline auth openai-compatible -b
