@@ -76,10 +76,21 @@ async function runMatrixPipeline(params: Record<string, unknown>): Promise<Pipel
   const count = typeof params.count === 'number' && params.count > 0 ? Math.floor(params.count) : 1;
   const language = typeof params.language === 'string' && params.language ? params.language : 'sr';
 
+  // Build a richer product/benefits string from the wizard's imported product
+  // data (title/price/description) + manual offer notes so the script generator
+  // has real context — the ScriptProvider interface stays unchanged (product +
+  // benefits), we just fill it with more than the bare title.
+  const productTitle =
+    typeof params.productTitle === 'string' && params.productTitle.trim() ? params.productTitle.trim() : 'Proizvod';
+  const price = typeof params.price === 'string' ? params.price.trim() : '';
+  const description = typeof params.description === 'string' ? params.description.trim() : '';
+  const offerNotes = typeof params.offerNotes === 'string' ? params.offerNotes.trim() : '';
+  const tone = typeof params.tone === 'string' && params.tone.trim() ? params.tone.trim() : 'energetic';
+
   const { variants } = await providers.script.generateVariants({
-    product: typeof params.productTitle === 'string' && params.productTitle ? params.productTitle : 'Proizvod',
-    benefits: typeof params.offerNotes === 'string' ? params.offerNotes : '',
-    tone: 'energetic',
+    product: price ? `${productTitle} (${price})` : productTitle,
+    benefits: [description, offerNotes].filter(Boolean).join(' · '),
+    tone,
     language,
     style: 'ugc',
     durations: [15],

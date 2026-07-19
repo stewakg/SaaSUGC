@@ -12,6 +12,13 @@ import {
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
 
+interface ScrapeResult {
+  title: string;
+  price?: string;
+  images: string[];
+  description?: string;
+}
+
 // Mirrors packages/core/src/providers/mocks.ts MOCK_VOICES — hardcoded here
 // since it's a static list and doesn't warrant a round-trip.
 const VOICES = [
@@ -28,28 +35,40 @@ const TONES = [
   { value: 'friendly', label: 'Prijateljski' },
 ];
 
+type ScrapePhase = 'idle' | 'loading' | 'done' | 'error';
 type Phase = 'idle' | 'running' | 'done' | 'error';
 
 /**
- * F4 — "Matrix": settings wizard for the real-render pipeline (mock script +
- * mock voice, real Remotion assembly). Music/SFX are shown as forward-looking
- * fields ("uskoro") since mock mode has no real audio asset source yet.
+ * F4/M1 — "Matrix": settings wizard for the real-render pipeline. Step 1 now
+ * imports the product from a store URL (real scrape, POST /api/scrape) so the
+ * script generator has real context (title/price/description) — same pattern as
+ * AI slike. Montage of multiple source clips is a later phase; today the render
+ * still uses a single background clip. Music/SFX are forward-looking fields.
  */
 export default function MatrixPage() {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
 
+  // Step 1 — product import (scrape)
+  const [url, setUrl] = useState('');
+  const [scrapePhase, setScrapePhase] = useState<ScrapePhase>('idle');
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
   const [productTitle, setProductTitle] = useState('');
+  const [price, setPrice] = useState('');
+  const [description, setDescription] = useState('');
+  const [images, setImages] = useState<string[]>([]);
   const [offerNotes, setOfferNotes] = useState('');
   const [language, setLanguage] = useState<UiLanguage>('sr');
+
+  // Step 2 — voice / captions / variants
   const [tone, setTone] = useState('energetic');
   const [count, setCount] = useState(1);
-
   const [voiceId, setVoiceId] = useState(VOICES[1].id);
   const [captionFont, setCaptionFont] = useState<CaptionFont>('Impact');
   const [captionAnim, setCaptionAnim] = useState<CaptionAnim>('pop');
   const [captionColor, setCaptionColor] = useState('#FFE000');
 
+  // Step 3 — transitions / CTA
   const [transitionIn, setTransitionIn] = useState<MatrixTransition>('zoom-punch');
   const [outroText, setOutroText] = useState(DEFAULT_MATRIX_OUTRO_TEXT);
 
@@ -59,6 +78,28 @@ export default function MatrixPage() {
 
   const cost = computeJobCost('matrix', count);
   const captionStyle = `cap:${captionFont}:${captionAnim}:${captionColor}`;
+
+  async function handleImport() {
+    setScrapePhase('loading');
+    setScrapeError(null);
+    try {
+      const res = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const data = (await res.json()) as ScrapeResult & { error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Uvoz nije uspeo.');
+      setProductTitle(data.title);
+      setPrice(data.price ?? '');
+      setDescription(data.description ?? '');
+      setImages(data.images ?? []);
+      setScrapePhase('done');
+    } catch (err) {
+      setScrapeError(err instanceof Error ? err.message : 'Nepoznata greška.');
+      setScrapePhase('error');
+    }
+  }
 
   async function handleGenerate() {
     setPhase('running');
@@ -70,7 +111,19 @@ export default function MatrixPage() {
         body: JSON.stringify({
           type: 'matrix',
           count,
-          params: { productTitle, offerNotes, language, tone, voiceId, captionStyle, transitionIn, outroText },
+          params: {
+            productTitle,
+            price,
+            description,
+            offerNotes,
+            language,
+            tone,
+            voiceId,
+            captionStyle,
+            transitionIn,
+            outroText,
+            sourceImages: images,
+          },
         }),
       });
       const data = (await res.json()) as { id?: string; error?: string };
@@ -91,12 +144,52 @@ export default function MatrixPage() {
 
   const steps: WizardStep[] = [
     {
-      id: 'basics',
-      label: 'Osnovno',
+      id: 'import',
+      label: 'Uvezi proizvod',
       content: (
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Proizvod</span>
+            <span className="mb-1 block text-sm text-zinc-300">Link ka proizvodu</span>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://prodavnica.rs/proizvod/..."
+                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+              />
+              <button
+                type="button"
+                onClick={() => void handleImport()}
+                disabled={!url || scrapePhase === 'loading'}
+                className="btn-ghost shrink-0 disabled:opacity-50"
+              >
+                {scrapePhase === 'loading' ? 'Uvozim…' : 'Uvezi'}
+              </button>
+            </div>
+            <span className="mt-1 block text-xs text-zinc-500">
+              Povuci naziv, cenu i opis sa stranice proizvoda — AI iz toga piše skriptu. Možeš i ručno da uneseš.
+            </span>
+          </label>
+
+          {scrapeError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{scrapeError}</p>}
+
+          {images.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto">
+              {images.slice(0, 5).map((src) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={src}
+                  src={src}
+                  alt=""
+                  className="h-20 w-20 shrink-0 rounded-lg border border-white/10 object-cover"
+                />
+              ))}
+            </div>
+          )}
+
+          <label className="block">
+            <span className="mb-1 block text-sm text-zinc-300">Naziv proizvoda</span>
             <input
               value={productTitle}
               onChange={(e) => setProductTitle(e.target.value)}
@@ -104,16 +197,17 @@ export default function MatrixPage() {
               className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
             />
           </label>
+
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Prednosti / ponuda</span>
-            <textarea
-              value={offerNotes}
-              onChange={(e) => setOfferNotes(e.target.value)}
-              rows={3}
-              placeholder="npr. besplatna dostava, 20% popust, plaćanje pouzećem"
+            <span className="mb-1 block text-sm text-zinc-300">Cena</span>
+            <input
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="npr. 2.990 RSD"
               className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
             />
           </label>
+
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="mb-1 block text-sm text-zinc-300">Jezik</span>
@@ -144,6 +238,25 @@ export default function MatrixPage() {
               </select>
             </label>
           </div>
+
+          <label className="block">
+            <span className="mb-1 block text-sm text-zinc-300">Prednosti / ponuda (op.)</span>
+            <textarea
+              value={offerNotes}
+              onChange={(e) => setOfferNotes(e.target.value)}
+              rows={2}
+              placeholder="npr. besplatna dostava, 20% popust, plaćanje pouzećem"
+              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+            />
+          </label>
+        </div>
+      ),
+    },
+    {
+      id: 'style',
+      label: 'Glas, titlovi i varijante',
+      content: (
+        <div className="space-y-4">
           <label className="block">
             <span className="mb-1 block text-sm text-zinc-300">Broj varijanti videa</span>
             <div className="flex gap-2">
@@ -163,14 +276,6 @@ export default function MatrixPage() {
               ))}
             </div>
           </label>
-        </div>
-      ),
-    },
-    {
-      id: 'style',
-      label: 'Glas i titlovi',
-      content: (
-        <div className="space-y-4">
           <label className="block">
             <span className="mb-1 block text-sm text-zinc-300">Glas (mock TTS)</span>
             <select
@@ -220,7 +325,7 @@ export default function MatrixPage() {
             />
             <span className="text-xs text-zinc-500">{captionColor}</span>
           </label>
-          <p className="text-xs text-zinc-500">Muzika i SFX na CTA: uskoro (F5, pravi audio zapisi).</p>
+          <p className="text-xs text-zinc-500">Muzika i SFX na CTA: uskoro (kasnija faza, pravi audio zapisi).</p>
         </div>
       ),
     },
@@ -261,7 +366,11 @@ export default function MatrixPage() {
     },
   ];
 
-  const canNext = (stepIndex < 3 && (stepIndex !== 0 || productTitle.trim().length > 0)) || (stepIndex === 3 && phase !== 'running');
+  const canNext =
+    (stepIndex === 0 && productTitle.trim().length > 0) ||
+    stepIndex === 1 ||
+    stepIndex === 2 ||
+    (stepIndex === 3 && phase !== 'running');
 
   const nextLabel =
     stepIndex < 3
