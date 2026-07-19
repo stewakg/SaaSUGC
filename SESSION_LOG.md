@@ -106,7 +106,19 @@ detection) becomes relevant. That design discussion is the next big topic (defer
 not started). Owner was explicit: Matrix must montage user-supplied real clips — NOT
 generate AI video from them.
 
-**Cline-CLI-as-worker experiment (2026-07-19) — IN PROGRESS, blocked on z.ai config:**
+**Cline-CLI-as-worker experiment (2026-07-19) — ✅ LOOP VERIFIED WORKING:**
+UNBLOCKED 2026-07-19: reconfigured z.ai via `cline auth openai-compatible -b
+https://api.z.ai/api/coding/paas/v4 -m glm-5.2 -k <key>` (provider id is
+`openai-compatible`, confirmed from the installed package). Trivial test now passes
+end-to-end from Claude Code's Bash tool: `cline --auto-approve true -c <scratch> "write
+ping.txt…"` → exit 0, file written with exact content, output captured to a log I don't
+read, timeout-bounded. The owner has NO Cline pass and doesn't need one — BYO
+`openai-compatible` provider talks straight to z.ai with the owner's key (the earlier
+"insufficient balance" was z.ai's OWN error = proof the request already reached z.ai,
+just on the wrong endpoint). Delegation loop is live; next is the first REAL delegation
+(M1 Matrix prompt). History below kept for context.
+
+**(historical, now resolved) Cline-CLI-as-worker experiment (2026-07-19) — was blocked on z.ai config:**
 Idea: instead of the owner manually copy-pasting Cline prompts, let Claude Code (me)
 orchestrate and delegate implementation to **Cline CLI** running on the owner's z.ai
 GLM Coding Plan (cheap), so the heavy generation stays on z.ai while I stay lean.
