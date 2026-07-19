@@ -133,14 +133,21 @@ sub-range via `<OffthreadVideo trimBefore/trimAfter>` inside a `<Series>`.
   clip(s) instead of the hardcoded `DEFAULT_BACKGROUND_VIDEO_URL` placeholder. Safe
   Cline delegation (same shape as M1). Verify: typecheck + build.
 - **M2b** — ffmpeg scene detection in the worker: `detectShots(video) → [{startSec,
-  endSec}]`. Use the **`ffmpeg-static` + `ffprobe-static`** npm packages (portable
-  binary, works on Windows dev AND the Docker worker identically — NO system install /
-  apt-get needed; ffmpeg/ffprobe confirmed NOT on PATH locally 2026-07-19). detectShots:
-  download the source to a temp file → run `ffmpeg -i in -filter:v "select='gt(scene,
-  0.3)',showinfo" -f null -` (or the `scdet` filter) → parse the scene-change timestamps
-  from stderr → return shot ranges. Delicate (external process + stderr parsing) — NOT a
-  blind Cline delegation; verify against a REAL sample compilation video (one that
-  actually cuts between shots) — owner needs to provide/point at such a sample.
+  endSec}]`. **APPROACH VERIFIED 2026-07-19 @ 5bcf42e** (deps committed; detectShots
+  module itself NOT written yet). `ffmpeg-static` + `ffprobe-static` (portable binaries,
+  no system install — ffmpeg/ffprobe were NOT on PATH). Verified command on 5 REAL owner
+  sample compilations (`Video samples/`, gitignored, 576x1024/1080x1920 vertical, 10-28s):
+  `ffmpeg -i in -filter:v "select='gt(scene,0.3)',showinfo" -f null -` → parse `pts_time:X`
+  from **stderr** (NOT stdout — use spawnSync + res.stderr). Build shots as ranges
+  [0,cut1],[cut1,cut2],…,[lastCut,duration]; **drop shots < 0.8s** (sub-second flashes,
+  useless as material). Result: 5 sources → **31 usable mini-clips** (the shot pool) — the
+  exact montage model the owner described, PROVEN on real footage. Threshold 0.3 + minShot
+  0.8s are the verified tuning. TODO for M2b: write `apps/worker/src/scene-detect.ts`
+  (`detectShots(localPath, {threshold=0.3, minShotSec=0.8})`) + a download-URL-to-temp
+  helper (clips arrive as Storage URLs) + verify it reproduces the 31-shot pool.
+  **DOCKER GOTCHA (see 5bcf42e msg):** ffmpeg-static's download postinstall is blocked by
+  pnpm even with onlyBuiltDependencies — needed a manual `node .../install.js` locally;
+  Dockerfile will need an explicit download step.
 - **M2c** — random shot selection per variant + composition rewrite: `MatrixAdProps`
   goes from single `backgroundVideoUrl` to a shot list; `MatrixAd.tsx` renders shots via
   `<Series>` + `<OffthreadVideo trimBefore>`. Verify with a REAL local render (F4-style),
