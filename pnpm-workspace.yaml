@@ -6,6 +6,8 @@ packages:
 # Allow native build scripts for these packages.
 onlyBuiltDependencies:
   - esbuild
+  - ffmpeg-static
+  - ffprobe-static
   - msgpackr-extract
   - sharp
   - unrs-resolver
