@@ -107,6 +107,38 @@ detection) becomes relevant. That design discussion is the next big topic (defer
 not started). Owner was explicit: Matrix must montage user-supplied real clips — NOT
 generate AI video from them.
 
+**PRECISE montage mechanism (owner-confirmed 2026-07-19 — this is THE spec, don't
+re-guess it):** each uploaded SOURCE video is itself a compilation of multiple SHOTS
+(scene A cuts to scene B cuts to C…), each shot an arbitrary length (2s/5s/6s/3s — we
+never know in advance). The pipeline is:
+1. **Scene-detect every source** (ffmpeg `select='gt(scene,X)'`) → split it at every
+   scene change into its constituent SHOTS. Across all N uploads this yields a **pool
+   of mini-clips (shots)**.
+2. **Per output variant**, randomly pick + order shots from that pool and sequence them
+   to fill the voiceover-driven duration. N variants = N different random arrangements
+   (× different scripts/voices/captions from M1/M3) = the "matrix".
+3. Cuts land ON detected scene boundaries and use WHOLE shots → this is exactly what
+   answers the owner's original "no cutting mid-action" worry.
+So **scene detection is CORE to M2, not a later refinement** (an earlier note in this
+file called it deferred — that was before the mechanism was understood; it is NOT
+deferrable). A fixed-rhythm (e.g. cut every 2.5s) montage is WRONG — shots have natural
+boundaries we must cut on. Clean implementation: don't split into physical files —
+store shot boundaries as `{sourceUrl, startSec, endSec}` and let Remotion play the
+sub-range via `<OffthreadVideo trimBefore/trimAfter>` inside a `<Series>`.
+
+**M2 build breakdown (agreed):**
+- **M2a** — Matrix wizard gets a multi-clip upload step (reuse `mix`'s `uploadFile` /
+  `UploadedFile` pattern; `sourceVideoUrls` in job params); worker uses the uploaded
+  clip(s) instead of the hardcoded `DEFAULT_BACKGROUND_VIDEO_URL` placeholder. Safe
+  Cline delegation (same shape as M1). Verify: typecheck + build.
+- **M2b** — ffmpeg scene detection in the worker: `detectShots(video) → [{startSec,
+  endSec}]`. Needs ffmpeg added to the worker Dockerfile + available locally. Delicate
+  (external process + parsing) — verify against a real sample video.
+- **M2c** — random shot selection per variant + composition rewrite: `MatrixAdProps`
+  goes from single `backgroundVideoUrl` to a shot list; `MatrixAd.tsx` renders shots via
+  `<Series>` + `<OffthreadVideo trimBefore>`. Verify with a REAL local render (F4-style),
+  NOT just typecheck — timing/order bugs don't show up in tsc.
+
 **Cline-CLI-as-worker experiment (2026-07-19) — ✅ LOOP VERIFIED WORKING:**
 UNBLOCKED 2026-07-19: reconfigured z.ai via `cline auth openai-compatible -b
 https://api.z.ai/api/coding/paas/v4 -m glm-5.2 -k <key>` (provider id is
