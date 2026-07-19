@@ -16,15 +16,16 @@ REVIEWED: packages/core/src/providers/ai.kiefal.ts (KieAIFalRouter) + factory.ts
 REVIEWED: billing webhook idempotency — ISSUE CLOSED @ 5fc43fc (2026-07-23): the webhook now dedups on the Lemon Squeezy order id via migration 0004 (credits_ledger.external_ref + partial unique index + add_credits_idempotent RPC that no-ops on unique_violation). parseWebhook returns data.id; route passes it as p_external_ref. Cline diff matched spec, typecheck+build pass. Supersedes the ISSUE in the F5/F6-infra verdict below. ✅ Migration 0004 APPLIED to the real cloud project (gczikdrskcpqqlyzvnby) 2026-07-23 — this also confirmed 0001–0003 are present there (the earlier "no credits_ledger" error was a wrong-project/wrong-account mixup in the dashboard, not doc drift).
 REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added `stop_reason:"refusal"` check before parsing (Cline diff matched spec, typecheck passes). Supersedes the "low-pri gap" note in the F5-provider-clients verdict below — that verdict otherwise still stands (rest of file unchanged).
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
-REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only.
+REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
 
 ---
 
-## 2026-07-19 — live-tested KieAIFalRouter (real kie.ai + fal.ai calls)
+## 2026-07-19 — live-tested KieAIFalRouter + ElevenLabsVoiceProvider (real API calls)
 **Account:** _(unrecorded)_
 **Commits this session:** 03f150a (F5/F7 doc reconciliation, uncommitted-from-other-
-session), + this update (live-test results).
+session), 4efed7d (KieAIFalRouter live-test results), + this update (ElevenLabs live-test
+results).
 
 **Done:**
 - Found `KIE_API_KEY`/`FAL_API_KEY` already set in root `.env` (owner sorted these
@@ -46,11 +47,29 @@ session), + this update (live-test results).
 - Updated `INFRASTRUCTURE.md` F5 checkbox, `tests/kie-vs-fal.md` (new "Live code-path
   test" section), and the Review ledger's `ai.kiefal.ts` line to reflect VERIFIED
   status.
+- Checked `.env` for what else is actually configured: `ELEVENLABS_API_KEY` turned out
+  to already be SET (51 chars) and never live-tested — same opportunity as kie/fal.
+  `ANTHROPIC_API_KEY`, all three `LEMONSQUEEZY_*`, and all `R2_*` vars are still empty.
+- Re-verified the `speed` field in ElevenLabs' `voice_settings` against their current
+  API docs (WebFetch, 2026-07-19) BEFORE testing, per the known-risk note on this
+  provider — confirmed correct (default 1.0, documented range), not assumed.
+- Wrote a second throwaway script (`apps/worker/src/test-voice-provider.ts`, deleted
+  after use) driving `createProviders().voice` (the real production path) —
+  `listVoices()` returned 58 real voices from the account; `tts()` with a Serbian
+  sentence succeeded in 1.5s. (VERIFIED)
+- Confirmed the output wasn't just an HTTP 200: found the actual file on disk at
+  `<repo root>/storage/voice/...mp3` (MockStorage resolves to repo root regardless of
+  cwd — see `storage-path.ts`), checked its magic bytes (`ID3` tag = real MP3, not an
+  error page), 71KB ≈ 4-5s of audio for the test sentence. (VERIFIED)
+- Deleted the throwaway script and the test-generated `storage/` directory. Updated
+  `INFRASTRUCTURE.md`'s `VoiceProvider` line to VERIFIED.
 
 **Next:**
 - Video path (Veo3/Kling) still untested — lower priority now since the harness code
   itself is proven correct on the image side and no job wires `ai_video` yet.
 - Provider choice for `enhance`/`remove_text` still open (candidates noted in F5).
+- Next cheap live-test candidates once keys exist: Anthropic (`ClaudeScriptProvider`),
+  Lemon Squeezy (test-event feature), R2 (`Storage`) — none are configured yet.
 - Waiting on Anthropic key to live-test `ClaudeScriptProvider`.
 
 ---
