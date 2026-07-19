@@ -106,7 +106,45 @@ detection) becomes relevant. That design discussion is the next big topic (defer
 not started). Owner was explicit: Matrix must montage user-supplied real clips — NOT
 generate AI video from them.
 
+**Cline-CLI-as-worker experiment (2026-07-19) — IN PROGRESS, blocked on z.ai config:**
+Idea: instead of the owner manually copy-pasting Cline prompts, let Claude Code (me)
+orchestrate and delegate implementation to **Cline CLI** running on the owner's z.ai
+GLM Coding Plan (cheap), so the heavy generation stays on z.ai while I stay lean.
+- **VERIFIED the mechanics work on MY side:** installed `cline` CLI globally
+  (`npm i -g cline` → v3.0.46). It runs headless via the Bash tool (non-interactive,
+  no TTY needed for a bare prompt — but `cline config`/interactive subcommands DO need
+  a TTY so I can't run those). Flags: `--auto-approve <bool>` (default true = the yolo
+  behaviour, no `-y` in v3), `--json`, `-c/--cwd`, `-P/--provider`, and `cline auth`
+  takes `-p/-b/-m/-k` so it can be run non-interactively. Config lives at
+  `~/.cline/data/settings/providers.json` — SEPARATE from the VS Code extension (does
+  NOT inherit it).
+- **BLOCKER (owner's side — credentials/plan config, my boundary):** every real run
+  fails with z.ai `"Insufficient balance or no resource package. Please recharge."` —
+  even though the owner's GLM Coding Plan quota is FULL (dashboard 2026-07-19: 5-hour
+  0%, weekly 54%). Root cause: Cline's built-in `zai` provider preset hits the GENERAL
+  endpoint `https://api.z.ai/api/paas/v4` (pay-as-you-go, zero balance), NOT the
+  Coding-Plan endpoint. Re-running `cline auth zai` does NOT fix it (the zai preset's
+  base URL is fixed to the general endpoint).
+- **FIX (documented, not yet applied):** configure Cline as an **OpenAI-Compatible**
+  provider with base URL `https://api.z.ai/api/coding/paas/v4` (the coding endpoint —
+  NOT interchangeable with the general one), model `glm-5.2` (correct — Coding Plan
+  serves it, 1M ctx), owner's z.ai key. Do it via interactive `cline auth` in a REAL
+  terminal (picks "OpenAI Compatible" from a menu, sidesteps needing the exact provider
+  id, and handles the key = owner's job). Then re-run the trivial test
+  (`cline --auto-approve true -c <scratch> "write ping.txt…"`) — if it writes the file,
+  the loop is live.
+- **Intended delegation pattern once unblocked (agreed with owner):** I write the task
+  → run `cline --auto-approve true` in the repo, stdout to a log I DON'T read → bounded
+  by the Bash tool's ≤10-min timeout (foreground) or background+watchdog (long tasks) →
+  Cline writes a compact `scratchpad/cline-report-<id>.md` I read INSTEAD of its chatter
+  → I review `git diff` + report, typecheck/build, commit. **Safety rails:** the worker
+  only does file edits + local typecheck; NEVER push/deploy/migrate/call paid APIs —
+  those stay gated on me/owner. Everything git-revertible.
+
 **Next:**
+- **Cline-worker:** owner reconfigures z.ai as OpenAI-Compatible + coding base URL (see
+  above), then I re-run the trivial test; if green, first real delegation is the M1
+  Matrix prompt (already written: `scratchpad/cline-prompt-matrix-M1-product-import.md`).
 - **BIG: design the Matrix multi-clip montage rework** (see the CRITICAL note above) —
   multi-clip upload + link import (TikTok/YT/IG), scrape in the wizard, the montage
   engine (per-clip in/out/order/duration synced to voiceover), and the sound/music
