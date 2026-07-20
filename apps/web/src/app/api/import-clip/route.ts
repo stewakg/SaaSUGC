@@ -8,10 +8,9 @@
  * call this and append the result to its `clips` list, so a link-imported
  * clip flows into the existing montage pool with ZERO worker changes.
  *
- * Server-only: yt-dlp fetches an arbitrary user URL, so the same SSRF guard as
- * /api/scrape (localhost / private ranges / the cloud metadata address) is
- * duplicated inline below — intentionally, so this route stays self-contained
- * (see the `// mirrors isSafeTargetUrl in scrape/route.ts` marker).
+ * Server-only: yt-dlp fetches an arbitrary user URL, so it runs the shared SSRF
+ * guard (`@/lib/safe-url` — localhost / private ranges / the cloud metadata
+ * address), the same guard /api/scrape uses.
  *
  * KNOWN LIMITATION — ffmpeg-free single-file mp4 (do not solve here):
  * apps/web ships no ffmpeg, so we ask yt-dlp for a *progressive* (already
@@ -28,29 +27,7 @@ import { join } from 'node:path';
 import { createProviders } from '@adgen/core';
 import { createServerClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
-
-// mirrors isSafeTargetUrl in scrape/route.ts — duplicated inline here so this
-// route is self-contained (do NOT refactor scrape/route.ts). yt-dlp fetches an
-// arbitrary user URL, so the same localhost / private-range / metadata-IP
-// block is required.
-const PRIVATE_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '169.254.169.254']);
-const PRIVATE_IP_PATTERN = /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.)/;
-
-function isSafeTargetUrl(raw: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
-  // IPv6 hostnames come back bracketed (e.g. "[::1]") — strip that before
-  // matching, or the loopback/private checks below never fire.
-  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
-  if (PRIVATE_HOSTS.has(host)) return false;
-  if (PRIVATE_IP_PATTERN.test(host)) return false;
-  return true;
-}
+import { isSafeTargetUrl } from '@/lib/safe-url';
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
