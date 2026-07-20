@@ -54,6 +54,9 @@ export default function MatrixPage() {
   const [clips, setClips] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [importingLink, setImportingLink] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   // Step 1 — product import (scrape)
   const [url, setUrl] = useState('');
@@ -98,6 +101,34 @@ export default function MatrixPage() {
     } finally {
       setUploading(false);
       e.target.value = '';
+    }
+  }
+
+  async function handleImportLink() {
+    const trimmed = linkUrl.trim();
+    if (!trimmed) return;
+    setImportingLink(true);
+    setLinkError(null);
+    try {
+      const res = await fetch('/api/import-clip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trimmed }),
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) throw new Error(data.error ?? 'Uvoz klipa nije uspeo.');
+      let name = 'Uvezeni klip';
+      try {
+        name = new URL(trimmed).hostname.replace(/^www\./, '');
+      } catch {
+        /* keep default */
+      }
+      setClips((prev) => [...prev, { url: data.url!, name }]);
+      setLinkUrl('');
+    } catch (err) {
+      setLinkError(err instanceof Error ? err.message : 'Nepoznata greška.');
+    } finally {
+      setImportingLink(false);
     }
   }
 
@@ -189,6 +220,27 @@ export default function MatrixPage() {
           </label>
           {uploading && <p className="text-sm text-zinc-300">Otpremam…</p>}
           {uploadError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{uploadError}</p>}
+          <div className="border-t border-white/10 pt-4">
+            <span className="mb-1 block text-sm text-zinc-300">…ili nalepi link (TikTok / YouTube / Instagram)</span>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="https://www.tiktok.com/@…/video/…"
+                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+              />
+              <button
+                type="button"
+                onClick={() => void handleImportLink()}
+                disabled={!linkUrl.trim() || importingLink}
+                className="btn-ghost shrink-0 disabled:opacity-50"
+              >
+                {importingLink ? 'Uvozim…' : 'Uvezi'}
+              </button>
+            </div>
+            {linkError && <p className="mt-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{linkError}</p>}
+          </div>
           {clips.length > 0 && (
             <ul className="space-y-2">
               {clips.map((c, i) => (
