@@ -216,7 +216,8 @@ interface Scraper {          // Product page → {title, price, images}. Can be 
 >   absolutized so the worker/renderer can fetch them.)
 > - L1/L2 — LINK IMPORT (TikTok/YT/IG) in the wizard via `POST /api/import-clip` (yt-dlp). ✅
 >   **Runtime-blocked until the yt-dlp binary is fetched** (pnpm 10 skipped the postinstall) — owner action.
-> **STILL SINGLE-CLIP / NOT DONE:** count is still 1-3 (not 5/10/15), NO sound/music panel, voiceover
+> - Count 5/10/15 (competitor parity; MAX_JOB_COUNT raised, poll timeout count-scaled). ✅
+> **STILL NOT DONE:** NO sound/music panel (blocked on a music/SFX asset source), voiceover
 > is generated but NOT muxed into the render (mock word-timings still drive captions). Owner confirmed:
 > montage of user-supplied REAL clips, NOT AI-generating video from them. **NOT runtime-verified:** the
 > full montage render + the link-import download have not been run end-to-end yet (deferred, see
