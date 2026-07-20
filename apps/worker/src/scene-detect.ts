@@ -33,6 +33,22 @@ export function probeDuration(videoPath: string): number {
 }
 
 /**
+ * Pure: turn scene-change cut times + a total duration into shot ranges,
+ * dropping any shorter than minShotSec. Boundaries are [0, ...cuts, duration].
+ * Exported so the montage chain's shot-splitting is unit-testable without ffmpeg.
+ */
+export function shotsFromCuts(cuts: number[], durationSec: number, minShotSec: number): RawShot[] {
+  const bounds = [0, ...cuts, durationSec];
+  const shots: RawShot[] = [];
+  for (let i = 0; i < bounds.length - 1; i++) {
+    const startSec = bounds[i];
+    const endSec = bounds[i + 1];
+    if (endSec - startSec >= minShotSec) shots.push({ startSec, endSec });
+  }
+  return shots;
+}
+
+/**
  * Scene-detect a LOCAL video file: split it at every scene change into shots,
  * dropping any shorter than minShotSec. Runs ffmpeg's
  * `select='gt(scene,threshold)',showinfo` and parses the pts_time of each
@@ -58,14 +74,7 @@ export function detectShots(
   const cuts: number[] = [];
   for (const m of stderr.matchAll(/pts_time:([\d.]+)/g)) cuts.push(Number(m[1]));
 
-  const bounds = [0, ...cuts, dur];
-  const shots: RawShot[] = [];
-  for (let i = 0; i < bounds.length - 1; i++) {
-    const startSec = bounds[i];
-    const endSec = bounds[i + 1];
-    if (endSec - startSec >= minShotSec) shots.push({ startSec, endSec });
-  }
-  return shots;
+  return shotsFromCuts(cuts, dur, minShotSec);
 }
 
 /**
