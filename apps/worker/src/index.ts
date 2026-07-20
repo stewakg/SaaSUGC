@@ -40,6 +40,17 @@ const providers = createProviders();
 const matrixRenderer = new LocalRemotionRenderer(providers.storage);
 
 /**
+ * Absolutize a storage url for cross-process use. MockStorage (dev) hands out
+ * RELATIVE urls (/api/storage/...) served by the web app; the worker's fetch and
+ * the Remotion renderer both need an absolute url. Real R2/S3 urls (and
+ * DEFAULT_BACKGROUND_VIDEO_URL) are already absolute and pass through unchanged.
+ */
+const WEB_PUBLIC_URL = process.env.WEB_PUBLIC_URL ?? 'http://localhost:3000';
+function resolveStorageUrl(url: string): string {
+  return url.startsWith('/') ? `${WEB_PUBLIC_URL}${url}` : url;
+}
+
+/**
  * Matrix's tts() call is a placeholder that mirrors the pipeline shape real
  * audio muxing will need later (see runMatrixPipeline below) — its result
  * isn't muxed into the render yet. It MUST stay on MockVoiceProvider even
@@ -81,9 +92,11 @@ async function runMatrixPipeline(params: Record<string, unknown>): Promise<Pipel
   // M2a: the wizard now uploads real source clips; use the first uploaded clip as the
   // background instead of the hardcoded placeholder. (Multi-clip scene-detected montage
   // lands in M2b/M2c.) Falls back to the placeholder when no clip was uploaded.
-  const sourceVideoUrls = Array.isArray(params.sourceVideoUrls)
-    ? params.sourceVideoUrls.filter((u): u is string => typeof u === 'string' && u.length > 0)
-    : [];
+  const sourceVideoUrls = (
+    Array.isArray(params.sourceVideoUrls)
+      ? params.sourceVideoUrls.filter((u): u is string => typeof u === 'string' && u.length > 0)
+      : []
+  ).map(resolveStorageUrl);
   const firstClipUrl = sourceVideoUrls[0];
 
   // Build a richer product/benefits string from the wizard's imported product
