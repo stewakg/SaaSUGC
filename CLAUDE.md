@@ -63,7 +63,8 @@ Claude reviews the diff. Claude edits app code directly only when asked. Meta/wo
 docs (this file, `SESSION_LOG.md`) Claude may edit directly.
 
 ## Baseline gates
-`pnpm -r typecheck` and `pnpm --filter @adgen/web build` must pass before calling
-anything done. All F5/F6 real providers (kie.ai/fal.ai/Claude/ElevenLabs/R2/Lambda/
+`pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core` + `@adgen/worker` — 25 tests
+as of 2026-07-20, covering the montage chain + caption/cost logic), and
+`pnpm --filter @adgen/web build` must pass before calling anything done. All F5/F6 real providers (kie.ai/fal.ai/Claude/ElevenLabs/R2/Lambda/
 LemonSqueezy) are CODE-COMPLETE but have NEVER been called with a real key — treat
 them as unverified until a real call happens.
