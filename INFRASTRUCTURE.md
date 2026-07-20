@@ -200,19 +200,27 @@ interface Scraper {          // Product page → {title, price, images}. Can be 
 ### F4 — Matrix + Remotion compositions (the core; mock AI, REAL render) 🟢 ⭐
 > This is the differentiator. Remotion renders **locally** — no accounts needed. Build the real ad templates here.
 
-> **⚠️ ARCHITECTURE GAP found 2026-07-19 — the checkboxes below are MISLEADING.** Owner walked
-> through the real competitor Matrix UI. The real Matrix is a **multi-clip MONTAGE editor**:
-> (1) user uploads MULTIPLE source clips OR imports them from a TikTok/YouTube/Instagram/any
-> link; (2) product is SCRAPED in the wizard (not typed); (3) each of N creatives (count
-> **5/10/15**) is a DIFFERENT montage of those source clips + a different AI script + voiceover +
-> captions/music/SFX. What we built is a **single-clip caption-overlay renderer** — `MatrixAd.tsx`
-> takes one `backgroundVideoUrl` (singular) and plays it full-length; the wizard has no upload, no
-> link import, no scrape step, count 1-3, and no sound/music panel. Treat every "[x]" in F4 as
-> "single-clip prototype done", NOT "Matrix done". Turning this into the real montage editor is a
-> **core rework** (multi-clip upload/import, montage sequencing engine with per-clip in/out/order
-> synced to the voiceover, source-clip analysis for safe cut points, sound panel) — see
-> SESSION_LOG.md's 2026-07-19 CRITICAL note. Owner confirmed: montage of user-supplied REAL clips,
-> NOT AI-generating video from them.
+> **⚠️ ARCHITECTURE GAP found 2026-07-19, montage rework LARGELY LANDED 2026-07-20.** Owner walked
+> through the real competitor Matrix UI: the real Matrix is a **multi-clip MONTAGE editor** —
+> (1) user uploads MULTIPLE source clips OR imports them from a TikTok/YouTube/Instagram/any link;
+> (2) product is SCRAPED in the wizard (not typed); (3) each of N creatives (count **5/10/15**) is a
+> DIFFERENT montage of those source clips + a different AI script + voiceover + captions/music/SFX.
+> The original F4 (checkboxes below) was a **single-clip caption-overlay renderer** — this is now
+> being reworked into the real montage editor. **DONE IN CODE (CODE-COMPLETE, NOT yet
+> runtime-verified) as of 2026-07-20 — see SESSION_LOG.md for the granular M/L-series ledger:**
+> - M1 — product SCRAPE in the wizard (was typed by hand). ✅
+> - M2a — multi-clip UPLOAD step. ✅
+> - M2b/M2c — scene-detect every source into a shot pool → per-variant random MONTAGE via
+>   `<Series>`; `MatrixAdProps` is now a `shots[]` list, no longer a single `backgroundVideoUrl`. ✅
+>   (worker `runMatrixPipeline` downloads clips → `detectShots` → `buildMontage`; storage urls
+>   absolutized so the worker/renderer can fetch them.)
+> - L1/L2 — LINK IMPORT (TikTok/YT/IG) in the wizard via `POST /api/import-clip` (yt-dlp). ✅
+>   **Runtime-blocked until the yt-dlp binary is fetched** (pnpm 10 skipped the postinstall) — owner action.
+> **STILL SINGLE-CLIP / NOT DONE:** count is still 1-3 (not 5/10/15), NO sound/music panel, voiceover
+> is generated but NOT muxed into the render (mock word-timings still drive captions). Owner confirmed:
+> montage of user-supplied REAL clips, NOT AI-generating video from them. **NOT runtime-verified:** the
+> full montage render + the link-import download have not been run end-to-end yet (deferred, see
+> SESSION_LOG 2026-07-20 "Next").
 - [x] `/remotion`: Remotion project. Built the **matrix-ad** composition:
   - Vertical 1080×1920, background clip layer, **karaoke captions** (white words + 2px black stroke, active word
     highlight color e.g. `#FFE000`), driven by `caption_style` = `cap:<font>:<anim>:<hexcolor>` (anims: smooth/pop/none).
