@@ -30,6 +30,8 @@ import { LocalRemotionRenderer } from '@adgen/core/providers/renderer.local';
 import { MockVoiceProvider } from '@adgen/core/providers/mocks';
 import { createServiceClient } from '@adgen/db';
 import type { AssetKind, JobType, Json } from '@adgen/db';
+import { detectShots, downloadClip } from './scene-detect.ts';
+import { buildMontage, type PoolShot } from './montage.ts';
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -109,6 +111,23 @@ async function runMatrixPipeline(params: Record<string, unknown>): Promise<Pipel
     ? (params.transitionIn as MatrixTransition)
     : 'zoom-punch';
 
+  // M2c-C: scene-detect every uploaded source into a pool of shots, each tagged with
+  // its ORIGINAL storage url (the render fetches clips by url; the temp download is only
+  // needed to detect shot ranges, then cleaned up). buildMontage picks/orders per variant.
+  const pool: PoolShot[] = [];
+  const tempFiles: string[] = [];
+  for (const url of sourceVideoUrls) {
+    try {
+      const localPath = await downloadClip(url);
+      tempFiles.push(localPath);
+      for (const shot of detectShots(localPath, { threshold: 0.3, minShotSec: 0.8 })) {
+        pool.push({ ...shot, url }); // tag with the storage url, NOT the temp path
+      }
+    } catch (err) {
+      console.warn(`[matrix] scene-detect skipped for ${url}:`, err);
+    }
+  }
+
   const assets: PipelineAsset[] = [];
   for (let i = 0; i < variants.length; i++) {
     const variant = variants[i];
@@ -126,10 +145,14 @@ async function runMatrixPipeline(params: Record<string, unknown>): Promise<Pipel
     const lastEnd = captionWords.length > 0 ? captionWords[captionWords.length - 1].endSec : 0;
     const durationInFrames = Math.round((lastEnd + MATRIX_OUTRO_SECONDS) * MATRIX_FPS);
 
+    const targetSec = lastEnd + MATRIX_OUTRO_SECONDS;
+    const shots =
+      pool.length > 0
+        ? buildMontage(pool, { targetSec })
+        : [{ url: firstClipUrl ?? DEFAULT_BACKGROUND_VIDEO_URL, startSec: 0, playSec: targetSec }];
+
     const matrixProps: MatrixAdProps = {
-      // M2c-B bridge: single-shot montage from the first clip (keeps the type
-      // green). Real scene-detected multi-shot montage lands in M2c-C.
-      shots: [{ url: firstClipUrl ?? DEFAULT_BACKGROUND_VIDEO_URL, startSec: 0, playSec: lastEnd + MATRIX_OUTRO_SECONDS }],
+      shots,
       captionWords,
       captionStyle:
         typeof params.captionStyle === 'string' && params.captionStyle
@@ -146,6 +169,13 @@ async function runMatrixPipeline(params: Record<string, unknown>): Promise<Pipel
     const { videoUrl, storageKey } = await matrixRenderer.render({ composition: 'matrix-ad', props: matrixProps });
     assets.push({ kind: 'video', url: videoUrl, storageKey });
   }
+
+  await Promise.all(
+    tempFiles.map((p) =>
+      import('node:fs/promises').then((fs) => fs.unlink(p)).catch(() => {}),
+    ),
+  );
+
   return assets;
 }
 
