@@ -123,9 +123,17 @@ export const MATRIX_FPS = 30;
  * (`Props extends Record<string, unknown>`) — a plain interface doesn't
  * structurally satisfy that constraint without one.
  */
+/** One shot placed in the montage: play `playSec` of `url` starting at `startSec` (M2c). */
+export interface MatrixShot {
+  url: string;
+  startSec: number;
+  playSec: number;
+}
+
 export interface MatrixAdProps {
   [key: string]: unknown;
-  backgroundVideoUrl: string;
+  /** Ordered montage of scene-detected shots (M2c). Replaces the single backgroundVideoUrl. */
+  shots: MatrixShot[];
   musicUrl?: string;
   /** SFX-on-CTA hook (INFRASTRUCTURE.md §5 F4) — plays once when the outro card appears. Unset in mock mode. */
   sfxUrl?: string;

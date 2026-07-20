@@ -127,7 +127,9 @@ async function runMatrixPipeline(params: Record<string, unknown>): Promise<Pipel
     const durationInFrames = Math.round((lastEnd + MATRIX_OUTRO_SECONDS) * MATRIX_FPS);
 
     const matrixProps: MatrixAdProps = {
-      backgroundVideoUrl: firstClipUrl ?? DEFAULT_BACKGROUND_VIDEO_URL,
+      // M2c-B bridge: single-shot montage from the first clip (keeps the type
+      // green). Real scene-detected multi-shot montage lands in M2c-C.
+      shots: [{ url: firstClipUrl ?? DEFAULT_BACKGROUND_VIDEO_URL, startSec: 0, playSec: lastEnd + MATRIX_OUTRO_SECONDS }],
       captionWords,
       captionStyle:
         typeof params.captionStyle === 'string' && params.captionStyle

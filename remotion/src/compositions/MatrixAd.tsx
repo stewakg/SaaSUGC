@@ -4,6 +4,7 @@ import {
   Audio,
   Easing,
   OffthreadVideo,
+  Series,
   interpolate,
   spring,
   useCurrentFrame,
@@ -186,7 +187,7 @@ function OutroCard({
  * background clip, karaoke captions, intro transition, outro CTA card.
  */
 export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
-  const { backgroundVideoUrl, musicUrl, sfxUrl, captionWords, captionStyle, captionScale, transitionIn, outroText } =
+  const { shots, musicUrl, sfxUrl, captionWords, captionStyle, captionScale, transitionIn, outroText } =
     props;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -207,11 +208,18 @@ export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
       <AbsoluteFill style={getIntroContainerStyle(transitionIn, frame, introFrames)}>
-        <OffthreadVideo
-          src={backgroundVideoUrl}
-          muted
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-        />
+        <Series>
+          {shots.map((shot, i) => (
+            <Series.Sequence key={i} durationInFrames={Math.max(1, Math.round(shot.playSec * fps))}>
+              <OffthreadVideo
+                src={shot.url}
+                trimBefore={Math.round(shot.startSec * fps)}
+                muted
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </Series.Sequence>
+          ))}
+        </Series>
         {musicUrl && /^https?:\/\//.test(musicUrl) ? <Audio src={musicUrl} volume={0.25} /> : null}
 
         {activeLine && !showOutro ? (

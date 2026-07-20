@@ -12,7 +12,7 @@ import {
  * (built by LocalRemotionRenderer from the worker's job data).
  */
 const defaultProps: MatrixAdProps = {
-  backgroundVideoUrl: DEFAULT_BACKGROUND_VIDEO_URL,
+  shots: [{ url: DEFAULT_BACKGROUND_VIDEO_URL, startSec: 0, playSec: 7 }],
   captionWords: [
     { text: 'Stalno', startSec: 0, endSec: 0.4 },
     { text: 'ti', startSec: 0.4, endSec: 0.55 },
