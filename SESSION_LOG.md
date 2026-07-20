@@ -12,6 +12,8 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: Matrix link-import L2 wizard (apps/web/src/app/app/matrix/page.tsx: linkUrl/importingLink/linkError state + handleImportLink + Step 0 "nalepi link" UI) — CLEAN @ 36ec956 (2026-07-20). Cline diff audited by Claude Code, faithful to spec: POST /api/import-clip { url } → on ok append { url, name:hostname } to the SAME `clips` list the file upload fills (→ sourceVideoUrls → montage pool, zero further wiring); scrape-step input/button styling reused; placed after upload feedback, before the clips list. Only matrix/page.tsx. web build re-run independently — pass. CODE-COMPLETE, NOT runtime-verified (needs yt-dlp binary).
+REVIEWED: Matrix link-import L1 route (NEW apps/web/src/app/api/import-clip/route.ts + apps/web/package.json + pnpm-workspace.yaml + pnpm-lock.yaml) — CLEAN @ c3f3468 (2026-07-20). Cline diff audited by Claude Code: POST route mirrors /api/upload (auth→401, rateLimit import:<uid> 10/60→429, storage.upload→{url}) + the scrape route's SSRF guard duplicated verbatim inline (greppable marker); yt-dlp (youtube-dl-exec) downloads a single progressive mp4 (b[ext=mp4], ffmpeg-free) into mkdtemp → storage.upload → {url}, temp dir always rm'd, errors→502. Exactly 3 source files + forced lockfile churn. web build re-run independently — pass, route registered dynamic. **RUNTIME BLOCKER: pnpm 10 skipped youtube-dl-exec's postinstall → yt-dlp binary NOT fetched; route 502s until fetched manually (owner action, same as ffmpeg-static was). Cline's claim that ffmpeg-static's binary is ALSO missing was WRONG — independently verified ffmpeg.exe IS present in the .pnpm store (Cline checked the hoisted symlink).** CODE-COMPLETE, NOT runtime-verified.
 REVIEWED: Matrix M2c-D storage-url absolutize (apps/worker/src/index.ts: resolveStorageUrl helper + sourceVideoUrls .map) — CLEAN @ cb646fc (2026-07-20). Cline diff audited by Claude Code, matches spec to the letter: WEB_PUBLIC_URL (default http://localhost:3000) prefixes only relative (leading-'/') urls; absolute R2/S3 + DEFAULT_BACKGROUND_VIDEO_URL untouched; applied ONCE at sourceVideoUrls so download loop + pool tags + montage shots + firstClipUrl fallback all get absolute urls. Only apps/worker/src/index.ts touched. worker typecheck + web build re-run independently — pass. Closes the M2c-C blocker. CODE-COMPLETE, NOT yet render-verified.
 REVIEWED: Matrix M2c-C montage wiring (apps/worker/src/index.ts runMatrixPipeline: pool build + per-variant buildMontage + temp cleanup) — CLEAN @ 0cd72ad (2026-07-20). Cline diff audited by Claude Code, byte-faithful to spec: scene-detect pool built ONCE per job before the variant loop (not per-variant — detection is expensive), shots tagged with the ORIGINAL source url, buildMontage(pool,{targetSec}) per variant, single-shot fallback when pool empty, temp files unlinked best-effort after the loop. Only apps/worker/src/index.ts touched; scene-detect/montage/composition/types untouched. worker typecheck + web build re-run independently — pass. **KNOWN BLOCKER at commit time (fixed in M2c-D/cb646fc): relative MockStorage urls.** CODE-COMPLETE, NOT render-verified.
 REVIEWED: Matrix M2a multi-clip upload (apps/web/src/app/app/matrix/page.tsx 8 edits + apps/worker/src/index.ts 2 edits) — CLEAN @ 0353709 (2026-07-19). Cline-worker delegation, audited by Claude Code: new "Upload klipova" first step reuses the mix uploadFile/UploadedFile pattern (5 steps now: clips→import→style→transitions→generate, wizard index math shifted +1 correctly — verified canNext/nextLabel/onNext), sends sourceVideoUrls in job params; worker uses firstClipUrl ?? DEFAULT_BACKGROUND_VIDEO_URL (K1/K2 match spec). Exactly 2 files, composition/types untouched. typecheck + web build re-run independently — pass. NOTE: still single-clip render (first clip only) — real scene-detected montage is M2b/M2c.
@@ -55,7 +57,25 @@ GLM did the edits):**
 - Both diffs read in full (not trusting Cline self-report), matched spec byte-for-byte,
   exactly 1 file each. REVIEWED ledger lines added for both.
 
-**Next (THE remaining step for M2c — do NOT mark M2c VERIFIED until this happens):**
+**Done (link-import — owner picked this as the next Matrix feature after M2c):**
+- **L1 (`c3f3468`)** — NEW `POST /api/import-clip`: yt-dlp (`youtube-dl-exec`) downloads a
+  user link (TikTok/YT/IG/any URL) → `storage.upload` → `{ url }` (same shape as
+  /api/upload). Auth + rate-limit + scrape's SSRF guard; single progressive mp4 (ffmpeg-free
+  in web). Added `youtube-dl-exec` dep + onlyBuiltDependencies entry.
+- **L2 (`36ec956`)** — wizard Step 0 gets a "…ili nalepi link" input+button that calls L1 and
+  appends the result to `clips` → flows into the montage pool with zero worker changes.
+- Both CODE-COMPLETE + gated (web build re-run independently). **NOT runtime-verified.**
+- **yt-dlp BINARY NOT FETCHED (blocks runtime):** pnpm 10 skipped `youtube-dl-exec`'s
+  postinstall, so the route 502s until the binary is fetched — OWNER ACTION (Claude was
+  correctly blocked by the safety classifier from downloading/executing the binary itself).
+  Options: `pnpm approve-builds` in a real terminal (approves youtube-dl-exec + also
+  ffmpeg-static's scripts, pnpm 10's canonical path), OR run its scripts directly:
+  `node scripts/preinstall.mjs && node scripts/postinstall.js` inside
+  `node_modules/.pnpm/youtube-dl-exec@3.1.9_debug@4.4.3/node_modules/youtube-dl-exec`
+  (the ffmpeg-static precedent @ 5bcf42e was `node install.js`). ffmpeg-static's ffmpeg.exe
+  IS already present in the .pnpm store (verified), so scene-detect/render are unaffected.
+
+**Next (TWO things still un-runtime-verified — do NOT mark VERIFIED until they happen):**
 - **Render-verify the full montage path end-to-end** — timing/order bugs + the
   MockStorage-url fix only show up in a real render, not tsc (the M2c discipline). Need:
   web dev server up (serves `/api/storage`), 2–3 real source clips uploaded, a Matrix
