@@ -12,6 +12,8 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: Matrix M2c-D storage-url absolutize (apps/worker/src/index.ts: resolveStorageUrl helper + sourceVideoUrls .map) — CLEAN @ cb646fc (2026-07-20). Cline diff audited by Claude Code, matches spec to the letter: WEB_PUBLIC_URL (default http://localhost:3000) prefixes only relative (leading-'/') urls; absolute R2/S3 + DEFAULT_BACKGROUND_VIDEO_URL untouched; applied ONCE at sourceVideoUrls so download loop + pool tags + montage shots + firstClipUrl fallback all get absolute urls. Only apps/worker/src/index.ts touched. worker typecheck + web build re-run independently — pass. Closes the M2c-C blocker. CODE-COMPLETE, NOT yet render-verified.
+REVIEWED: Matrix M2c-C montage wiring (apps/worker/src/index.ts runMatrixPipeline: pool build + per-variant buildMontage + temp cleanup) — CLEAN @ 0cd72ad (2026-07-20). Cline diff audited by Claude Code, byte-faithful to spec: scene-detect pool built ONCE per job before the variant loop (not per-variant — detection is expensive), shots tagged with the ORIGINAL source url, buildMontage(pool,{targetSec}) per variant, single-shot fallback when pool empty, temp files unlinked best-effort after the loop. Only apps/worker/src/index.ts touched; scene-detect/montage/composition/types untouched. worker typecheck + web build re-run independently — pass. **KNOWN BLOCKER at commit time (fixed in M2c-D/cb646fc): relative MockStorage urls.** CODE-COMPLETE, NOT render-verified.
 REVIEWED: Matrix M2a multi-clip upload (apps/web/src/app/app/matrix/page.tsx 8 edits + apps/worker/src/index.ts 2 edits) — CLEAN @ 0353709 (2026-07-19). Cline-worker delegation, audited by Claude Code: new "Upload klipova" first step reuses the mix uploadFile/UploadedFile pattern (5 steps now: clips→import→style→transitions→generate, wizard index math shifted +1 correctly — verified canNext/nextLabel/onNext), sends sourceVideoUrls in job params; worker uses firstClipUrl ?? DEFAULT_BACKGROUND_VIDEO_URL (K1/K2 match spec). Exactly 2 files, composition/types untouched. typecheck + web build re-run independently — pass. NOTE: still single-clip render (first clip only) — real scene-detected montage is M2b/M2c.
 REVIEWED: Matrix M1 product-import (apps/web/src/app/app/matrix/page.tsx full rewrite + apps/worker/src/index.ts runMatrixPipeline enrich) — CLEAN @ eb7c2db (2026-07-19). FIRST change implemented by the Cline CLI worker (z.ai GLM Coding Plan), audited by Claude Code: diff read in full (not trusting Cline's self-report), worker edit matches spec to the letter, page.tsx rewrite faithful to the provided TSX (scrape step wired to POST /api/scrape, price/description/sourceImages added to job params, canNext logic correct), exactly 2 files touched, nothing out of scope. `pnpm -r typecheck` + web build re-run by Claude Code independently — both pass.
 REVIEWED: apps/worker/src/index.ts (Matrix tts() credit-leak fix, matrixVoiceTracker) — CLEAN @ 080f855 (2026-07-19). Cline diff matched spec exactly (import MockVoiceProvider, dedicated mock instance with warning comment, swap the one call site, doc-comment update); Cline additionally typed the instance as `VoiceProvider` — fine, documents intent. Only `providers.voice` reference left is in a comment. typecheck + web build pass.
@@ -21,6 +23,50 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-07-20 — Matrix M2c-C + M2c-D: montage wired into the worker (Cline-delegated)
+**Account:** _(unrecorded)_
+**Commits this session:** 0cd72ad (M2c-C montage wiring), cb646fc (M2c-D storage-url
+absolutize), + this log update.
+
+**Done (orchestrated: Claude Code wrote the prompts + audited/gated; Cline CLI on z.ai
+GLM did the edits):**
+- **M2c-C (`0cd72ad`)** — replaced the M2c-B single-shot bridge in `runMatrixPipeline`
+  with the REAL montage: per job, `downloadClip`+`detectShots` (0.3/0.8s) every
+  `sourceVideoUrls` into a pool tagged with the source url; per variant
+  `buildMontage(pool,{targetSec})` drives `matrixProps.shots`; empty-pool fallback keeps
+  the single placeholder; temp files unlinked after the loop. Only `apps/worker/src/
+  index.ts`. worker typecheck + web build re-run by Claude Code independently — pass.
+  (VERIFIED gates; CODE-COMPLETE pipeline)
+- **Caught a real latent blocker while auditing M2c-C** (this is the orchestration win):
+  `MockStorage.getUrl` returns a **relative** `/api/storage/...` url. `downloadClip`'s
+  `fetch()` rejects a relative url (Node), and the renderer's `<OffthreadVideo>` can't
+  fetch one either → every uploaded-clip job would have silently degraded to the
+  single-shot fallback. Pre-existing since M2a; M2c-C was just the first to exercise the
+  download side. Confirmed no url-absolutization existed anywhere (grep) and that web
+  serves `/api/storage` at `:3000`.
+- **M2c-D (`cb646fc`)** — fix: `resolveStorageUrl` helper prefixes relative urls with
+  `WEB_PUBLIC_URL` (default `http://localhost:3000`); absolute R2/S3 +
+  DEFAULT_BACKGROUND_VIDEO_URL pass through. Applied once at `sourceVideoUrls` so the
+  whole downstream chain gets absolute urls. Only `apps/worker/src/index.ts`. gates
+  re-run independently — pass. (VERIFIED gates; CODE-COMPLETE)
+- Both diffs read in full (not trusting Cline self-report), matched spec byte-for-byte,
+  exactly 1 file each. REVIEWED ledger lines added for both.
+
+**Next (THE remaining step for M2c — do NOT mark M2c VERIFIED until this happens):**
+- **Render-verify the full montage path end-to-end** — timing/order bugs + the
+  MockStorage-url fix only show up in a real render, not tsc (the M2c discipline). Need:
+  web dev server up (serves `/api/storage`), 2–3 real source clips uploaded, a Matrix
+  job run, then WATCH the output MP4 / extract frames to confirm it actually cuts between
+  genuinely different shots from the uploaded clips (not the single-shot fallback, not
+  DEFAULT_BACKGROUND_VIDEO_URL). Owner's sample compilations live in `Video samples/`
+  (gitignored). Only after this does M2c-C/M2c-D graduate CODE-COMPLETE → VERIFIED.
+- After M2c is VERIFIED: the rest of the real-Matrix rework (still open) — link import
+  (TikTok/YT/IG) in the wizard, the sound/music panel, count 5/10/15, real audio muxing
+  (voiceover currently tracked-but-discarded). See the CRITICAL/spec notes in the
+  2026-07-19 block below — those remain the headline backlog.
 
 ---
 
