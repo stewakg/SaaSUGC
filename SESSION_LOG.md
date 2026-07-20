@@ -58,6 +58,10 @@ independently, committed):**
 - Lint clean (`next lint` — no warnings/errors). `pnpm -r typecheck` green throughout.
 - Docs: INFRASTRUCTURE.md F4 note updated (count now done); this block + 3 REVIEWED lines.
 
+**→ OWNER CHECKLIST: `ZA-TESTIRANJE.md`** (repo root) — step-by-step za vlasnika: yt-dlp
+binary fetch, pokretanje stack-a, gejtovi, i funkcionalno testiranje link-import + M2c montaže
+kroz UI. Napisano ovog sesija kao handover za runtime-verifikaciju.
+
 **Next / still owner-gated (unchanged from below):** yt-dlp binary fetch → runtime-verify
 link-import + M2c montage render (both CODE-COMPLETE, NOT verified); then sound/music panel
 (blocked on an audio asset source), audio muxing (credits), F5 provider live-tests, F6
