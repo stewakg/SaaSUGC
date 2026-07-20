@@ -11,6 +11,7 @@ onlyBuiltDependencies:
   - msgpackr-extract
   - sharp
   - unrs-resolver
+  - youtube-dl-exec
 
 # apps/web pins React 19 RC preview types (@types/react -> types-react@rc).
 # Without a scoped override, pnpm's shared peer-dependency slot picks that
