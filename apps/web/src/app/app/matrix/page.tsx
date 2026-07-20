@@ -71,7 +71,7 @@ export default function MatrixPage() {
 
   // Step 2 — voice / captions / variants
   const [tone, setTone] = useState('energetic');
-  const [count, setCount] = useState(1);
+  const [count, setCount] = useState(5);
   const [voiceId, setVoiceId] = useState(VOICES[1].id);
   const [captionFont, setCaptionFont] = useState<CaptionFont>('Impact');
   const [captionAnim, setCaptionAnim] = useState<CaptionAnim>('pop');
@@ -188,7 +188,11 @@ export default function MatrixPage() {
       if (!res.ok || !data.id) throw new Error(data.error ?? 'Greška pri pokretanju.');
 
       // Real Remotion renders take longer than mock jobs — allow up to 3 minutes.
-      const job = await pollJob(data.id, { intervalMs: 2000, timeoutMs: 180_000 });
+      // Scale by count so a 15-variant job (sequential renders) isn't cut off.
+      const job = await pollJob(data.id, {
+        intervalMs: 2000,
+        timeoutMs: Math.max(180_000, count * 45_000), // ~45s/variant, floor 3min
+      });
       if (job.status === 'error') throw new Error(job.error ?? 'Render nije uspeo.');
 
       setResultAssets(job.result?.assets ?? []);
@@ -382,12 +386,12 @@ export default function MatrixPage() {
           <label className="block">
             <span className="mb-1 block text-sm text-zinc-300">Broj varijanti videa</span>
             <div className="flex gap-2">
-              {[1, 2, 3].map((n) => (
+              {[5, 10, 15].map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setCount(n)}
-                  className={`h-9 w-9 rounded-lg border text-sm transition ${
+                  className={`h-9 min-w-9 px-2 rounded-lg border text-sm transition ${
                     count === n
                       ? 'border-brand-400/50 bg-brand-400/10 text-brand-200'
                       : 'border-white/10 text-zinc-400 hover:bg-white/5'

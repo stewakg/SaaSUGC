@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_type' }, { status: 400 });
   }
   const type = body.type;
-  const MAX_JOB_COUNT = 10;
+  const MAX_JOB_COUNT = 15; // Matrix offers up to 15 variants (competitor parity)
   const count = Number.isInteger(body.count) && (body.count as number) > 0 ? (body.count as number) : 1;
   if (count > MAX_JOB_COUNT) {
     return NextResponse.json({ error: 'invalid_count', max: MAX_JOB_COUNT }, { status: 400 });
