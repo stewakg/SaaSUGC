@@ -222,8 +222,17 @@ export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
         </Series>
         {musicUrl && /^https?:\/\//.test(musicUrl) ? <Audio src={musicUrl} volume={0.25} /> : null}
 
+        {/*
+          Captions sit just above the vertical centre, NOT at the bottom.
+          Two reasons: (1) the bottom ~15% of a 9:16 frame is covered by
+          TikTok/Reels chrome (username, description, music ticker, side
+          buttons), so bottom-anchored text collides with it in-feed;
+          (2) centre keeps the viewer's eye on the product. `paddingBottom`
+          with `justifyContent: center` shifts the line up by half its value
+          — 160 here puts the caption ~80px above dead centre.
+        */}
         {activeLine && !showOutro ? (
-          <AbsoluteFill style={{ justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 220 }}>
+          <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', paddingBottom: 160 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0 14px', maxWidth: '86%' }}>
               {activeLine.map((word, i) => (
                 <CaptionWordEl
