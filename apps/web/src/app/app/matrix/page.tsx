@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { computeJobCost } from '@adgen/core/pricing';
 import type { CaptionAnim, CaptionFont, MatrixTransition, UiLanguage } from '@adgen/core/types';
@@ -20,13 +20,28 @@ interface ScrapeResult {
   description?: string;
 }
 
-// Mirrors packages/core/src/providers/mocks.ts MOCK_VOICES — hardcoded here
-// since it's a static list and doesn't warrant a round-trip.
-const VOICES = [
-  { id: 'voice_srp_m1', label: 'Marko (muški)' },
-  { id: 'voice_srp_f1', label: 'Milica (ženski)' },
-  { id: 'voice_srp_m2', label: 'Nikola (energičan)' },
-  { id: 'voice_srp_f2', label: 'Ana (topao ton)' },
+/**
+ * Placeholder shown only until GET /api/voices answers. It must NOT be treated
+ * as a usable catalogue: these ids belong to the MOCK provider, and the worker
+ * now calls the real one, which rejects them with 404 voice_not_found. The real
+ * list always comes from the active provider — see the fetch in the component.
+ */
+const VOICES_LOADING: VoiceOption[] = [{ id: '', label: 'Učitavanje glasova…' }];
+
+interface VoiceOption {
+  id: string;
+  label: string;
+}
+
+/**
+ * Vertical caption presets, as fractions of frame height. All sit inside the
+ * platform safe zone — the bottom ~15% of a 9:16 frame is covered by
+ * TikTok/Reels chrome, so nothing here goes below 0.6.
+ */
+const CAPTION_PRESETS = [
+  { label: 'Gornja trećina', y: 0.32 },
+  { label: 'Iznad sredine', y: 0.46 },
+  { label: 'Centar', y: 0.5 },
 ];
 
 const TONES = [
@@ -72,10 +87,40 @@ export default function MatrixPage() {
   // Step 2 — voice / captions / variants
   const [tone, setTone] = useState('energetic');
   const [count, setCount] = useState(5);
-  const [voiceId, setVoiceId] = useState(VOICES[1].id);
+  const [voices, setVoices] = useState<VoiceOption[]>(VOICES_LOADING);
+  const [voiceId, setVoiceId] = useState('');
+
+  // The voice catalogue must come from whichever provider is actually configured
+  // (mock in dev with no key, ElevenLabs with one) — a hardcoded list silently
+  // goes stale and the job then dies at TTS time with 404 voice_not_found.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/voices');
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as { voices?: { id: string; name: string; gender?: string }[] };
+        const list = (data.voices ?? []).map((v) => ({ id: v.id, label: v.name }));
+        if (cancelled || list.length === 0) return;
+        setVoices(list);
+        setVoiceId((current) => (current && list.some((v) => v.id === current) ? current : list[0].id));
+      } catch {
+        // Leave the placeholder in place; the worker resolves an empty/unknown id
+        // to the provider's first voice, so the job still runs.
+        if (!cancelled) setVoices([{ id: '', label: 'Podrazumevani glas' }]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   const [captionFont, setCaptionFont] = useState<CaptionFont>('Impact');
   const [captionAnim, setCaptionAnim] = useState<CaptionAnim>('pop');
   const [captionColor, setCaptionColor] = useState('#FFE000');
+  // Fractions of the frame. Defaults mirror MatrixAd's safe-zone placement.
+  const [captionX, setCaptionX] = useState(0.5);
+  const [captionY, setCaptionY] = useState(0.46);
+  const [captionScale, setCaptionScale] = useState(1);
 
   // Step 3 — transitions / CTA
   const [transitionIn, setTransitionIn] = useState<MatrixTransition>('zoom-punch');
@@ -177,6 +222,9 @@ export default function MatrixPage() {
             tone,
             voiceId,
             captionStyle,
+            captionX,
+            captionY,
+            captionScale,
             transitionIn,
             outroText,
             sourceImages: images,
@@ -403,13 +451,13 @@ export default function MatrixPage() {
             </div>
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Glas (mock TTS)</span>
+            <span className="mb-1 block text-sm text-zinc-300">Glas</span>
             <select
               value={voiceId}
               onChange={(e) => setVoiceId(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
             >
-              {VOICES.map((v) => (
+              {voices.map((v) => (
                 <option key={v.id} value={v.id}>
                   {v.label}
                 </option>
@@ -451,6 +499,85 @@ export default function MatrixPage() {
             />
             <span className="text-xs text-zinc-500">{captionColor}</span>
           </label>
+
+          <div className="rounded-xl border border-white/10 bg-ink-900/50 p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <span className="text-sm text-zinc-300">Pozicija titla</span>
+              {CAPTION_PRESETS.map((p) => {
+                const active = Math.abs(captionY - p.y) < 0.01 && Math.abs(captionX - 0.5) < 0.01;
+                return (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => {
+                      setCaptionX(0.5);
+                      setCaptionY(p.y);
+                    }}
+                    className={`rounded-lg border px-2 py-1 text-xs transition ${
+                      active
+                        ? 'border-brand-400/50 bg-brand-400/10 text-brand-200'
+                        : 'border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-200'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <label className="mb-2 block">
+              <span className="mb-1 flex justify-between text-xs text-zinc-400">
+                <span>Gore / dole</span>
+                <span>{Math.round(captionY * 100)}%</span>
+              </span>
+              <input
+                type="range"
+                min={8}
+                max={92}
+                value={Math.round(captionY * 100)}
+                onChange={(e) => setCaptionY(Number(e.target.value) / 100)}
+                className="w-full accent-brand-400"
+              />
+            </label>
+
+            <label className="mb-2 block">
+              <span className="mb-1 flex justify-between text-xs text-zinc-400">
+                <span>Levo / desno</span>
+                <span>{Math.round(captionX * 100)}%</span>
+              </span>
+              <input
+                type="range"
+                min={15}
+                max={85}
+                value={Math.round(captionX * 100)}
+                onChange={(e) => setCaptionX(Number(e.target.value) / 100)}
+                className="w-full accent-brand-400"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-1 flex justify-between text-xs text-zinc-400">
+                <span>Veličina</span>
+                <span>{Math.round(captionScale * 100)}%</span>
+              </span>
+              <input
+                type="range"
+                min={60}
+                max={150}
+                value={Math.round(captionScale * 100)}
+                onChange={(e) => setCaptionScale(Number(e.target.value) / 100)}
+                className="w-full accent-brand-400"
+              />
+            </label>
+
+            {captionY > 0.72 ? (
+              <p className="mt-2 text-xs text-amber-400/90">
+                ⚠ Titl je nisko — TikTok i Reels tu crtaju svoj interfejs (ime naloga, opis, muzika),
+                pa se može preklopiti. Preporuka: ostani iznad 70%.
+              </p>
+            ) : null}
+          </div>
+
           <p className="text-xs text-zinc-500">Muzika i SFX na CTA: uskoro (kasnija faza, pravi audio zapisi).</p>
         </div>
       ),

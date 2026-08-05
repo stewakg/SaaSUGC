@@ -59,6 +59,38 @@ function resolveStorageUrl(url: string): string {
  * render simply stays silent, exactly as before.
  */
 
+/**
+ * Resolve a requested voice id against what the ACTIVE provider actually offers.
+ *
+ * The Matrix wizard shipped a hardcoded copy of the MOCK provider's ids
+ * (`voice_srp_f1`, …). That was harmless while Matrix forced MockVoiceProvider,
+ * but the moment it moved to the real provider those ids became invalid —
+ * ElevenLabs answers `404 voice_not_found` and the ENTIRE job dies. A stale or
+ * unknown id must degrade to a working voice, never take the job down with it.
+ *
+ * If listVoices() itself fails we pass the id through untouched rather than
+ * guessing: a transient catalogue outage shouldn't silently switch the voice on
+ * a user who picked a valid one.
+ */
+async function resolveVoiceId(requested?: string): Promise<string> {
+  try {
+    const voices = await providers.voice.listVoices();
+    if (voices.length === 0) return requested ?? '';
+    if (requested && voices.some((v) => v.id === requested)) return requested;
+    consoleLogger.warn('voice id not offered by provider; falling back', {
+      requested: requested ?? '(unset)',
+      provider: providers.voice.name,
+      fallback: voices[0].id,
+    });
+    return voices[0].id;
+  } catch (err) {
+    consoleLogger.warn('listVoices failed; using the requested id as-is', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return requested ?? '';
+  }
+}
+
 interface PipelineAsset {
   kind: AssetKind;
   url: string;
@@ -140,12 +172,17 @@ export async function runMatrixPipeline(params: Record<string, unknown>): Promis
   }
 
   const assets: PipelineAsset[] = [];
+  // Resolved ONCE per job (listVoices is a network call), not per variant.
+  const voiceId = await resolveVoiceId(
+    typeof params.voiceId === 'string' && params.voiceId ? params.voiceId : undefined,
+  );
+
   for (let i = 0; i < variants.length; i++) {
     const variant = variants[i];
 
     const voice = await providers.voice.tts({
       script: variant.script,
-      voiceId: typeof params.voiceId === 'string' && params.voiceId ? params.voiceId : 'voice_srp_f1',
+      voiceId,
       model: DEFAULT_VOICE_MODEL,
       stability: 0.5,
       speed: 1,
@@ -181,6 +218,10 @@ export async function runMatrixPipeline(params: Record<string, unknown>): Promis
           ? params.captionStyle
           : DEFAULT_MATRIX_CAPTION_STYLE,
       captionScale: typeof params.captionScale === 'number' ? params.captionScale : 1,
+      // Left undefined when the wizard didn't send them — the composition then
+      // applies its own safe-zone defaults (0.5 / 0.46) and clamps either way.
+      captionX: typeof params.captionX === 'number' ? params.captionX : undefined,
+      captionY: typeof params.captionY === 'number' ? params.captionY : undefined,
       transitionIn,
       outroText:
         typeof params.outroText === 'string' && params.outroText ? params.outroText : DEFAULT_MATRIX_OUTRO_TEXT,
