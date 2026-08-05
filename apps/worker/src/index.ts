@@ -24,11 +24,10 @@ import {
   DEFAULT_MATRIX_OUTRO_TEXT,
   DEFAULT_VOICE_MODEL,
 } from '@adgen/core';
-import type { MatrixAdProps, MatrixTransition, VoiceProvider } from '@adgen/core';
+import type { MatrixAdProps, MatrixTransition } from '@adgen/core';
 import { JOB_COST } from '@adgen/core/pricing';
 import { createRedisConnection, JOB_QUEUE_NAME, type JobQueueData } from '@adgen/core/queue';
 import { LocalRemotionRenderer } from '@adgen/core/providers/renderer.local';
-import { MockVoiceProvider } from '@adgen/core/providers/mocks';
 import { createServiceClient } from '@adgen/db';
 import type { AssetKind, JobType, Json } from '@adgen/db';
 import { detectShots, downloadClip } from './scene-detect.ts';
@@ -52,15 +51,13 @@ function resolveStorageUrl(url: string): string {
 }
 
 /**
- * Matrix's tts() call is a placeholder that mirrors the pipeline shape real
- * audio muxing will need later (see runMatrixPipeline below) — its result
- * isn't muxed into the render yet. It MUST stay on MockVoiceProvider even
- * when a real ELEVENLABS_API_KEY is configured for the rest of the app:
- * otherwise every Matrix job silently spends real ElevenLabs credits
- * generating audio that gets discarded. Swap this for `providers.voice` only
- * once MatrixAd.tsx actually muxes the returned audioUrl into the video.
+ * Matrix now uses the REAL voice provider (`providers.voice`): MatrixAd.tsx muxes
+ * the returned audio and drives captions off the provider's word timings, so the
+ * generated speech is no longer discarded. That also means **every variant spends
+ * real ElevenLabs credits** — a count=15 job makes 15 TTS calls. With no
+ * ELEVENLABS_API_KEY configured the factory hands back MockVoiceProvider and the
+ * render simply stays silent, exactly as before.
  */
-const matrixVoiceTracker: VoiceProvider = new MockVoiceProvider();
 
 interface PipelineAsset {
   kind: AssetKind;
@@ -79,12 +76,12 @@ function buildImageAdsPrompt(params: Record<string, unknown>, index: number): st
 }
 
 /**
- * `matrix` job (F4, the differentiator): mock script (Claude) → mock TTS
- * (ElevenLabs, via `matrixVoiceTracker` — ALWAYS mock here, see its comment
- * above) per variant → real local Remotion render, one mp4 per variant.
- * Voice audio is tracked (the tts() call happens, matching the pipeline
- * shape real audio muxing will fill in later) but NOT muxed into the video
- * yet — captions still play out on mocked word timings. See MatrixAd.tsx.
+ * `matrix` job (F4, the differentiator): real script (Claude) → real TTS
+ * (ElevenLabs via `providers.voice`, see the comment above the provider
+ * block) per variant → real local Remotion render, one mp4 per variant.
+ * The returned voice audio is muxed into the video, and captions play out
+ * on the provider's real word timings when available (falling back to the
+ * even-spread estimate otherwise). See MatrixAd.tsx.
  */
 export async function runMatrixPipeline(params: Record<string, unknown>): Promise<PipelineAsset[]> {
   const count = typeof params.count === 'number' && params.count > 0 ? Math.floor(params.count) : 1;
@@ -146,7 +143,7 @@ export async function runMatrixPipeline(params: Record<string, unknown>): Promis
   for (let i = 0; i < variants.length; i++) {
     const variant = variants[i];
 
-    await matrixVoiceTracker.tts({
+    const voice = await providers.voice.tts({
       script: variant.script,
       voiceId: typeof params.voiceId === 'string' && params.voiceId ? params.voiceId : 'voice_srp_f1',
       model: DEFAULT_VOICE_MODEL,
@@ -155,7 +152,13 @@ export async function runMatrixPipeline(params: Record<string, unknown>): Promis
       language,
     });
 
-    const captionWords = mockWordTimestamps(variant.script, variant.estDurationSec);
+    // Real per-word timings when the provider reports them (ElevenLabs does);
+    // otherwise fall back to the even-spread estimate. Never assume `words` is set —
+    // MockVoiceProvider does not report alignment.
+    const captionWords =
+      voice.words && voice.words.length > 0
+        ? voice.words
+        : mockWordTimestamps(variant.script, variant.estDurationSec);
     const lastEnd = captionWords.length > 0 ? captionWords[captionWords.length - 1].endSec : 0;
     const durationInFrames = Math.round((lastEnd + MATRIX_OUTRO_SECONDS) * MATRIX_FPS);
 
@@ -167,6 +170,11 @@ export async function runMatrixPipeline(params: Record<string, unknown>): Promis
 
     const matrixProps: MatrixAdProps = {
       shots,
+      // Must be absolutized exactly like the clip urls: MockStorage hands back a
+      // RELATIVE /api/storage/... path, and MatrixAd only mounts <Audio> for an
+      // absolute http(s) src. Without this the ad renders MUTE with no error —
+      // Remotion just finds no audio asset and writes a silent track.
+      voiceUrl: resolveStorageUrl(voice.audioUrl),
       captionWords,
       captionStyle:
         typeof params.captionStyle === 'string' && params.captionStyle

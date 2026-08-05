@@ -134,6 +134,8 @@ export interface MatrixAdProps {
   [key: string]: unknown;
   /** Ordered montage of scene-detected shots (M2c). Replaces the single backgroundVideoUrl. */
   shots: MatrixShot[];
+  /** Generated voiceover, muxed over the montage. Unset in mock mode (no real audio). */
+  voiceUrl?: string;
   musicUrl?: string;
   /** SFX-on-CTA hook (INFRASTRUCTURE.md §5 F4) — plays once when the outro card appears. Unset in mock mode. */
   sfxUrl?: string;

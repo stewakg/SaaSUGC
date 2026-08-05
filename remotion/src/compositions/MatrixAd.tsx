@@ -187,7 +187,7 @@ function OutroCard({
  * background clip, karaoke captions, intro transition, outro CTA card.
  */
 export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
-  const { shots, musicUrl, sfxUrl, captionWords, captionStyle, captionScale, transitionIn, outroText } =
+  const { shots, voiceUrl, musicUrl, sfxUrl, captionWords, captionStyle, captionScale, transitionIn, outroText } =
     props;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
@@ -207,6 +207,17 @@ export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
+      {/*
+        Audio lives at the composition ROOT, deliberately outside the intro-transition
+        container below — that container animates opacity/filter/transform, and audio
+        must not be entangled with a visual wrapper. Voice sits above the music: music
+        drops to 0.25 so the voiceover stays intelligible. Both are guarded on an
+        absolute http(s) url — the mock voice provider returns a `data:` URI Remotion
+        cannot stream, and a relative storage url is not fetchable from the renderer.
+      */}
+      {voiceUrl && /^https?:\/\//.test(voiceUrl) ? <Audio src={voiceUrl} volume={1} /> : null}
+      {musicUrl && /^https?:\/\//.test(musicUrl) ? <Audio src={musicUrl} volume={0.25} /> : null}
+
       <AbsoluteFill style={getIntroContainerStyle(transitionIn, frame, introFrames)}>
         <Series>
           {shots.map((shot, i) => (
@@ -220,8 +231,6 @@ export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
             </Series.Sequence>
           ))}
         </Series>
-        {musicUrl && /^https?:\/\//.test(musicUrl) ? <Audio src={musicUrl} volume={0.25} /> : null}
-
         {/*
           Captions sit just above the vertical centre, NOT at the bottom.
           Two reasons: (1) the bottom ~15% of a 9:16 frame is covered by

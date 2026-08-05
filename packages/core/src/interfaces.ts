@@ -1,3 +1,5 @@
+import type { CaptionWord } from './types.ts';
+
 /**
  * Provider interfaces (INFRASTRUCTURE.md §4).
  *
@@ -52,6 +54,12 @@ export interface ScriptProvider {
 /** ElevenLabs. Mock returns a silent/placeholder mp3. */
 export interface VoiceProvider {
   readonly name: string;
+  /**
+   * `words` and `durationSec` come back only from a provider that can report real
+   * alignment — ElevenLabs does (via its `/with-timestamps` endpoint), the mock
+   * cannot. Callers MUST fall back to `mockWordTimestamps` when `words` is absent;
+   * never assume it is set.
+   */
   tts(input: {
     script: string;
     voiceId: string;
@@ -59,7 +67,7 @@ export interface VoiceProvider {
     stability: number;
     speed: number;
     language: string;
-  }): Promise<{ audioUrl: string }>;
+  }): Promise<{ audioUrl: string; durationSec?: number; words?: CaptionWord[] }>;
   listVoices(): Promise<{ id: string; name: string; gender: string }[]>;
 }
 
