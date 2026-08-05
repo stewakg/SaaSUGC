@@ -96,6 +96,23 @@ still exits 0. Both diffs audited line-by-line before commit; both were faithful
 `.gitignore` anchor and the worker export/guard Claude Code did directly (1-char and
 harness changes).
 
+**Docs cleanup (second half of the session, owner asked for token-cost reduction):**
+`handover.md` deleted after a section-by-section check (its §8 business/margin analysis
+was the only unique part → rescued into `BUSINESS.md`); `SESSION_LOG.md` 464→199 lines
+with older blocks in `SESSION_LOG_ARCHIVE.md` and the out-of-order 07-23 block moved to
+its right place; `INFRASTRUCTURE.md` §4's copied interface signatures replaced by a
+pointer to `interfaces.ts` (the copy had drifted — no `orderId`, no `Logger`).
+**Three stale claims found and fixed while cross-checking** — two docs said no git remote
+exists (one does), and `CLAUDE.md`'s own anti-drift section cited a `loadReal('ai')`
+example whose code no longer exists. Lesson worth keeping: two of the three sections I
+*assumed* were duplicates were not (§0's competitor-password security rule and §2's repo
+map exist nowhere else), so the `INFRASTRUCTURE.md` trim was far smaller than projected.
+Check before cutting.
+
+**Also this session:** karaoke captions were bottom-anchored at ~88% frame height, inside
+TikTok/Reels' own UI band — moved to ~46% (`304e44a`) and a caption-editor TODO added to
+F4 (position props + sliders; font/anim/colour already exist, `captionScale` needs only UI).
+
 **Next / still owner-gated:**
 - **Redis is NOT a blocker and NOT needed for production** — prod Redis already runs on
   the Hetzner VPS (`infra/docker-compose.prod.yml`, LIVE-VERIFIED 2026-07-18). A local
