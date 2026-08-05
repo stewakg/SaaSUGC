@@ -1,7 +1,7 @@
 # HOWTO.md — Getting into the VPS (for a fresh Claude Code session)
 
 > Written for a Claude Code session that has no prior context on this project. If you're picking this
-> up cold, also read `handover.md` (full project status) and `INFRASTRUCTURE.md` (living source of
+> up cold, also read `CLAUDE.md` (how to work here) and `INFRASTRUCTURE.md` (living source of
 > truth, phase checkboxes) — this file is narrowly scoped to **VPS access only**.
 
 ---
@@ -11,7 +11,7 @@
 The user's existing Hetzner VPS hosts the **production worker** (`apps/worker` — the BullMQ job
 consumer) and its **Redis** instance. `apps/web` (the Next.js app) is NOT on this VPS — it runs locally
 in dev, and its production home (Vercel vs. also-on-this-VPS) is still an open decision (see
-`handover.md` §6 item 4).
+`INFRASTRUCTURE.md` F6).
 
 ---
 
@@ -93,8 +93,10 @@ ssh root@46.225.214.52 "cd /opt/adgen-saas && docker compose -f infra/docker-com
 ```
 Currently every key in that file is blank except the real Supabase ones (mock mode for everything else).
 
-**Redeploy after a code change** (there is no git remote yet — see `handover.md` §7 — so this is a raw
-file sync, not a git pull):
+**Redeploy after a code change.** A git remote now exists
+(`github.com/stewakg/SaaSUGC.git`, added after this file was first written), so a
+`git pull` on the VPS is an option too — but the raw file sync below still works and
+does not depend on the VPS having credentials for the repo:
 ```
 # from the local repo root:
 tar czf - --exclude=node_modules --exclude=.git --exclude=.next --exclude=storage --exclude=.env \

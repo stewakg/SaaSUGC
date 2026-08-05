@@ -29,9 +29,11 @@ hash or `file:line`, never a vague statement:
 - **VERIFIED** — typecheck/build passed, or run live.
 - **CODE-COMPLETE** — written + typechecks, but NEVER run against the real thing.
 
-`handover.md` drifted exactly by blurring this (it claims the kie.ai/fal.ai client
-"exists" — it does not; `packages/core/src/providers/factory.ts` still throws from
-`loadReal('ai')`). Don't repeat that.
+**CODE-COMPLETE is not "almost done".** The cautionary case: M2c was logged as "montage
+wired end-to-end", passed review, and stayed that way for two weeks — the first time it
+was actually run it hard-failed on a 401 and had never produced a single frame
+(`SESSION_LOG.md` 2026-08-05). Three real bugs sat behind that label. If a thing has
+never been executed, say so in those words and don't let a later session read it as done.
 
 ## Review reuse — never re-review unchanged code
 A code review is expensive the first time; don't repeat it for code that hasn't changed
@@ -52,9 +54,9 @@ Verdict format (one line):
 ## Sources of truth
 - `INFRASTRUCTURE.md` — phases F0–F7 with checkboxes. THE status file.
 - `SESSION_LOG.md` — per-session intent / next steps / gotchas.
-- `handover.md` — older one-shot snapshot (2026-07-18); useful context but cross-check
-  against git before trusting — parts have drifted.
 - `howto.md` / `ACCOUNTS.md` — VPS access; which account maps to which env var.
+- `BUSINESS.md` — pricing, margins, the two money-side liabilities. Rarely needs reading.
+- `SESSION_LOG_ARCHIVE.md` — session blocks older than the current file. History only.
 
 ## Code changes go through Cline (CLI-automated, since 2026-07-21)
 Claude launches Cline **itself** via the `cline` CLI — the owner no longer copy-pastes
