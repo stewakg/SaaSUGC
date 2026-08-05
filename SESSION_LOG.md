@@ -43,8 +43,13 @@ NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewe
 
 ## 2026-08-05 — RUNTIME VERIFICATION DAY: Matrix montage actually renders now
 **Account:** _(unrecorded)_
-**Commits this session:** cb8f7a2 (storage route + gitignore + dev bypass), fcd383f
-(import-clip format fix), 6c56f81 (worker export/guard), + this log/docs update.
+**Commits this session (15):** `cb8f7a2` storage route + gitignore + dev bypass ·
+`fcd383f` import-clip format fix · `6c56f81` worker export/guard · `00fffa0` log ·
+`304e44a` captions off the bottom edge · `ba59d39` caption TODO · `9e86315` retire
+handover.md + split session log · `efa07d5` infra §4 pointer · `b1784a9` log ·
+`eae4b4c` **audio muxing** · `60182c2` log · `18a004a` caption position props ·
+`8cc7a94` **voice-id regression fix** + caption controls · `0cc8e2b` log ·
+`e04f865` **sound panel + sfx fix** · `5c805fe` log.
 
 **Context:** owner said "svuda imam kredite, sve može da se krene sa testom", then
 "uradi sve što treba, iskoristi cline maksimalno". This session finally executed the
@@ -154,18 +159,56 @@ the mock's data — ids, urls, shapes. The type system will not catch it; both a
 TikTok/Reels' own UI band — moved to ~46% (`304e44a`) and a caption-editor TODO added to
 F4 (position props + sliders; font/anim/colour already exist, `captionScale` needs only UI).
 
-**Next / still owner-gated:**
-- **Redis is NOT a blocker and NOT needed for production** — prod Redis already runs on
-  the Hetzner VPS (`infra/docker-compose.prod.yml`, LIVE-VERIFIED 2026-07-18). A local
-  Redis would only exercise the `/api/jobs → queue → worker` hop through the UI; the
-  pipeline itself is now verified without it. Do NOT SSH-tunnel to the VPS Redis for
-  this — the prod worker consumes the same `adgen-jobs` queue and would eat test jobs.
-- **F5 decision recorded, not made: public R2 bucket vs presigned urls.** `storage.r2.ts`
-  `getUrl` returns a plain public url, which reintroduces exactly the guessable-key
-  exposure `/api/storage`'s auth was written to prevent. Presigned urls are the real
-  answer. Must be settled before F6 launch.
-- Unchanged: audio muxing (credits), sound/music panel, F6 billing + Vercel deploy,
-  legal pages, brand naming, `generateVideo` live-test (F7).
+---
+
+## ▶ PICK UP HERE TOMORROW
+
+**Where Matrix stands:** montage renders, voiceover is muxed, captions follow real
+speech, position/size are user-controllable, music + CTA SFX work. All measured, not
+assumed. `pnpm -r typecheck` (5/5), `pnpm -r test` (25), `pnpm --filter @adgen/web build`
+were green at `5c805fe`.
+
+**THE one gap in everything shipped today:** none of the new **wizard UI** was clicked in
+a browser — the caption sliders/presets and the music/SFX pickers. `/app/matrix` is behind
+auth and Claude does not enter passwords. The render side they drive IS verified; the
+controls feeding it are not. **This is the first thing to do tomorrow**, and it needs the
+owner (or a session where the owner logs in first).
+
+**Ready to pick up with no owner input** (in the order I'd take them):
+1. Wizard visual polish — INFRASTRUCTURE.md §8 has the brief; wizards are "plain/functional".
+2. Copy pass on job-type labels/descriptions (§8, wants a "kako korisnik priča" voice).
+3. F7 `ai_video` skeleton — `generateVideo` already exists in `KieAIFalRouter` but has no
+   caller and has never been live-tested.
+
+**Owner-gated, unchanged:**
+- **Redis** — NOT needed for production (prod Redis already runs on the VPS,
+  LIVE-VERIFIED 2026-07-18). Only buys the `/api/jobs → queue → worker` hop through the
+  UI. Do NOT SSH-tunnel to the VPS Redis: the prod worker consumes the same `adgen-jobs`
+  queue and would eat test jobs.
+- **F5 decision: public R2 bucket vs presigned urls** — `storage.r2.ts` `getUrl` returns a
+  plain public url, reintroducing the guessable-key exposure `/api/storage`'s auth exists
+  to prevent. Presigned is the real answer. Blocks F6 launch.
+- kie/fal **cost per call** (neither API returns a price — read the dashboards), F6 billing
+  + Vercel deploy, legal pages, brand naming (`matrix` is the competitor's product name).
+
+### Environment recipes (save yourself the rediscovery)
+- **A render needs `pnpm --filter @adgen/web dev` running.** MockStorage urls are served by
+  `/api/storage`, and both the worker's fetch and Remotion's headless Chrome go through it.
+- **Drive the pipeline without Redis** by importing the real `runMatrixPipeline`:
+  `node node_modules/.pnpm/tsx@*/node_modules/tsx/dist/cli.mjs --env-file=../../.env <script>.mts`
+  from `apps/worker`. It is exported and `main()` is guarded, so importing does not start
+  a queue consumer.
+- **Prefix that with `MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*"`** if any argument looks
+  like a POSIX path — Git Bash rewrites `/api/storage/...` into `C:/Program Files/Git/api/...`
+  and the failure looks like an app bug.
+- **Binaries:** `node_modules/.pnpm/ffmpeg-static@5.3.0/node_modules/ffmpeg-static/ffmpeg.exe`,
+  ffprobe under `ffprobe-static@3.1.0/.../bin/win32/x64/`, yt-dlp under
+  `youtube-dl-exec@3.1.9_debug@4.4.3/.../bin/yt-dlp.exe` (fetched today).
+- **Checking audio:** `ffmpeg -sseof -2 -i <mp4> -af volumedetect -vn -f null NUL`. Reading
+  the TAIL is what separates music/SFX from the voiceover. −91.0 dB means digital silence.
+- **`.claude/launch.json` is intentionally left uncommitted** — the owner added dev-server
+  entries for two OTHER projects (Market-reseller, BlaBlaCalendar). Their absolute paths
+  don't belong in this repo. Don't commit it, don't revert it.
 
 ---
 

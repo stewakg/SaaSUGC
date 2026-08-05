@@ -1,85 +1,102 @@
-# ZA-TESTIRANJE.md — status (ažurirano 2026-08-05)
+# ZA-TESTIRANJE.md — šta te čeka (ažurirano 2026-08-05, kraj dana)
 
-> Prethodna verzija ovog fajla (2026-07-20) bila je checklist za tebe: skini yt-dlp,
-> digni stack, istestiraj montažu. **To je sada odrađeno** — u sesiji 2026-08-05, sa
-> tvojim odobrenjem da se troše krediti. Ostalo je malo, i dole je tačno šta.
-
----
-
-## 1. Šta je URAĐENO i stvarno provereno (ne samo otipkano)
-
-**yt-dlp binary — skinut.** Blokada od dve nedelje. Nije trebao `pnpm approve-builds`
-ni TTY; postinstall skripta je pokrenuta direktno (`yt-dlp.exe 2026.07.04`).
-
-**Link import — radi.** Pravi YouTube link → validan h264+aac mp4 → storage.
-
-**Matrix montaža — RENDERUJE.** Prvi put otkad je M2c napisan. Dve varijante,
-1080×1920, 18.05s i 23.06s, ~20 MB. Filmstripovi pregledani kadar po kadar:
-seče između različitih izvornih klipova, srpski titlovi sa highlight-om reči,
-intro tranzicija, outro CTA kartica, i **dve varijante su stvarno različite** —
-i po tekstu i po izboru kadrova.
-
-**F5 benchmark kie.ai vs fal.ai — odrađen.** 3 prompta × 2 providera, 6/6 uspelo iz
-prve. kie.ai medijana 12.0s vs fal.ai 27.8s (~2.3× brži, dosledno). Kvalitet
-izjednačen, oba produkcijska, oba tačno renderuju srpske dijakritike u tekstu reklame.
-Zaključak: ostaje kie primary / fal fallback — sad na osnovu merenja. Detalji:
-`tests/kie-vs-fal.md`.
+> Kratko: **Matrix sada radi cео lanac** — montaža, glas, titlovi na pravom govoru,
+> pomerljivi titlovi, muzika i zvučni efekat. Sve izmereno, ne pretpostavljeno.
+> Ostalo ti je jedno testiranje i tri odluke.
 
 ---
 
-## 2. Tri buga koja su nađena tek pokretanjem
+## 1. ⬛ JEDINA STVAR KOJA STVARNO ČEKA TEBE: klik-test wizarda
 
-Sva tri su prošla statički review. Nijedan se nije mogao videti čitanjem koda.
+Danas je dodato dosta **kontrola u wizardu** koje **nisu prošle kroz browser** — `/app/matrix`
+je iza login-a, a ja ne unosim lozinke. Render koji te kontrole pokreću **jeste** proveren;
+same kontrole nisu.
 
-1. **`/api/storage` je tražio Supabase kolačić, a worker i Remotion ga nemaju.**
-   Svaki Matrix posao sa uploadovanim klipovima je **padao** — ne degradirao na jedan
-   klip kao što je stara verzija ovog fajla predviđala, nego bacao izuzetak na 401.
-   Znači glavni feature proizvoda nikad nije radio lokalno. Popravljeno: bypass van
-   produkcije (path-traversal guard i dalje radi prvi).
+```bash
+pnpm dev
+```
+→ http://localhost:3000 → uloguj se → **Matrix** wizard.
 
-2. **`.gitignore` je progutao izvorni fajl.** Obrazac `storage/` bez kose crte na
-   početku hvata folder `storage` na **bilo kojoj dubini** → cela
-   `apps/web/src/app/api/storage/` ruta **nikad nije bila komitovana**. Postojala je
-   samo na ovoj mašini; svež `git clone` je nema. Popravljeno: `/storage/`.
+Proveri u koraku „Stil i glas":
+- [ ] **Padajući spisak glasova se popuni pravim glasovima** (ne „Učitavanje glasova…"). To
+      povlači `GET /api/voices` sa tvog ElevenLabs naloga — trebalo bi da ih bude ~58.
+- [ ] **Pozicija titla** — tri preseta (Gornja trećina / Iznad sredine / Centar) i dva
+      slajdera (gore-dole, levo-desno). Spusti slajder ispod 72% → mora iskočiti žuto
+      upozorenje o TikTok interfejsu.
+- [ ] **Veličina titla** — slajder 60–150%.
+- [ ] **Zvuk** — otpremi neku svoju numeru kao muziku; pojavi se slajder jačine. Preko 45%
+      mora iskočiti upozorenje da muzika guši glas. Otpremi i kratak zvuk kao CTA efekat.
 
-3. **`maxFilesize: '200M'` je radio suprotno od namere.** Baš prosleđivanje
-   `--max-filesize` tera yt-dlp sa malog progresivnog formata na 1080p60 HLS →
-   skinuto **269 MB** umesto 27 MB, tj. limit je probijen zbog samog limita.
-   Popravljeno: `[protocol=https]` + `stat()` provera. Izmereno: 269.28 MB / 56.2s
-   → **27.20 MB / 15.6s**.
+Ako sve to izgleda kako treba → generiši jedan oglas i odgledaj ga.
 
----
-
-## 3. Šta OSTAJE tebi
-
-### (a) Redis — **nije hitno, i nije blokada za produkciju**
-Produkcijski Redis **već radi na tvom Hetzner VPS-u**
-(`infra/docker-compose.prod.yml`, LIVE-VERIFIED 2026-07-18). Tu nemaš šta da radiš.
-
-Lokalni Redis bi služio samo da se provoza put `/api/jobs → red → worker` kroz UI.
-Sam pipeline je verifikovan i bez njega. Ako hoćeš i taj deo: instaliraj Memurai
-(Redis za Windows) ili daj cloud `REDIS_URL`.
-
-> ⚠️ **Nemoj SSH tunel do VPS Redisa** za ovo — prod worker sluša isti red
-> `adgen-jobs` i pokupio bi tvoje test poslove.
-
-### (b) Klikni kroz UI (opciono, prijatno)
-`pnpm dev` → http://localhost:3000 → uloguj se → `/app/matrix`. Sad bi trebalo da
-prođe ceo wizard. Bez lokalnog Redisa posao neće biti pokupljen iz reda — videćeš ga
-kako čeka.
-
-### (c) Odluka pre F6 launch-a: **javni R2 bucket vs presigned URL-ovi**
-`S3CompatibleStorage.getUrl` vraća običan javan URL. Ključevi su pogodivi
-(`uploads/<uid>/imported-<timestamp>.mp4`), pa javni bucket vraća **tačno onu rupu**
-zbog koje je auth na `/api/storage` i napisan. Presigned kratkotrajni linkovi su pravo
-rešenje. Nije hitno dok R2 nije uključen, ali je launch blocker. Zapisano u
-`INFRASTRUCTURE.md` F5.
+> ⚠️ **Bez lokalnog Redisa posao neće biti pokupljen iz reda** — videćeš ga kako čeka. To je
+> očekivano; ceo pipeline je verifikovan mimo reda. Vidi tačku 3.
 
 ---
 
-## 4. I dalje neurađeno (nepromenjeno)
-Audio muxing (voiceover se generiše ali se ne ubacuje u video) · sound/music panel
-(blokiran na izvoru muzike) · F6 billing live + Vercel deploy · legal stranice
-(pravnik) · brand naming (`matrix` je ime konkurenta) · `generateVideo` live-test (F7).
+## 2. Šta je danas urađeno (15 commita)
 
-Puna lista: `INFRASTRUCTURE.md` (F5–F7) + `SESSION_LOG.md` (vrh).
+**Montaža radi.** Prvi put otkad je M2c napisan — pravi višekadarski render, varijante se
+stvarno razlikuju.
+
+**Glas je u videu**, i **titlovi prate stvarni govor** (ElevenLabs vraća poravnanje po
+karakterima, presavijeno u reči — pauze su prave, dijakritika radi).
+
+**Titlovi pomerljivi** — pozicija i veličina, sa safe-zone presetima. Default je podignut sa
+~88% (u TikTok traci) na ~46%.
+
+**Muzika i CTA efekat** — uploaduješ svoju numeru, nije potrebna licencirana biblioteka.
+
+**Link import radi** — pravi YouTube/TikTok link → mp4 u storage.
+
+**Benchmark kie.ai vs fal.ai** — 6/6 uspelo, kie ~2.3× brži, kvalitet izjednačen. Ostaje
+kie primary / fal fallback. Detalji: `tests/kie-vs-fal.md`.
+
+**Dokumentacija sređena** — `handover.md` obrisan (jedini jedinstven deo spasen u
+`BUSINESS.md`), session log prepolovljen + arhiviran.
+
+### Sedam bugova nađenih pokretanjem — nijedan se nije video u kodu
+1. `/api/storage` je tražio kolačić → **svaki Matrix posao je padao** na 401.
+2. `.gitignore` je progutao celu `/api/storage` rutu — **nikad nije bila u gitu**.
+3. `maxFilesize: '200M'` je terao yt-dlp na 1080p HLS → skinuto **269 MB umesto 27 MB**.
+4. Titlovi zalepljeni za dno kadra, u zoni TikTok interfejsa.
+5. Relativan URL glasa → render **nem**, bez ijedne greške.
+6. Wizard je slao **mock id glasa** pravom ElevenLabs-u → `404 voice_not_found`.
+7. **CTA zvučni efekat nikad nije radio** — od F4, jer `<Audio>` nije bio u `<Sequence>`.
+
+---
+
+## 3. Tri odluke koje traže tebe
+
+### (a) Redis — **nije hitno**
+Produkcijski Redis **već radi na tvom VPS-u** (LIVE-VERIFIED 18.07). Lokalni bi služio samo
+da se provoza put `/api/jobs → red → worker` kroz UI. Ako hoćeš: instaliraj Memurai ili daj
+cloud `REDIS_URL`.
+
+> ⚠️ **Nemoj SSH tunel do VPS Redisa** — prod worker sluša isti red `adgen-jobs` i pokupio bi
+> tvoje test poslove.
+
+### (b) 🔴 Pre F6 launch-a: javni R2 bucket vs presigned URL-ovi
+`S3CompatibleStorage.getUrl` vraća običan javan URL, a ključevi su pogodivi
+(`uploads/<uid>/imported-<timestamp>.mp4`). To vraća **tačno onu rupu** zbog koje je auth na
+`/api/storage` i napisan. Presigned kratkotrajni linkovi su pravo rešenje. **Launch blocker.**
+
+### (c) Cena po pozivu kod kie.ai i fal.ai
+Nijedan API ne vraća cenu. Treba pogledati usage log na oba dashboarda. Bez toga se ne zna
+da li je `edit` (18 kredita) profitabilan — vidi `BUSINESS.md`.
+
+---
+
+## 4. ⚠️ Troškovna promena — bitno da znaš
+Matrix posao sada troši **prave ElevenLabs kredite po varijanti**. `count=15` znači
+**15 TTS poziva**. Bez `ELEVENLABS_API_KEY` sve i dalje radi, samo nemo.
+
+---
+
+## 5. I dalje neurađeno
+Ugrađena biblioteka muzike (za sada korisnik nosi svoju) · F6 billing live + Vercel deploy ·
+legal stranice (pravnik) · brand naming (`matrix` je ime konkurenta) · vizuelni polish
+wizarda · F7 `ai_video`.
+
+Puna lista: `INFRASTRUCTURE.md` (F5–F7). Detaljan trag: `SESSION_LOG.md`, sekcija
+**„▶ PICK UP HERE TOMORROW"** na vrhu.
