@@ -110,57 +110,27 @@ Tables (SQL migrations in `/packages/db/migrations`):
 
 ## 4. Abstract interfaces (`/packages/core`) — the key to mock-first
 
-Define these TS interfaces and provide a **Mock** + (later) **real** implementation for each. A factory reads `.env`
-and returns the real impl if its key exists, else the mock.
+Every external capability sits behind a TS interface with a **Mock** and (from F5) a
+**real** implementation. `createProviders()` in `packages/core/src/providers/factory.ts`
+reads the validated env and returns the real impl when its key is present, else the mock
+— which is why the whole app runs end-to-end with zero API keys.
 
-```ts
-// AI generation (images + video scenes). TTS and script are separate below.
-// `storageKey` is set only when the result was actually uploaded to our Storage under
-// that key; providers that hand back an externally-hosted URL (mock placeholders today,
-// provider CDN URLs in F5) omit it. Callers must never invent a storage key when absent
-// — `assets.storage_key` is nullable for exactly this reason (see §3).
-interface AIProvider {
-  generateImage(input: { prompt: string; refImages?: string[]; size?: string }): Promise<{ url: string; storageKey?: string }>;
-  generateVideo(input: { prompt: string; refImage?: string; model?: string; durationSec?: number }): Promise<{ url: string; storageKey?: string }>;
-}
-// Router: try primary (kie.ai), on failure fall back to fal.ai. Mock returns placeholder asset URLs.
+**The interfaces themselves live in `packages/core/src/interfaces.ts`. Read them there,
+not here.** This section used to carry a copy of the signatures; it had already drifted
+(it was missing `parseWebhook`'s `orderId` — the field the billing webhook's idempotency
+depends on — the whole `Logger` interface, and `readonly name` on every provider), and
+the source file's doc-comments are richer than the copy ever was.
 
-interface ScriptProvider {   // Claude Opus. Mock returns canned Serbian ad scripts.
-  generateVariants(input: {
-    product: string; benefits: string; tone: string; language: string;
-    style: string; durations: number[]; count: number;
-  }): Promise<{ variants: { angle: string; script: string; estDurationSec: number }[] }>;
-}
-
-interface VoiceProvider {    // ElevenLabs. Mock returns a silent/placeholder mp3.
-  tts(input: { script: string; voiceId: string; model: string; stability: number; speed: number; language: string }):
-    Promise<{ audioUrl: string }>;
-  listVoices(): Promise<{ id: string; name: string; gender: string }[]>;
-}
-
-interface Renderer {         // Remotion. Mock returns a placeholder mp4. Real = local render (dev) / Lambda (prod).
-  render(input: { composition: string; props: Record<string, unknown> }): Promise<{ videoUrl: string; storageKey?: string }>;
-}
-
-interface Storage {          // Local disk (dev) → R2/S3 (prod).
-  upload(key: string, data: Buffer | Stream, contentType: string): Promise<{ url: string }>;
-  getUrl(key: string): string;
-}
-
-interface Billing {          // Mock (instant credit in dev) → Lemon Squeezy (launch).
-  listPacks(): Promise<{ id: string; credits: number; priceEUR: number }[]>;
-  createCheckout(userId: string, packId: string): Promise<{ url: string }>;
-  // Verifies + parses a webhook. Returns the credit grant (userId+amount+reason)
-  // for a paid event, or null for a validly-signed but irrelevant event. THROWS
-  // on signature verification failure. The DB write is the caller's job —
-  // providers in @adgen/core have no DB dependency (worker/web routes own writes).
-  parseWebhook(req: Request): Promise<{ userId: string; amount: number; reason: string } | null>;
-}
-
-interface Scraper {          // Product page → {title, price, images}. Can be REAL from day one (no paid account): fetch + cheerio. Mock as fallback.
-  scrape(url: string): Promise<{ title: string; price?: string; images: string[]; description?: string }>;
-}
-```
+| Interface | Mock | Real (F5+) |
+|---|---|---|
+| `AIProvider` | placeholder image/video | kie.ai primary → fal.ai fallback (`ai.kiefal.ts`) |
+| `ScriptProvider` | canned Serbian ad scripts | Claude (`script.claude.ts`) |
+| `VoiceProvider` | silent placeholder mp3 | ElevenLabs (`voice.elevenlabs.ts`) |
+| `Renderer` | placeholder mp4 | local Remotion (dev) / Lambda (prod) |
+| `Storage` | local disk + `/api/storage` | R2/S3 (`storage.r2.ts`) |
+| `Billing` | instant credit in dev | Lemon Squeezy (`billing.lemonsqueezy.ts`) |
+| `Scraper` | canned product | **real from day one** — fetch + cheerio, mock only as fallback |
+| `Logger` | console | console (structured) |
 
 ---
 
