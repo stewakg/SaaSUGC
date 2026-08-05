@@ -16,6 +16,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: sound panel + sfx sequencing fix (packages/core/src/types.ts + remotion/src/compositions/MatrixAd.tsx + apps/web/src/app/api/upload/route.ts + apps/web/src/app/app/matrix/page.tsx + apps/worker/src/index.ts) — CLEAN @ e04f865 (2026-08-05). musicVolume prop + sfx url guard Cline-delegated (diff audited, clean); upload audio types, wizard panel, worker wiring and the sfx Sequence fix by Claude Code. ✅ RUNTIME-VERIFIED by measuring the video TAIL, after the voiceover stops, so the sources are distinguishable: voice-only −91.0 dB (silence), +music −33.7 dB, sfx before −91.0 dB, sfx after −30.3 dB. **Found a latent bug doing it:** the CTA sfx `<Audio>` sat inside `OutroCard` with no enclosing `<Sequence>`, so Remotion treated it as starting at frame 0 and it played nothing — broken since F4, invisible because the prop was never set. **NOT click-tested**: the wizard's music/SFX pickers and volume slider are behind auth.
 REVIEWED: voice-id regression fix + caption editor (NEW apps/web/src/app/api/voices/route.ts + apps/web/src/app/app/matrix/page.tsx + apps/worker/src/index.ts + packages/core/src/types.ts + remotion/src/compositions/MatrixAd.tsx) — CLEAN @ 18a004a,8cc7a94 (2026-08-05). Render side Cline-delegated (diff audited, clean); voices route + worker resolve + wizard UI written by Claude Code. ✅ RUNTIME-VERIFIED: a job with the stale `voice_srp_f1` logs the fallback warning and renders with audio (−23.5 dB) instead of dying; captionY 0.3 visibly moves captions to the upper third. **NOT click-tested**: the wizard's new sliders/presets are behind auth and were not exercised in a browser — owner pass needed. `/api/voices` verified only as far as 401-unauthenticated + route registered in the build.
 REVIEWED: matrix audio muxing (packages/core/src/{interfaces,types}.ts + providers/voice.elevenlabs.ts + apps/worker/src/index.ts + remotion/src/compositions/MatrixAd.tsx) — CLEAN @ eae4b4c (2026-08-05). Two Cline tasks (core, then worker+remotion), both diffs audited line-by-line; Claude Code fixed a doc-comment placement of its own spec's making, refreshed the file's stale "NOT live-tested" header, and re-applied an absolutize fix Cline had clobbered mid-run. ✅ RUNTIME-VERIFIED BY MEASUREMENT: `volumedetect` mean −23.4 dB / max −4.0 dB against −91.0 dB (digital silence) pre-fix; duration tracks real speech (11.99s ≈ 8.4s spoken + 3s outro); filmstrip shows the highlight advancing word by word. ElevenLabs `/with-timestamps` probed live BEFORE writing any code. **Cost change: real ElevenLabs credits per variant now.** `musicUrl`/`sfxUrl` paths remain wired-but-unfed and are still NOT runtime-verified.
 REVIEWED: storage-route dev bypass + gitignore anchor (.gitignore + NEW-TO-GIT apps/web/src/app/api/storage/[...path]/route.ts) — CLEAN @ cb8f7a2 (2026-08-05). Cline-delegated, diff audited by Claude Code against the spec: serveFile() extracted, bypass inserted AFTER the path-traversal guard and BEFORE createServerClient(), auth/isOwnUpload/RLS logic byte-identical. **Cline found what the spec missed**: the route file was never in git (bare `storage/` ignore pattern matches any depth) — pattern anchored to `/storage/`, generated assets still ignored. ✅ RUNTIME-VERIFIED: /api/storage/... 401→200 (4 MB video/mp4), traversal probe still non-200, and the montage render that previously threw on 401 now completes.
@@ -125,6 +126,17 @@ also hit and now written into `CLAUDE.md`: cline must run from PowerShell (Bash 
 shim and fails while still exiting 0), long prompts must go in a file with a one-line
 pointer, and editing a file while Cline is mid-run gets your edit clobbered — which is
 what sent me chasing a phantom Remotion bug.
+
+**Sound panel (`e04f865`) — and the "blocker" that wasn't.** This sat as "blocked on a
+music/SFX asset source" for weeks. It wasn't: `musicUrl` already reached the composition,
+and users can upload their own track through the same `/api/upload` the clip uploader
+uses. Licensed library not required. Worth remembering — re-read old blockers before
+accepting them, the constraint may have dissolved. Testing it surfaced a bug that had
+been latent since F4: the CTA sound effect **had never played once**, because its
+`<Audio>` was inside `OutroCard` with no enclosing `<Sequence>` and Remotion therefore
+timed it from frame 0. Nobody noticed because the prop was never set. **Third silent-audio
+failure of the day** — Remotion drops audio it cannot place or fetch without any error, so
+audio work here must always end in `volumedetect`, never in "the stream exists".
 
 **Caption editor + a regression I caused and caught (`18a004a`, `8cc7a94`).** Captions are
 now user-positionable (captionX/captionY as frame fractions, clamped; size slider; three

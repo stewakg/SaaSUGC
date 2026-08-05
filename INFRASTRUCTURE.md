@@ -205,8 +205,18 @@ the source file's doc-comments are richer than the copy ever was.
 > **Cost change:** a matrix job now spends real ElevenLabs credits per variant — count=15
 > means 15 TTS calls.
 >
-> **STILL NOT DONE:** NO sound/music panel (blocked on a music/SFX asset source) — the
-> `musicUrl`/`sfxUrl` props exist and are wired, nothing supplies them. Owner confirmed:
+> **✅ SOUND PANEL LANDED 2026-08-05 (`e04f865`).** The "no music asset source" block was
+> self-imposed — users upload their own track through the existing `/api/upload` path, so
+> no licensed library is needed. Music + CTA SFX pickers, volume slider (default 25%,
+> warns past 45%). Verified by measuring the video tail after the voiceover stops:
+> −91.0 dB silence → −33.7 dB with music. **Fixed a latent bug while testing:** the CTA
+> SFX had never played — its `<Audio>` sat inside `OutroCard` with no enclosing
+> `<Sequence>`, so Remotion treated it as starting at frame 0 and a short clip was long
+> past its end by the time the card appeared. Broken since F4, invisible because the prop
+> was never set.
+>
+> **STILL NOT DONE:** a built-in music/SFX *library* (users must bring their own audio);
+> generated music (`stable-audio`) remains an F7 nice-to-have. Owner confirmed:
 > montage of user-supplied REAL clips, NOT AI-generating video from them. **Still not
 > exercised:** the `/api/jobs → BullMQ → worker` hop through the UI (needs a local Redis;
 > the pipeline itself is verified without it, and prod Redis already runs on the VPS).
