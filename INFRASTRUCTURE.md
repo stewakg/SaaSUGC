@@ -252,6 +252,23 @@ interface Scraper {          // Product page → {title, price, images}. Can be 
   15/video on success (existing charge-on-success path from F2).
 - [x] Matrix settings screen (`/app/matrix`): voice, script tone preset, caption font/anim/color, count, transitions,
   outro text. Music/SFX shown as "uskoro" — no real audio asset source in mock mode.
+- [ ] ⭐ **Caption editor — user-controllable placement/size (position is the real gap).** Font, animation and
+  active-word colour are already user-chosen in the wizard; `captionScale` already exists as a
+  `MatrixAdProps` prop but has **no UI**; **position does not exist at all** and was hardcoded in
+  `remotion/src/compositions/MatrixAd.tsx` until `304e44a`. To add:
+  - `captionX` / `captionY` props (fractions of frame, e.g. `0.5` / `0.46`) replacing the hardcoded
+    `justifyContent`/`paddingBottom`, plumbed through `MatrixAdProps` → worker `runMatrixPipeline` →
+    the wizard's job `params` (same path `captionStyle` already takes).
+  - A slider (or draggable handle over a preview frame) for vertical + horizontal position, plus one
+    for `captionScale` — that last one is nearly free, the render side already honours it.
+  - **Keep the safe-zone default.** Default must stay ~45–55% of frame height. The bottom ~250–400px of
+    a 9:16 frame is covered by TikTok/Reels/Shorts chrome (username, description, music ticker) and the
+    right ~150–200px by the action rail; the reliably visible band is the middle ~60% (y≈300–1500 of
+    1920). The old bottom-anchored default sat at ~88% height, inside TikTok's own UI band. If the UI
+    lets users drag freely, **warn or soft-clamp outside the safe zone** rather than silently allowing a
+    placement that gets covered in-feed.
+  - Nice-to-have once this lands: presets ("centar", "iznad sredine", "gornja trećina") so most users
+    never touch the sliders.
 - **DoD:** Matrix produces **real MP4 files** locally. ✅ **Verified live in this environment**: a standalone render
   (bundle → Chrome Headless Shell auto-download → render → local-disk upload) produced a real, valid 1080×1920 h264
   mp4 in ~9s (`ftyp isom / avc1` header confirmed). The full web→queue→worker→credits loop is still code-complete
