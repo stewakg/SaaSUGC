@@ -12,6 +12,9 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: storage-route dev bypass + gitignore anchor (.gitignore + NEW-TO-GIT apps/web/src/app/api/storage/[...path]/route.ts) — CLEAN @ cb8f7a2 (2026-08-05). Cline-delegated, diff audited by Claude Code against the spec: serveFile() extracted, bypass inserted AFTER the path-traversal guard and BEFORE createServerClient(), auth/isOwnUpload/RLS logic byte-identical. **Cline found what the spec missed**: the route file was never in git (bare `storage/` ignore pattern matches any depth) — pattern anchored to `/storage/`, generated assets still ignored. ✅ RUNTIME-VERIFIED: /api/storage/... 401→200 (4 MB video/mp4), traversal probe still non-200, and the montage render that previously threw on 401 now completes.
+REVIEWED: import-clip format selection (apps/web/src/app/api/import-clip/route.ts) — CLEAN @ fcd383f (2026-08-05). Cline-delegated, all 5 edits landed exactly; Claude Code corrected one doc-comment that referenced the prompt's own "CHANGE 2" numbering. Auth/rate-limit/SSRF guard/storage.upload/502-catch untouched. ✅ RUNTIME-VERIFIED both before and after: real YouTube link went 269.28 MB / 56.2s → 27.20 MB / 15.6s (format 18, 640x360 h264+aac). New 413 file_too_large path is a backstop only — not exercised live (would need a >200MB progressive source).
+REVIEWED: worker testability hook (apps/worker/src/index.ts: export runMatrixPipeline + isDirectRun guard) — CLEAN @ 6c56f81 (2026-08-05). Written directly by Claude Code (not Cline) because it was the harness needed to verify the real pipeline. Behaviour on a real `tsx src/index.ts` start is unchanged; imports no longer open Redis or exit on a missing service key.
 REVIEWED: worker/core test coverage (NEW apps/worker/src/{montage,scene-detect}.test.ts + packages/core/src/{captions,pricing}.test.ts + vitest devDep in both packages + scene-detect.ts shotsFromCuts extraction) — CLEAN @ d061fd3 (2026-07-20). First tests in the repo. Cline-delegated, each suite RUN independently by Claude Code (not trusting the report): 25 tests pass (buildMontage 8, shotsFromCuts 6, mockWordTimestamps 6, computeJobCost 5). scene-detect.ts change is a behavior-preserving pure extraction (shotsFromCuts) — detectShots output identical, so its real-footage verification @ 5bcf42e still holds; montage.ts/captions.ts/pricing.ts untouched. `pnpm -r test` green, `pnpm -r typecheck` green. Covers the whole montage chain (detect→pool→montage) that can't be runtime-verified until the yt-dlp binary + a real render land.
 REVIEWED: SSRF guard dedup (NEW apps/web/src/lib/safe-url.ts + scrape/route.ts + import-clip/route.ts) — CLEAN @ 766a671 (2026-07-20). Pure refactor: isSafeTargetUrl (security-critical) was duplicated byte-for-byte in two routes; now one shared module both import, inline defs + mirror-marker removed, import-clip header doc-comment corrected. No behavior change. web build re-run independently — pass.
 REVIEWED: Matrix count 5/10/15 (apps/web/src/app/app/matrix/page.tsx + apps/web/src/app/api/jobs/route.ts) — CLEAN @ 30fe4ef (2026-07-20). Wizard 1/2/3→5/10/15 (default 5, 2-digit button width). Caught + fixed two coupled breakages: MAX_JOB_COUNT 10→15 in /api/jobs (15 would 400 invalid_count), and pollJob timeout now count-scaled (max(180s, count*45s)) so a 15-variant sequential render isn't cut off in the UI. Cost auto-scales (computeJobCost matrix*count). web build re-run independently — pass.
@@ -28,6 +31,79 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-08-05 — RUNTIME VERIFICATION DAY: Matrix montage actually renders now
+**Account:** _(unrecorded)_
+**Commits this session:** cb8f7a2 (storage route + gitignore + dev bypass), fcd383f
+(import-clip format fix), 6c56f81 (worker export/guard), + this log/docs update.
+
+**Context:** owner said "svuda imam kredite, sve može da se krene sa testom", then
+"uradi sve što treba, iskoristi cline maksimalno". This session finally executed the
+`ZA-TESTIRANJE.md` handover written on 2026-07-20 — which had sat undone for two weeks.
+
+**The headline: three real bugs that only runtime execution could find.** Everything
+below was CODE-COMPLETE and had passed static review; all three were invisible to it.
+
+1. **`/api/storage` requires a session cookie; the worker and renderer have none.**
+   This is the big one. Every Matrix job with uploaded clips **hard-failed** — not
+   "degraded to one clip" as `ZA-TESTIRANJE.md` §5(c) predicted. Chain: `downloadClip`
+   401 → caught → empty shot pool → fallback single shot **on the same unreachable
+   url** → Remotion threw `Received a status code of 401`. So the product's
+   differentiator had never once worked locally. M2c-D (`cb646fc`) had made these urls
+   absolute but not *fetchable* — it fixed half the problem and the review couldn't see
+   the other half, because an absolute url looks correct on the page.
+2. **`.gitignore`'s bare `storage/` swallowed a source file.** The pattern matches a
+   dir named `storage` at any depth → `apps/web/src/app/api/storage/` was NEVER
+   committed. It existed only on this machine; a fresh clone has no storage route at
+   all. Found by Cline while doing (1) — it noticed `git diff --stat` stayed empty
+   after its edits and dug in rather than declaring success. Credit where due.
+3. **`maxFilesize: '200M'` in import-clip did the opposite of its job.** Passing
+   `--max-filesize` is itself what pushes yt-dlp off the small progressive format onto
+   a 1080p60 HLS one (`301 | m3u8_native` vs `18 | 640x360 | https`), so the route
+   downloaded **269 MB** — blowing the very cap meant to prevent it — and then
+   `readFile`'d all of it into the Next process. Fixed with `[protocol=https]` + a
+   `stat()` backstop. Measured before/after: **269.28 MB / 56.2s → 27.20 MB / 15.6s.**
+
+**VERIFIED (actually run, not typechecked):**
+- **yt-dlp binary fetched** — the two-week blocker. Read `postinstall.js` first
+  (official `yt-dlp/yt-dlp` GitHub releases), ran it directly; no TTY / `approve-builds`
+  needed. `yt-dlp.exe 2026.07.04`.
+- **Link import works** — real YouTube link → valid h264+aac mp4 → MockStorage.
+- **scene-detect + buildMontage on real footage** — 5 shots from each sample clip;
+  montage alternates sources and varies with targetSec.
+- **✅ FULL MATRIX RENDER, 2 variants** — 1080x1920, 18.05s + 23.06s, ~20 MB each, with
+  audio streams. Filmstrips inspected frame-by-frame: real cuts between different source
+  clips, Serbian word-highlight captions, intro transition, outro CTA card. **The two
+  variants are genuinely different** (different script AND different shot selection).
+  This is the first time the M2c chain has produced output. Was CODE-COMPLETE since
+  2026-07-20; now VERIFIED.
+- **F5 image benchmark, n=3 prompts × 2 providers, real credits** — 6/6 succeeded 1st
+  try. kie.ai median 12.0s vs fal.ai 27.8s (~2.3× faster, consistent). Quality a wash,
+  both production-grade incl. correct Serbian diacritics in rendered ad text. Keeps
+  kie-primary/fal-fallback, now on measurement not assumption. See `tests/kie-vs-fal.md`.
+- Gates green after all changes: `pnpm -r typecheck` (5/5), `pnpm -r test` (25), web build.
+
+**Cline usage:** two tasks, each one file, fully mechanical prompts (exact FIND/REPLACE
+blocks + definition-of-done), run via **PowerShell not Git Bash** — `cline` has no bash
+shim, and a bash invocation fails with `command not found` while the wrapping command
+still exits 0. Both diffs audited line-by-line before commit; both were faithful. The
+`.gitignore` anchor and the worker export/guard Claude Code did directly (1-char and
+harness changes).
+
+**Next / still owner-gated:**
+- **Redis is NOT a blocker and NOT needed for production** — prod Redis already runs on
+  the Hetzner VPS (`infra/docker-compose.prod.yml`, LIVE-VERIFIED 2026-07-18). A local
+  Redis would only exercise the `/api/jobs → queue → worker` hop through the UI; the
+  pipeline itself is now verified without it. Do NOT SSH-tunnel to the VPS Redis for
+  this — the prod worker consumes the same `adgen-jobs` queue and would eat test jobs.
+- **F5 decision recorded, not made: public R2 bucket vs presigned urls.** `storage.r2.ts`
+  `getUrl` returns a plain public url, which reintroduces exactly the guessable-key
+  exposure `/api/storage`'s auth was written to prevent. Presigned urls are the real
+  answer. Must be settled before F6 launch.
+- Unchanged: audio muxing (credits), sound/music panel, F6 billing + Vercel deploy,
+  legal pages, brand naming, `generateVideo` live-test (F7).
 
 ---
 

@@ -56,11 +56,19 @@ Verdict format (one line):
   against git before trusting — parts have drifted.
 - `howto.md` / `ACCOUNTS.md` — VPS access; which account maps to which env var.
 
-## Code changes go through Cline
-Established flow: Claude writes a complete, self-contained prompt (exact file paths,
-find/replace, rationale, definition-of-done) → the owner runs it in Cline (VS Code) →
-Claude reviews the diff. Claude edits app code directly only when asked. Meta/workflow
-docs (this file, `SESSION_LOG.md`) Claude may edit directly.
+## Code changes go through Cline (CLI-automated, since 2026-07-21)
+Claude launches Cline **itself** via the `cline` CLI — the owner no longer copy-pastes
+prompts. Invocation: `cline --json -c "<repo>" "<self-contained task>"` (act mode,
+`--auto-approve` default true; add `--thinking medium|high` for multi-step tasks and
+`-t <sec>` as a safety cap sized to the task; run long tasks in the background).
+Provider is z.ai GLM-5.2 (`~/.cline/data/settings/providers.json` — `cline config` needs
+a TTY, so read that file directly; never print its apiKey). GLM-5.2 is weaker than
+Claude → keep each task explicit and mechanical: one clearly-scoped unit, exact file
+paths, full code/commands, and a "definition of done". Have Cline write its report to
+`CLINE_REPORT.md`; audit every run via the `--json` stream + `git diff` + the changed
+files — never trust Cline's self-report on non-deterministic work. Cline auto-reads a
+`.clinerules` file in the cwd if present. Claude edits app code directly only when
+asked; meta/workflow docs (this file, `SESSION_LOG.md`) Claude may edit directly.
 
 ## Baseline gates
 `pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core` + `@adgen/worker` — 25 tests

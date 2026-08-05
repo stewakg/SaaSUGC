@@ -57,6 +57,36 @@ was $0.039 for reference but that's a different model tier, not this one.
 `generateVideo` (Veo3 kie.ai + fal.ai veo3.1) still NOT live-tested — no wired job calls
 it yet (`ai_video` is F7, deferred).
 
+## Multi-prompt image benchmark — 2026-08-05 (n=3 prompts × 2 providers, real credits)
+
+Driven through the shipped `KieAIFalRouter`, each provider in an **isolated** router
+(kie-only / fal-only) so no run could silently fall back to the other. Same prompt, same
+`size: '1080x1920'`. All 6 calls succeeded 1st try — **zero failures on either side.**
+
+| Prompt | kie.ai | fal.ai |
+|---|---|---|
+| `serum-ugc` (UGC person + product) | ✅ 20.8s | ✅ 23.5s |
+| `watch-flatlay` (studio product shot) | ✅ 11.7s | ✅ 27.8s |
+| `text-render` (ad banner w/ Serbian headline) | ✅ 12.0s | ✅ 34.4s |
+| **median** | **12.0s** | **27.8s** |
+
+**Speed: kie.ai wins clearly** — ~2.3× faster at the median, and its worst case (20.8s)
+beats fal.ai's best (23.5s). Consistent across all three prompts, so not noise.
+
+**Quality: a wash, both production-grade.** All 6 outputs visually inspected. The
+`text-render` pair is the discriminating one — both rendered a full ad layout with a
+correct large "AKCIJA -50%" headline, a CTA button, and **correct Serbian diacritics**
+(`KOŽU`, `SNIŽENO`) — historically the hard part for image models. Neither had artifacts
+or watermarks. fal.ai's layout was slightly richer (trust badges, cart icon); kie.ai's
+Serbian copy was cleaner — fal.ai invented "ASSORTIMAN" (not a Serbian word; should be
+"asortiman"). Neither difference is decisive.
+
+**Cost still not captured** — neither API returns a price field; read each dashboard's
+usage log if exact per-image cost matters.
+
+**Routing conclusion: keep kie.ai primary, fal.ai fallback.** Now supported by
+measurement (speed + equal reliability), not just the earlier cost assumption.
+
 ## Verdict
 **Both kie.ai and fal.ai work correctly end-to-end for image generation as coded** —
 routing/fallback logic is confirmed sound, not just typechecked. Raw quality is a wash
