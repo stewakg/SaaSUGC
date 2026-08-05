@@ -121,6 +121,12 @@ export default function MatrixPage() {
   const [captionX, setCaptionX] = useState(0.5);
   const [captionY, setCaptionY] = useState(0.46);
   const [captionScale, setCaptionScale] = useState(1);
+  // Audio the user supplies: background music under the whole ad, SFX on the CTA card.
+  const [music, setMusic] = useState<UploadedFile | null>(null);
+  const [sfx, setSfx] = useState<UploadedFile | null>(null);
+  const [musicVolume, setMusicVolume] = useState(0.25);
+  const [audioUploading, setAudioUploading] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
 
   // Step 3 — transitions / CTA
   const [transitionIn, setTransitionIn] = useState<MatrixTransition>('zoom-punch');
@@ -145,6 +151,24 @@ export default function MatrixPage() {
       setUploadError(err instanceof Error ? err.message : 'Nepoznata greška.');
     } finally {
       setUploading(false);
+      e.target.value = '';
+    }
+  }
+
+  /** Shared by the music and SFX pickers — both go through the same /api/upload path. */
+  async function handleAudioUpload(e: React.ChangeEvent<HTMLInputElement>, kind: 'music' | 'sfx') {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAudioUploading(true);
+    setAudioError(null);
+    try {
+      const uploaded = await uploadFile(file);
+      if (kind === 'music') setMusic(uploaded);
+      else setSfx(uploaded);
+    } catch (err) {
+      setAudioError(err instanceof Error ? err.message : 'Nepoznata greška.');
+    } finally {
+      setAudioUploading(false);
       e.target.value = '';
     }
   }
@@ -225,6 +249,9 @@ export default function MatrixPage() {
             captionX,
             captionY,
             captionScale,
+            musicUrl: music?.url,
+            musicVolume,
+            sfxUrl: sfx?.url,
             transitionIn,
             outroText,
             sourceImages: images,
@@ -578,7 +605,61 @@ export default function MatrixPage() {
             ) : null}
           </div>
 
-          <p className="text-xs text-zinc-500">Muzika i SFX na CTA: uskoro (kasnija faza, pravi audio zapisi).</p>
+          <div className="rounded-xl border border-white/10 bg-ink-900/50 p-3">
+            <span className="mb-2 block text-sm text-zinc-300">Zvuk (opciono)</span>
+
+            <label className="mb-3 block">
+              <span className="mb-1 block text-xs text-zinc-400">
+                Muzika u pozadini {music ? `— ${music.name}` : ''}
+              </span>
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={(e) => handleAudioUpload(e, 'music')}
+                className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-400/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-400/20"
+              />
+            </label>
+
+            {music ? (
+              <label className="mb-3 block">
+                <span className="mb-1 flex justify-between text-xs text-zinc-400">
+                  <span>Jačina muzike</span>
+                  <span>{Math.round(musicVolume * 100)}%</span>
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round(musicVolume * 100)}
+                  onChange={(e) => setMusicVolume(Number(e.target.value) / 100)}
+                  className="w-full accent-brand-400"
+                />
+                {musicVolume > 0.45 ? (
+                  <span className="mt-1 block text-xs text-amber-400/90">
+                    ⚠ Na ovoj jačini muzika lako nadjača glas. Preporuka: ispod 40%.
+                  </span>
+                ) : null}
+              </label>
+            ) : null}
+
+            <label className="block">
+              <span className="mb-1 block text-xs text-zinc-400">
+                Zvučni efekat na CTA kartici {sfx ? `— ${sfx.name}` : ''}
+              </span>
+              <input
+                type="file"
+                accept="audio/*"
+                onChange={(e) => handleAudioUpload(e, 'sfx')}
+                className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-400/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-400/20"
+              />
+            </label>
+
+            {audioUploading && <p className="mt-2 text-xs text-zinc-300">Otpremam…</p>}
+            {audioError && <p className="mt-2 rounded-lg bg-red-500/10 p-2 text-xs text-red-300">{audioError}</p>}
+            <p className="mt-2 text-xs text-zinc-500">
+              Koristi samo muziku na koju imaš prava — otpremljeni zapis ide direktno u gotov oglas.
+            </p>
+          </div>
         </div>
       ),
     },

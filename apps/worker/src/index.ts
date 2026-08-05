@@ -222,6 +222,11 @@ export async function runMatrixPipeline(params: Record<string, unknown>): Promis
       // applies its own safe-zone defaults (0.5 / 0.46) and clamps either way.
       captionX: typeof params.captionX === 'number' ? params.captionX : undefined,
       captionY: typeof params.captionY === 'number' ? params.captionY : undefined,
+      // Absolutized like every other storage url — MockStorage returns a relative
+      // path and <Audio> only mounts on an absolute http(s) src.
+      musicUrl: typeof params.musicUrl === 'string' && params.musicUrl ? resolveStorageUrl(params.musicUrl) : undefined,
+      musicVolume: typeof params.musicVolume === 'number' ? params.musicVolume : undefined,
+      sfxUrl: typeof params.sfxUrl === 'string' && params.sfxUrl ? resolveStorageUrl(params.sfxUrl) : undefined,
       transitionIn,
       outroText:
         typeof params.outroText === 'string' && params.outroText ? params.outroText : DEFAULT_MATRIX_OUTRO_TEXT,

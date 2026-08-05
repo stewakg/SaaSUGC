@@ -42,6 +42,14 @@ const ALLOWED_TYPES = new Set([
   'image/png',
   'image/jpeg',
   'image/webp',
+  // Audio: background music / CTA sound effects the user supplies for a Matrix ad.
+  // `audio/mp4` and `audio/x-m4a` are both seen for .m4a depending on the browser.
+  'audio/mpeg',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/ogg',
+  'audio/mp4',
+  'audio/x-m4a',
 ]);
 
 export async function POST(request: NextRequest) {

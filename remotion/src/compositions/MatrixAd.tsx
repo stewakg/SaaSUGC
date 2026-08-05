@@ -4,6 +4,7 @@ import {
   Audio,
   Easing,
   OffthreadVideo,
+  Sequence,
   Series,
   interpolate,
   spring,
@@ -139,24 +140,22 @@ function CaptionWordEl({
   );
 }
 
+/** Visual only — the CTA sound effect is sequenced at the composition root, not here. */
 function OutroCard({
   text,
   frame,
   fps,
   fontFamily,
-  sfxUrl,
 }: {
   text: string;
   frame: number;
   fps: number;
   fontFamily: string;
-  sfxUrl?: string;
 }) {
   const entrance = spring({ frame, fps, config: { damping: 14, stiffness: 180 }, from: 0.6, to: 1 });
   const opacity = interpolate(frame, [0, 8], [0, 1], { extrapolateRight: 'clamp' });
   return (
     <AbsoluteFill style={{ backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', opacity }}>
-      {sfxUrl ? <Audio src={sfxUrl} /> : null}
       <div
         style={{
           transform: `scale(${entrance})`,
@@ -195,6 +194,7 @@ export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
     shots,
     voiceUrl,
     musicUrl,
+    musicVolume,
     sfxUrl,
     captionWords,
     captionStyle,
@@ -239,7 +239,21 @@ export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
         cannot stream, and a relative storage url is not fetchable from the renderer.
       */}
       {voiceUrl && /^https?:\/\//.test(voiceUrl) ? <Audio src={voiceUrl} volume={1} /> : null}
-      {musicUrl && /^https?:\/\//.test(musicUrl) ? <Audio src={musicUrl} volume={0.25} /> : null}
+      {/*
+        The CTA sound effect MUST be wrapped in a <Sequence from={outroStartFrame}>.
+        An <Audio> with no enclosing Sequence is treated as starting at composition
+        frame 0, so mounting it late (when the outro card appears ~9s in) just plays
+        a point past the clip's end — i.e. silence. It lived inside OutroCard and was
+        silently broken that way until it was first actually exercised on 2026-08-05.
+      */}
+      {sfxUrl && /^https?:\/\//.test(sfxUrl) ? (
+        <Sequence from={outroStartFrame}>
+          <Audio src={sfxUrl} />
+        </Sequence>
+      ) : null}
+      {musicUrl && /^https?:\/\//.test(musicUrl) ? (
+        <Audio src={musicUrl} volume={clampNum(typeof musicVolume === 'number' ? musicVolume : 0.25, 0, 1)} />
+      ) : null}
 
       <AbsoluteFill style={getIntroContainerStyle(transitionIn, frame, introFrames)}>
         <Series>
@@ -297,7 +311,7 @@ export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
       <IntroFlashOverlay type={transitionIn} frame={frame} introFrames={introFrames} accentColor={color} />
 
       {showOutro ? (
-        <OutroCard text={outroText} frame={frame - outroStartFrame} fps={fps} fontFamily={montserratFamily} sfxUrl={sfxUrl} />
+        <OutroCard text={outroText} frame={frame - outroStartFrame} fps={fps} fontFamily={montserratFamily} />
       ) : null}
     </AbsoluteFill>
   );

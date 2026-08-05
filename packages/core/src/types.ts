@@ -137,6 +137,11 @@ export interface MatrixAdProps {
   /** Generated voiceover, muxed over the montage. Unset in mock mode (no real audio). */
   voiceUrl?: string;
   musicUrl?: string;
+  /**
+   * Background-music level, 0-1. Defaults to 0.25 — low enough that the voiceover
+   * stays intelligible over it. Clamped by the composition.
+   */
+  musicVolume?: number;
   /** SFX-on-CTA hook (INFRASTRUCTURE.md §5 F4) — plays once when the outro card appears. Unset in mock mode. */
   sfxUrl?: string;
   captionWords: CaptionWord[];
