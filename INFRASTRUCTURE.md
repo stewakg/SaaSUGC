@@ -230,7 +230,8 @@ the source file's doc-comments are richer than the copy ever was.
   15/video on success (existing charge-on-success path from F2).
 - [x] Matrix settings screen (`/app/matrix`): voice, script tone preset, caption font/anim/color, count, transitions,
   outro text. Music/SFX shown as "uskoro" — no real audio asset source in mock mode.
-- [ ] ⭐ **Caption editor — user-controllable placement/size (position is the real gap).** Font, animation and
+- [x] ⭐ **Caption editor — user-controllable placement/size.** DONE 2026-08-05 (`18a004a`, `8cc7a94`): `captionX`/`captionY` props (frame fractions, clamped so nothing can leave the frame), sliders for position + size, three safe-zone presets, and a warning when dragged below 72% height. `captionScale` only needed a control — the renderer already honoured it. Render side runtime-verified; **the wizard controls themselves are NOT click-tested** (behind auth). Original spec kept below for reference:
+- [ ] ~~Caption editor — user-controllable placement/size (position is the real gap).~~ Font, animation and
   active-word colour are already user-chosen in the wizard; `captionScale` already exists as a
   `MatrixAdProps` prop but has **no UI**; **position does not exist at all** and was hardcoded in
   `remotion/src/compositions/MatrixAd.tsx` until `304e44a`. To add:
