@@ -197,11 +197,19 @@ the source file's doc-comments are richer than the copy ever was.
 > cookie the headless worker/renderer don't have, so every montage job had been
 > hard-failing on a 401 since M2c landed.
 >
-> **STILL NOT DONE:** NO sound/music panel (blocked on a music/SFX asset source), voiceover
-> is generated but NOT muxed into the render (mock word-timings still drive captions). Owner confirmed:
-> montage of user-supplied REAL clips, NOT AI-generating video from them. **Still not exercised:**
-> the `/api/jobs → BullMQ → worker` hop through the UI (needs a local Redis; the pipeline
-> itself is verified without it, and prod Redis already runs on the VPS).
+> **✅ AUDIO LANDED 2026-08-05 (`eae4b4c`).** The voiceover is muxed into the render and
+> captions run on ElevenLabs' REAL per-word alignment (`/with-timestamps` →
+> `foldAlignmentIntoWords`), with `mockWordTimestamps` kept as the fallback for providers
+> that report no alignment. Verified by MEASURING the output, not by seeing an audio
+> stream exist: `volumedetect` mean −23.4 dB vs −91.0 dB (digital silence) before.
+> **Cost change:** a matrix job now spends real ElevenLabs credits per variant — count=15
+> means 15 TTS calls.
+>
+> **STILL NOT DONE:** NO sound/music panel (blocked on a music/SFX asset source) — the
+> `musicUrl`/`sfxUrl` props exist and are wired, nothing supplies them. Owner confirmed:
+> montage of user-supplied REAL clips, NOT AI-generating video from them. **Still not
+> exercised:** the `/api/jobs → BullMQ → worker` hop through the UI (needs a local Redis;
+> the pipeline itself is verified without it, and prod Redis already runs on the VPS).
 - [x] `/remotion`: Remotion project. Built the **matrix-ad** composition:
   - Vertical 1080×1920, background clip layer, **karaoke captions** (white words + 2px black stroke, active word
     highlight color e.g. `#FFE000`), driven by `caption_style` = `cap:<font>:<anim>:<hexcolor>` (anims: smooth/pop/none).

@@ -16,6 +16,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: matrix audio muxing (packages/core/src/{interfaces,types}.ts + providers/voice.elevenlabs.ts + apps/worker/src/index.ts + remotion/src/compositions/MatrixAd.tsx) — CLEAN @ eae4b4c (2026-08-05). Two Cline tasks (core, then worker+remotion), both diffs audited line-by-line; Claude Code fixed a doc-comment placement of its own spec's making, refreshed the file's stale "NOT live-tested" header, and re-applied an absolutize fix Cline had clobbered mid-run. ✅ RUNTIME-VERIFIED BY MEASUREMENT: `volumedetect` mean −23.4 dB / max −4.0 dB against −91.0 dB (digital silence) pre-fix; duration tracks real speech (11.99s ≈ 8.4s spoken + 3s outro); filmstrip shows the highlight advancing word by word. ElevenLabs `/with-timestamps` probed live BEFORE writing any code. **Cost change: real ElevenLabs credits per variant now.** `musicUrl`/`sfxUrl` paths remain wired-but-unfed and are still NOT runtime-verified.
 REVIEWED: storage-route dev bypass + gitignore anchor (.gitignore + NEW-TO-GIT apps/web/src/app/api/storage/[...path]/route.ts) — CLEAN @ cb8f7a2 (2026-08-05). Cline-delegated, diff audited by Claude Code against the spec: serveFile() extracted, bypass inserted AFTER the path-traversal guard and BEFORE createServerClient(), auth/isOwnUpload/RLS logic byte-identical. **Cline found what the spec missed**: the route file was never in git (bare `storage/` ignore pattern matches any depth) — pattern anchored to `/storage/`, generated assets still ignored. ✅ RUNTIME-VERIFIED: /api/storage/... 401→200 (4 MB video/mp4), traversal probe still non-200, and the montage render that previously threw on 401 now completes.
 REVIEWED: import-clip format selection (apps/web/src/app/api/import-clip/route.ts) — CLEAN @ fcd383f (2026-08-05). Cline-delegated, all 5 edits landed exactly; Claude Code corrected one doc-comment that referenced the prompt's own "CHANGE 2" numbering. Auth/rate-limit/SSRF guard/storage.upload/502-catch untouched. ✅ RUNTIME-VERIFIED both before and after: real YouTube link went 269.28 MB / 56.2s → 27.20 MB / 15.6s (format 18, 640x360 h264+aac). New 413 file_too_large path is a backstop only — not exercised live (would need a >200MB progressive source).
 REVIEWED: worker testability hook (apps/worker/src/index.ts: export runMatrixPipeline + isDirectRun guard) — CLEAN @ 6c56f81 (2026-08-05). Written directly by Claude Code (not Cline) because it was the harness needed to verify the real pipeline. Behaviour on a real `tsx src/index.ts` start is unchanged; imports no longer open Redis or exit on a missing service key.
@@ -108,6 +109,21 @@ example whose code no longer exists. Lesson worth keeping: two of the three sect
 *assumed* were duplicates were not (§0's competitor-password security rule and §2's repo
 map exist nowhere else), so the `INFRASTRUCTURE.md` trim was far smaller than projected.
 Check before cutting.
+
+**Audio muxing landed (`eae4b4c`) — the last big gap in the main feature.** Probed
+ElevenLabs' `/with-timestamps` against the live API *before* writing code: it returns
+per-character alignment that folds cleanly into Serbian words, diacritics and real pauses
+intact. So captions now run on actual speech, not `mockWordTimestamps`. **The debugging
+lesson is the valuable part**: the first render had an AAC track and looked done — but
+`volumedetect` read **−91.0 dB, digital silence**. Cause was a RELATIVE MockStorage url
+reaching `<Audio>`, which mounts only on absolute http(s); Remotion then finds no audio
+asset and writes a silent track **with no error at all**. Identical failure class to the
+`/api/storage` 401 earlier the same day — `resolveStorageUrl` was the fix both times.
+**Never accept "the stream exists" as proof audio works; measure it.** Two Cline traps
+also hit and now written into `CLAUDE.md`: cline must run from PowerShell (Bash has no
+shim and fails while still exiting 0), long prompts must go in a file with a one-line
+pointer, and editing a file while Cline is mid-run gets your edit clobbered — which is
+what sent me chasing a phantom Remotion bug.
 
 **Also this session:** karaoke captions were bottom-anchored at ~88% frame height, inside
 TikTok/Reels' own UI band — moved to ~46% (`304e44a`) and a caption-editor TODO added to

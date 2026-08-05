@@ -72,6 +72,20 @@ files — never trust Cline's self-report on non-deterministic work. Cline auto-
 `.clinerules` file in the cwd if present. Claude edits app code directly only when
 asked; meta/workflow docs (this file, `SESSION_LOG.md`) Claude may edit directly.
 
+**Two invocation traps, both hit on 2026-08-05:**
+1. **Run `cline` from PowerShell, never the Bash tool** — there is no working bash shim,
+   and a Bash invocation dies with `command not found` while the wrapping command still
+   exits 0, so it looks like a silent no-op run.
+2. **Never pass a long prompt as an argument.** PowerShell splits it on newlines and
+   cline rejects it (`Unknown command or unquoted prompt`). Write the spec to
+   `scratchpad/cline-prompt-<x>.md` and pass a ONE-LINE prompt telling Cline to read that
+   file and follow it exactly. More robust and it survives any quoting.
+
+**Do not edit files while a Cline run is still in flight.** Cline writes the file again
+when it finishes and will silently clobber your edit — this cost a wrong-diagnosis cycle
+on 2026-08-05 (an absolutize fix vanished, and the symptom looked like a Remotion bug).
+Wait for the completion notification, then edit.
+
 ## Baseline gates
 `pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core` + `@adgen/worker` — 25 tests
 as of 2026-07-20, covering the montage chain + caption/cost logic), and
