@@ -11,6 +11,7 @@
  * so the whole pipeline runs end-to-end locally (just needs Redis + Supabase).
  */
 import { Worker, type Job } from 'bullmq';
+import { pathToFileURL } from 'node:url';
 import {
   createProviders,
   mockWordTimestamps,
@@ -85,7 +86,7 @@ function buildImageAdsPrompt(params: Record<string, unknown>, index: number): st
  * shape real audio muxing will fill in later) but NOT muxed into the video
  * yet — captions still play out on mocked word timings. See MatrixAd.tsx.
  */
-async function runMatrixPipeline(params: Record<string, unknown>): Promise<PipelineAsset[]> {
+export async function runMatrixPipeline(params: Record<string, unknown>): Promise<PipelineAsset[]> {
   const count = typeof params.count === 'number' && params.count > 0 ? Math.floor(params.count) : 1;
   const language = typeof params.language === 'string' && params.language ? params.language : 'sr';
 
@@ -353,7 +354,13 @@ async function main() {
   });
 }
 
-main().catch((err) => {
+// Only boot the BullMQ consumer when this file is *run*, not when it's
+// imported (tests / verification drivers import runMatrixPipeline directly and
+// must not open a Redis connection or exit the process on a missing key).
+const isDirectRun =
+  !!process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isDirectRun) main().catch((err) => {
   consoleLogger.error('fatal', { error: err instanceof Error ? err.message : String(err) });
   process.exit(1);
 });
