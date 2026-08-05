@@ -21,7 +21,11 @@ supabase/.branches
 supabase/.temp
 
 # local storage of generated assets
-storage/
+# Root-anchored on purpose: a bare `storage/` matches a directory named
+# `storage` at ANY depth, which silently swallowed the whole
+# apps/web/src/app/api/storage/ route — it was never committed (found
+# 2026-08-05). Keep the leading slash.
+/storage/
 apps/web/public/generated/
 
 # logs
