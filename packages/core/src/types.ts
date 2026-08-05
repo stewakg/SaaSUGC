@@ -142,6 +142,14 @@ export interface MatrixAdProps {
   captionWords: CaptionWord[];
   captionStyle: string;
   captionScale: number;
+  /**
+   * Caption anchor as a FRACTION of the frame (resolution independent), measured to the
+   * CENTRE of the caption block. Defaults: x 0.5 (horizontally centred), y 0.46 (just
+   * above centre — the safe-zone placement, clear of TikTok/Reels chrome at the bottom).
+   * The composition clamps both, so an out-of-range value cannot push text off-frame.
+   */
+  captionX?: number;
+  captionY?: number;
   transitionIn: MatrixTransition;
   outroText: string;
   durationInFrames: number;

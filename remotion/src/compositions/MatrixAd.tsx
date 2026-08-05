@@ -23,6 +23,10 @@ import type { CaptionWord, MatrixAdProps, MatrixTransition } from '@adgen/core/t
 const { fontFamily: antonFamily } = loadAnton();
 const { fontFamily: montserratFamily } = loadMontserrat();
 
+function clampNum(value: number, min: number, max: number): number {
+  return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min;
+}
+
 function parseCaptionStyle(style: string): { font: 'Impact' | 'Montserrat'; anim: 'smooth' | 'pop' | 'none'; color: string } {
   const parts = style.split(':');
   const font = parts[1] === 'Montserrat' ? 'Montserrat' : 'Impact';
@@ -187,13 +191,32 @@ function OutroCard({
  * background clip, karaoke captions, intro transition, outro CTA card.
  */
 export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
-  const { shots, voiceUrl, musicUrl, sfxUrl, captionWords, captionStyle, captionScale, transitionIn, outroText } =
-    props;
+  const {
+    shots,
+    voiceUrl,
+    musicUrl,
+    sfxUrl,
+    captionWords,
+    captionStyle,
+    captionScale,
+    captionX,
+    captionY,
+    transitionIn,
+    outroText,
+  } = props;
   const frame = useCurrentFrame();
   const { fps, durationInFrames } = useVideoConfig();
   const currentSec = frame / fps;
 
   const { font, anim, color } = parseCaptionStyle(captionStyle);
+
+  // Clamped so a bad prop can never push captions off-frame. The X bounds also keep the
+  // block's own width on screen (see captionWidthPct below).
+  const anchorX = clampNum(typeof captionX === 'number' ? captionX : 0.5, 0.15, 0.85);
+  const anchorY = clampNum(typeof captionY === 'number' ? captionY : 0.46, 0.08, 0.92);
+  // The block is centred on anchorX, so its half-width can only be as wide as the
+  // distance to the nearer edge — otherwise moving it sideways would clip the text.
+  const captionWidthPct = Math.min(0.86, 2 * Math.min(anchorX, 1 - anchorX)) * 100;
   const fontFamily = font === 'Montserrat' ? montserratFamily : antonFamily;
 
   const introFrames = Math.max(1, Math.round(MATRIX_INTRO_SECONDS * fps));
@@ -232,17 +255,28 @@ export const MatrixAd: React.FC<MatrixAdProps> = (props) => {
           ))}
         </Series>
         {/*
-          Captions sit just above the vertical centre, NOT at the bottom.
-          Two reasons: (1) the bottom ~15% of a 9:16 frame is covered by
-          TikTok/Reels chrome (username, description, music ticker, side
-          buttons), so bottom-anchored text collides with it in-feed;
-          (2) centre keeps the viewer's eye on the product. `paddingBottom`
-          with `justifyContent: center` shifts the line up by half its value
-          — 160 here puts the caption ~80px above dead centre.
+          Caption placement is user-controllable (captionX/captionY, fractions of the
+          frame) and DEFAULTS to just above centre — never the bottom. The bottom ~15%
+          of a 9:16 frame is covered by TikTok/Reels chrome (username, description,
+          music ticker, side buttons), so bottom-anchored text collides with it in-feed;
+          centre also keeps the viewer's eye on the product. The clamps above stop any
+          value from pushing text off-frame or under that chrome entirely.
         */}
         {activeLine && !showOutro ? (
-          <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', paddingBottom: 160 }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '0 14px', maxWidth: '86%' }}>
+          <AbsoluteFill>
+            <div
+              style={{
+                position: 'absolute',
+                top: `${anchorY * 100}%`,
+                left: `${anchorX * 100}%`,
+                transform: 'translate(-50%, -50%)',
+                width: `${captionWidthPct}%`,
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+                gap: '0 14px',
+              }}
+            >
               {activeLine.map((word, i) => (
                 <CaptionWordEl
                   key={`${word.startSec}-${i}`}
