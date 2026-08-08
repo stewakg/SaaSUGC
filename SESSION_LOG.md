@@ -161,6 +161,40 @@ F4 (position props + sliders; font/anim/colour already exist, `captionScale` nee
 
 ---
 
+## 🔴 BLOCKER — the Supabase project is GONE (found 2026-08-08)
+
+`gczikdrskcpqqlyzvnby.supabase.co` **does not resolve**. Confirmed against three
+independent public resolvers (Google 8.8.8.8, Cloudflare 1.1.1.1, Quad9 9.9.9.9) — all
+NXDOMAIN — while the sibling aikutak project (`wfpsbmwhdzzfgwudzkfq`) resolves through the
+same resolver. Not DNS cache, not the router, not local. The owner confirmed it is not
+listed in their Supabase dashboard either. `.env` is self-consistent (URL, anon and
+service keys all carry `ref=gczikdrskcpqqlyzvnby`, valid to 2036), so the keys were issued
+for a project that really existed — migration 0004 was applied to it on 2026-07-23.
+
+**Consequence:** no auth, no `jobs`/`profiles`/`credits_ledger`. Nobody can log in, and the
+worker cannot read or write a job. The UI path is dead until it is rebuilt.
+
+**What is NOT affected:** everything verified on 2026-08-05 deliberately bypassed Supabase
+— the montage/audio/caption work was driven straight through `runMatrixPipeline`, the
+storage route returns before its auth check outside production, and kie/fal/ElevenLabs are
+external. Those verifications stand.
+
+> ⚠️ One earlier claim was weaker than stated: `/api/voices` returning 401 was reported as
+> "the route is wired correctly". That 401 is equally consistent with Supabase being
+> unreachable. The `/api/storage` 401 diagnosis still holds regardless — a headless worker
+> has no session cookie either way — but the evidence did not distinguish the two causes.
+
+**Recovery (owner steps — everything needed is in the repo):**
+1. Create a new Supabase project. *(Claude cannot create accounts or projects.)*
+2. Run `supabase/migrations/0001` → `0004` **in order** in the SQL Editor. Repo convention:
+   AI never executes SQL migrations.
+3. Hand over the new Project URL + anon key + service_role key → `.env` gets updated,
+   then `pnpm db:seed` recreates the dev user.
+
+No storage bucket is needed (dev uses local disk; R2 is F5 and unwired).
+
+---
+
 ## ▶ PICK UP HERE TOMORROW
 
 **Where Matrix stands:** montage renders, voiceover is muxed, captions follow real
