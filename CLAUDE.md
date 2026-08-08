@@ -10,7 +10,19 @@ there is **nothing to sync for code**. What does NOT survive the account switch 
 *intent* — why the last session did what it did, and what's next. That lives in
 `SESSION_LOG.md`.
 
+**But the owner ALSO works across two physical machines** (the sibling `aikutak` repo is
+the case that proved it). The moment that happens here, "pushing is optional backup"
+below stops being true. The rule that cost three weeks in `aikutak`:
+**never end a session with uncommitted work.** Commit it anyway — `wip:` prefix, or a
+`wip/<topic>` branch — then push. A commit is not a claim that something is finished; it
+is the only thing that carries work to the other machine, and the only backup. Code that
+exists on one disk does not exist. Verified 2026-08-08: this repo's own `/api/storage`
+route had never been committed and would have vanished with the machine.
+
 ## Start-of-session ritual
+0. `git fetch origin && git status -sb`. If it says `behind`, pull **before touching any
+   file**. If it says `ahead`, the last session didn't push — find out why before adding
+   to it.
 1. Read the **top entry** of `SESSION_LOG.md` (newest first).
 2. Run `git log --oneline -15` and `git status -s` to see what actually changed.
 3. **Do NOT re-read source files wholesale to "get oriented."** The log + git already
@@ -20,8 +32,12 @@ there is **nothing to sync for code**. What does NOT survive the account switch 
 ## End-of-session ritual
 1. Append a new dated block to the **top** of `SESSION_LOG.md` — append-only, never
    rewrite old blocks.
-2. Commit with a clear message. Pushing to `origin/main` is optional backup (same
-   folder = no sync needed across accounts).
+2. Commit with a clear message — **including unfinished work** (see above).
+3. **`git push origin main`.** Not optional. The account switch shares a folder, but the
+   remote is the only copy that survives this machine, and the only way a second machine
+   ever sees the work.
+4. State in the log block whether anything was deliberately left uncommitted, and what.
+   If that line is ever non-empty, it must say **what** and **where**.
 
 ## Log discipline (this is what stops the doc from lying)
 Every claim in `SESSION_LOG.md` marks its verification level and anchors to a commit
