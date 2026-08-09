@@ -15,12 +15,20 @@ export default function SignupPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Signup is the one place a typo is unrecoverable: the account is created
+    // with the mistyped password and email confirmation still lets the user in
+    // once, so nothing surfaces the mistake until the next login fails.
+    if (password !== confirm) {
+      setError('Lozinke se ne poklapaju.');
+      return;
+    }
     setLoading(true);
     setError(null);
     setNotice(null);
@@ -74,6 +82,16 @@ export default function SignupPage() {
             value={password}
             onChange={setPassword}
             placeholder="minimum 6 znakova"
+            required
+            minLength={6}
+            autoComplete="new-password"
+          />
+          <Field
+            label="Ponovi lozinku"
+            type="password"
+            value={confirm}
+            onChange={setConfirm}
+            placeholder="isto još jednom"
             required
             minLength={6}
             autoComplete="new-password"
