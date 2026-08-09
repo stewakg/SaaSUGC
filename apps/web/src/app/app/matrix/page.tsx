@@ -36,6 +36,29 @@ interface ScrapeResult {
  */
 const VOICES_LOADING: VoiceOption[] = [{ id: '', label: 'Učitavanje glasova…' }];
 
+interface ScriptCandidate {
+  angle: string;
+  script: string;
+  estDurationSec: number;
+}
+
+/**
+ * Script candidates included at no charge. Past this the user pays, which is
+ * what stops "just one more" from being unbounded — a cap the UI enforces, not
+ * a rule buried in the API.
+ */
+const FREE_SCRIPTS = 5;
+/** Hard ceiling. Reading ten candidates is already more than anyone will do. */
+const MAX_SCRIPTS = 10;
+/** Placeholder price for candidates 6-10; real pricing lands with migration 0005. */
+const EXTRA_SCRIPTS_COST = 1;
+
+/** ~2.5 spoken words per second, the same estimate the script prompt uses. */
+function spokenSeconds(text: string): number {
+  const words = text.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.round(words / 2.5));
+}
+
 interface VoiceOption {
   id: string;
   label: string;
@@ -105,6 +128,15 @@ export default function MatrixPage() {
   const [count, setCount] = useState(5);
   const [voices, setVoices] = useState<VoiceOption[]>(VOICES_LOADING);
   const [voiceId, setVoiceId] = useState('');
+
+  // Script review. `scripts` holds what the user KEPT — the job sends these
+  // instead of letting the worker generate, so editing here is what ships.
+  const [scripts, setScripts] = useState<ScriptCandidate[]>([]);
+  const [generatingScripts, setGeneratingScripts] = useState(false);
+  const [scriptError, setScriptError] = useState<string | null>(null);
+  const [speakerGender, setSpeakerGender] = useState<'male' | 'female' | undefined>(undefined);
+  /** Index of the expanded candidate; the rest stay collapsed but available. */
+  const [openScript, setOpenScript] = useState<number | null>(null);
 
   // The voice catalogue must come from whichever provider is actually configured
   // (mock in dev with no key, ElevenLabs with one) — a hardcoded list silently
@@ -226,6 +258,62 @@ export default function MatrixPage() {
     }
   }
 
+  /**
+   * Generates ONE more candidate and appends it. Earlier ones collapse but stay
+   * — a rejected script is often still the best starting point for an edit, and
+   * throwing it away to make room for the next one loses that.
+   *
+   * The count cap is what keeps this from running up a bill, so it does the job
+   * an earlier "replace instead of append" rule was doing badly: `FREE_SCRIPTS`
+   * on the house, up to `MAX_SCRIPTS` in total.
+   */
+  async function handleGenerateScripts() {
+    if (scripts.length >= MAX_SCRIPTS) return;
+    setGeneratingScripts(true);
+    setScriptError(null);
+    try {
+      const res = await fetch('/api/generate-scripts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          product: price ? `${productTitle} (${price})` : productTitle,
+          benefits: [description, offerNotes].filter(Boolean).join(' · '),
+          tone,
+          language,
+          style: 'UGC',
+          voiceId,
+          count: 1,
+        }),
+      });
+      const data = (await res.json()) as {
+        variants?: ScriptCandidate[];
+        speakerGender?: 'male' | 'female' | null;
+        error?: string;
+      };
+      const next = data.variants?.[0];
+      if (!res.ok || !next) throw new Error(data.error ?? 'Pisanje skripti nije uspelo.');
+      setScripts((prev) => {
+        setOpenScript(prev.length); // the new one takes focus
+        return [...prev, next];
+      });
+      setSpeakerGender(data.speakerGender ?? undefined);
+    } catch (err) {
+      setScriptError(err instanceof Error ? err.message : 'Nepoznata greška.');
+    } finally {
+      setGeneratingScripts(false);
+    }
+  }
+
+  function updateScript(index: number, text: string) {
+    setScripts((prev) => prev.map((s, i) => (i === index ? { ...s, script: text } : s)));
+  }
+
+  function removeScript(index: number) {
+    setScripts((prev) => prev.filter((_, i) => i !== index));
+    // Keep focus on something that still exists after the removal.
+    setOpenScript((open) => (open === null ? null : Math.max(0, Math.min(open, scripts.length - 2))));
+  }
+
   async function handleSearchClips() {
     const q = searchQuery.trim();
     if (!q) return;
@@ -317,6 +405,11 @@ export default function MatrixPage() {
             outroText,
             sourceImages: images,
             sourceVideoUrls: clips.map((c) => c.url),
+            // Sent only when the user actually reviewed something. An empty
+            // array would read as "approved nothing" to the worker; omitting
+            // the key lets it generate normally, which is the old behaviour.
+            scripts: scripts.length > 0 ? scripts : undefined,
+            speakerGender,
           },
         }),
       });
@@ -809,6 +902,108 @@ export default function MatrixPage() {
       ),
     },
     {
+      id: 'scripts',
+      label: 'Skripte',
+      content: (
+        <div className="space-y-4">
+          <p className="text-sm text-zinc-400">
+            Napravi skripte, pročitaj ih i zadrži one koje valjaju. Možeš ih i doraditi — ono što ostane
+            ovde je ono što će glas pročitati. Ako preskočiš ovaj korak, skripte se pišu automatski.
+          </p>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void handleGenerateScripts()}
+              disabled={generatingScripts || !productTitle.trim() || scripts.length >= MAX_SCRIPTS}
+              className="btn-ghost disabled:opacity-50"
+            >
+              {generatingScripts
+                ? 'Pišem…'
+                : scripts.length === 0
+                  ? 'Napravi skriptu'
+                  : scripts.length >= FREE_SCRIPTS
+                    ? `Napravi još (${EXTRA_SCRIPTS_COST} kredit)`
+                    : 'Napravi sledeću'}
+            </button>
+            {scripts.length > 0 && (
+              <span className="text-xs text-zinc-500">
+                {scripts.length}/{MAX_SCRIPTS}
+                {speakerGender && ` · ${speakerGender === 'male' ? 'muški' : 'ženski'} rod`}
+              </span>
+            )}
+            {scripts.length >= MAX_SCRIPTS && (
+              <span className="text-xs text-zinc-500">Dostigao si maksimum — obriši neku da napraviš novu.</span>
+            )}
+          </div>
+
+          {scriptError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{scriptError}</p>}
+
+          {/* Silence here means the copy may not match the voice — worth saying,
+              because in Serbian that is a broken ad, not a stylistic quibble. */}
+          {scripts.length > 0 && !speakerGender && (
+            <p className="rounded-lg bg-amber-500/10 p-3 text-xs text-amber-200">
+              Pol glasa nije prepoznat, pa skripte nisu pisane ni u muškom ni u ženskom rodu. Proveri da
+              se slažu sa glasom koji si izabrao.
+            </p>
+          )}
+
+          {scripts.map((s, i) => {
+            const open = openScript === i;
+            return (
+              <div
+                key={i}
+                className={`rounded-lg border transition ${
+                  open ? 'border-brand-400/40 bg-ink-900 p-3' : 'border-white/10 bg-ink-900/50 px-3 py-2'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  {/* The whole header toggles: a collapsed candidate is one
+                      click from being read again, which is the point of
+                      keeping it. */}
+                  <button
+                    type="button"
+                    onClick={() => setOpenScript(open ? null : i)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  >
+                    <span className="shrink-0 text-xs text-zinc-500">{i + 1}.</span>
+                    <span className="truncate text-xs text-zinc-400">{s.angle}</span>
+                    {!open && (
+                      <span className="truncate text-xs text-zinc-600">— {s.script.slice(0, 60)}…</span>
+                    )}
+                  </button>
+                  <span className="shrink-0 text-[11px] text-zinc-600">~{spokenSeconds(s.script)}s</span>
+                  <button
+                    type="button"
+                    onClick={() => removeScript(i)}
+                    className="shrink-0 text-xs text-red-300 hover:text-red-200"
+                  >
+                    Ukloni
+                  </button>
+                </div>
+
+                {open && (
+                  <>
+                    <textarea
+                      value={s.script}
+                      onChange={(e) => updateScript(i, e.target.value)}
+                      rows={4}
+                      maxLength={2000}
+                      className="mt-2 w-full resize-y rounded-lg border border-white/10 bg-ink-950 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+                    />
+                    <p className="mt-1 text-[11px] text-zinc-600">
+                      {s.script.trim().split(/\s+/).filter(Boolean).length} reči · ~{spokenSeconds(s.script)}s
+                      izgovoreno
+                    </p>
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ),
+    },
+    {
       id: 'transitions',
       label: 'Tranzicije i CTA',
       content: (
@@ -845,15 +1040,24 @@ export default function MatrixPage() {
     },
   ];
 
+  // Gating is keyed on the step's id, not its index. The index form
+  // (`stepIndex === 4 && …`) silently attaches the wrong rule to the wrong
+  // step the moment a step is inserted, and it compiles and builds either way
+  // — the failure only shows up in a browser. Ids survive reordering.
+  const lastIndex = steps.length - 1;
+  const currentStepId = steps[stepIndex]?.id;
+
   const canNext =
-    (stepIndex === 0 && clips.length >= 1) ||
-    (stepIndex === 1 && productTitle.trim().length > 0) ||
-    stepIndex === 2 ||
-    stepIndex === 3 ||
-    (stepIndex === 4 && phase !== 'running');
+    currentStepId === 'clips'
+      ? clips.length >= 1
+      : currentStepId === 'import'
+        ? productTitle.trim().length > 0
+        : currentStepId === 'generate'
+          ? phase !== 'running'
+          : true;
 
   const nextLabel =
-    stepIndex < 4
+    stepIndex < lastIndex
       ? 'Dalje'
       : phase === 'done'
         ? 'Vidi u Moje reklame'
@@ -868,7 +1072,7 @@ export default function MatrixPage() {
         activeIndex={stepIndex}
         onBack={() => setStepIndex((i) => Math.max(0, i - 1))}
         onNext={() => {
-          if (stepIndex < 4) {
+          if (stepIndex < lastIndex) {
             setStepIndex((i) => i + 1);
             return;
           }
