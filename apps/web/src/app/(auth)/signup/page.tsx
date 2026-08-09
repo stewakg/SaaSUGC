@@ -4,6 +4,8 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { PASSWORD_MIN_LENGTH, validatePassword } from '@/lib/password';
+import { PasswordRules } from '@/components/password-rules';
 import { SIGNUP_BONUS_CREDITS } from '@adgen/core/pricing';
 
 /**
@@ -25,6 +27,11 @@ export default function SignupPage() {
     // Signup is the one place a typo is unrecoverable: the account is created
     // with the mistyped password and email confirmation still lets the user in
     // once, so nothing surfaces the mistake until the next login fails.
+    const weak = validatePassword(password);
+    if (weak) {
+      setError(weak);
+      return;
+    }
     if (password !== confirm) {
       setError('Lozinke se ne poklapaju.');
       return;
@@ -81,11 +88,12 @@ export default function SignupPage() {
             type="password"
             value={password}
             onChange={setPassword}
-            placeholder="minimum 6 znakova"
+            placeholder={`minimum ${PASSWORD_MIN_LENGTH} znakova`}
             required
-            minLength={6}
+            minLength={PASSWORD_MIN_LENGTH}
             autoComplete="new-password"
           />
+          <PasswordRules value={password} />
           <Field
             label="Ponovi lozinku"
             type="password"
@@ -93,7 +101,7 @@ export default function SignupPage() {
             onChange={setConfirm}
             placeholder="isto još jednom"
             required
-            minLength={6}
+            minLength={PASSWORD_MIN_LENGTH}
             autoComplete="new-password"
           />
 

@@ -4,6 +4,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { PASSWORD_MIN_LENGTH, validatePassword } from '@/lib/password';
+import { PasswordRules } from '@/components/password-rules';
 
 /**
  * Step 2 of password recovery: set the new password.
@@ -36,6 +38,11 @@ export default function NewPasswordPage() {
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const weak = validatePassword(password);
+    if (weak) {
+      setError(weak);
+      return;
+    }
     if (password !== confirm) {
       setError('Lozinke se ne poklapaju.');
       return;
@@ -82,8 +89,9 @@ export default function NewPasswordPage() {
                 label="Nova lozinka"
                 value={password}
                 onChange={setPassword}
-                placeholder="minimum 6 znakova"
+                placeholder={`minimum ${PASSWORD_MIN_LENGTH} znakova`}
               />
+              <PasswordRules value={password} />
               <Field
                 label="Ponovi lozinku"
                 value={confirm}
@@ -128,7 +136,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         required
-        minLength={6}
+        minLength={PASSWORD_MIN_LENGTH}
         autoComplete="new-password"
         className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
       />
