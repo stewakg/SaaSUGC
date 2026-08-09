@@ -116,7 +116,22 @@ function buildImageAdsPrompt(params: Record<string, unknown>, index: number): st
  * on the provider's real word timings when available (falling back to the
  * even-spread estimate otherwise). See MatrixAd.tsx.
  */
-export async function runMatrixPipeline(params: Record<string, unknown>): Promise<PipelineAsset[]> {
+export async function runMatrixPipeline(
+  params: Record<string, unknown>,
+  opts: { montage?: boolean } = {},
+): Promise<PipelineAsset[]> {
+  /**
+   * `revoice` (migration 0006) is this same pipeline with scene detection off:
+   * one clip, kept whole, re-voiced N times. Skipping the pool is the entire
+   * difference — the shot fallback below already plays a single clip for the
+   * full duration, so nothing else has to branch.
+   *
+   * This is the competitor's actual product. Matrix cuts BETWEEN clips, which
+   * they do not do; keeping the two in one function makes that difference one
+   * flag rather than a second copy of the TTS/caption/render chain that would
+   * drift.
+   */
+  const montage = opts.montage !== false;
   const count = typeof params.count === 'number' && params.count > 0 ? Math.floor(params.count) : 1;
   const language = typeof params.language === 'string' && params.language ? params.language : 'sr';
 
@@ -172,7 +187,7 @@ export async function runMatrixPipeline(params: Record<string, unknown>): Promis
   // needed to detect shot ranges, then cleaned up). buildMontage picks/orders per variant.
   const pool: PoolShot[] = [];
   const tempFiles: string[] = [];
-  for (const url of sourceVideoUrls) {
+  for (const url of montage ? sourceVideoUrls : []) {
     try {
       const localPath = await downloadClip(url);
       tempFiles.push(localPath);
@@ -294,6 +309,12 @@ async function runPipeline(type: string, params: Record<string, unknown>): Promi
 
   if (type === 'matrix') {
     return runMatrixPipeline(params);
+  }
+
+  // Same chain, scene detection off: the clip is kept whole and re-voiced once
+  // per variant. See the note on runMatrixPipeline.
+  if (type === 'revoice') {
+    return runMatrixPipeline(params, { montage: false });
   }
 
   // enhance/remove_text may hand us an image OR video source. Match the OUTPUT

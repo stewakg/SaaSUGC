@@ -3,6 +3,13 @@
  * Keep these in sync with the SQL migrations in packages/db/migrations.
  */
 
+/**
+ * ⚠️ This list exists in THREE places that nothing keeps in step automatically:
+ * here, `packages/db/src/generated/database.types.ts`, and the `job_type` enum
+ * in the SQL migrations. Adding a job type means editing all three — miss one
+ * and the mismatch surfaces as a type error at best, or as a job the database
+ * rejects at insert time at worst.
+ */
 export type JobType =
   | 'matrix'
   | 'edit'
@@ -12,7 +19,9 @@ export type JobType =
   | 'translate'
   | 'enhance'
   | 'remove_text'
-  | 'ai_video';
+  | 'ai_video'
+  /** One clip, N re-voiced copies. Migration 0006. */
+  | 'revoice';
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'error';
 

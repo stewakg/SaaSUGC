@@ -178,7 +178,12 @@ export type JobType =
   | 'translate'
   | 'enhance'
   | 'remove_text'
-  | 'ai_video';
+  | 'ai_video'
+  // Added by migration 0006. Keep this list in step with the `job_type` enum in
+  // the database — the file is generated, but nothing regenerates it
+  // automatically here, so a migration that adds a value must edit it too or
+  // the type and the database silently disagree.
+  | 'revoice';
 
 export type JobStatus = 'queued' | 'running' | 'done' | 'error';
 

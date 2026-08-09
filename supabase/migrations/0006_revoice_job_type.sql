@@ -1,0 +1,21 @@
+-- =============================================================================
+-- 0006_revoice_job_type.sql
+--
+-- Adds the `revoice` job type: ONE source clip, its audio stripped, returned as
+-- N copies with a different generated voiceover and captions on each.
+--
+-- This is the competitor's actual product (confirmed 2026-08-09 — the earlier
+-- note in INFRASTRUCTURE.md F4 claiming they build montages was wrong). It is a
+-- separate, simpler tool rather than a mode of Matrix: no scene detection, no
+-- montage, no shot pool. Matrix cuts BETWEEN clips, which they do not do.
+--
+-- Idempotent. `alter type … add value if not exists` is a no-op on re-run.
+--
+-- NOTE FOR WHOEVER RUNS THIS: in PostgreSQL, a value added to an enum cannot be
+-- used by other statements in the SAME transaction. The Supabase SQL Editor
+-- wraps a multi-statement script in one transaction, so if you ever combine
+-- this migration with something that INSERTs a `revoice` row, run them as two
+-- separate executions. On its own, as here, there is nothing to trip over.
+-- =============================================================================
+
+alter type job_type add value if not exists 'revoice';

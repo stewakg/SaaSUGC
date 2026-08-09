@@ -25,6 +25,10 @@ export const JOB_COST: Record<JobType, number> = {
   translate: 15, // per video
   remove_text: 6, // per output
   ai_video: 25, // per video (influencer UGC, F7)
+  // Cheaper than matrix on purpose: one clip, no scene detection, no montage —
+  // just TTS + captions + one render per variant. Placeholder like every number
+  // in this file; pricing is settled after the build, not before.
+  revoice: 8, // per video
 };
 
 /**
@@ -42,6 +46,20 @@ export function computeJobCost(type: JobType, count = 1): number {
  * `tier: 'utility'` tools get a compact list row (see apps/web's dashboard).
  */
 export const JOB_DESCRIPTORS: JobDescriptor[] = [
+  {
+    type: 'revoice',
+    label: 'Preozvuči',
+    description: 'Jedan snimak, više reklama — nova skripta, glas i titlovi na svakoj.',
+    cost: JOB_COST.revoice,
+    icon: 'sparkles',
+    theme: 'teal',
+    tier: 'main',
+    benefits: [
+      'Zadržava tvoj snimak, menja poruku',
+      'Svaka verzija drugi tekst i glas',
+      'Najbrži način do više varijanti',
+    ],
+  },
   {
     type: 'matrix',
     label: 'Matrix',
