@@ -41,6 +41,86 @@ NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewe
 
 ---
 
+## 2026-08-09 — new machine, new Supabase project, auth holes closed
+**Account:** _(unrecorded)_ · **Machine:** NEW — first session on a second physical box
+(repo freshly cloned to `D:\Projekti\2. SaaSUGC`, so nothing local was carried over).
+**Commits (5):** `7ab6b1e` pnpm build-scripts fix · `6758aad` design review §8 ·
+`bdddea0` emailRedirectTo · `790a3e6` password recovery flow · `8998ad2` signup confirm field.
+
+**The Supabase blocker from PODSETNIK.md §3 is resolved — but not the way §3 predicted.**
+The project was NOT deleted: it was paused and sitting under a **different Supabase account
+(different email)**, org "stewankg ORG". §3 warned about multiple *organisations*; nobody
+checked for a second *account*, which is why a sweep of every org came back empty. Owner
+decided to abandon it (test data only, legacy keys, same free-tier pause timer) and stay on
+a new project `iqfzhnndhhrprkrkfygd`. The old one is left to expire.
+
+**New project is on the NEW API keys** (`sb_publishable_` / `sb_secret_`), not legacy
+anon/service_role. Env var NAMES are unchanged (`SUPABASE_ANON_KEY` still holds what is now
+a publishable key) — renaming would touch web, worker, VPS and docs, deferred. Note
+`SUPABASE_ANON_KEY` is dead weight: it is declared in `packages/core/src/env.ts:34` but no
+code reads it; every real consumer reads `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+
+**VERIFIED live against the new project** (probe scripts, service key read from `.env`, never
+printed): all 4 tables + `credits_ledger.external_ref` (0004) + `assets.storage_key` (0003) +
+all 3 RPCs present · `sb_secret_` really resolves to `service_role` (Auth admin API 200 vs
+401 for publishable — PostgREST RPC does NOT discriminate here, it 404s on the signature
+before checking grants) · signup → `handle_new_user()` → `profiles.balance = 3` →
+`credits_ledger` `delta=3 reason=signup_bonus`, ledger sum matches balance · **RLS proven on
+a REAL row**, not an empty table: publishable key sees 0 rows in `profiles`/`credits_ledger`
+while service_role sees them · password login works (`last_sign_in_at` moved) ·
+`@supabase/ssr 0.5.2` handles opaque non-JWT keys fine.
+
+**Legacy keys disabled + legacy JWT secret revoked.** Done because a service_role JWT was
+leaked into the session transcript by a masking bug in a diagnostic command (the mask was
+written for `sb_secret_` and the value was a legacy `eyJ…` JWT). Note for anyone doing this
+again: *disabling* legacy keys only stops them working in the `apikey` header — the dialog
+says so — they stay valid as JWTs until the legacy JWT secret itself is revoked. Both steps
+are needed. Free with 0 users; with real users it logs everyone out.
+
+**AUTH BUG, found live and fixed (`bdddea0`):** `signUp()` was called without
+`options.emailRedirectTo`, so Supabase pointed the confirmation link at the Site URL and it
+landed on `/?code=…`. Only `/auth/callback` calls `exchangeCodeForSession`, so the code
+expired unused and "confirming" left the user logged out. Signature in the data: two accounts
+with `email_confirmed_at` set and `last_sign_in_at` NULL. The callback route itself was
+correct all along — nothing was hitting it. **Dashboard config still owner-gated:** the
+redirect URLs must be allow-listed in Auth → URL Configuration or the redirect is rejected.
+
+**Two launch-blocking auth holes closed, both surfaced by one locked-out test account:**
+signup had a single password field (a typo created an unreachable account, and email
+confirmation masked it by letting the user in exactly once), and there was no password
+recovery route at all. Both `CODE-COMPLETE` — typecheck (5 pkgs) + web build pass, both new
+routes appear in the build output, but **neither has been exercised against a real recovery
+email**. Do not read them as done.
+
+**Build fix that unblocks every future machine (`7ab6b1e`):** `onlyBuiltDependencies` lived
+in `pnpm-workspace.yaml`, which pnpm@10.0.0 (pinned) does not read — settings there arrived
+in a later 10.x. So it was never in effect and `pnpm install` silently skipped build scripts:
+no `ffmpeg.exe`, no `yt-dlp.exe`. This is the "two-week blocker" of
+`SESSION_LOG_ARCHIVE.md:200`, whose note concluded pnpm blocks the scripts "even with
+onlyBuiltDependencies" — it had never actually seen the setting. Mirrored into `package.json`;
+verified by the binaries landing (ffmpeg 6.1.1, yt-dlp 2026.07.04).
+
+**VPS updated and VERIFIED.** `/opt/adgen-saas/apps/worker/.env` still pointed at the dead
+project. Contrary to the worry that it held real provider keys, it holds only the two Supabase
+values plus `REDIS_URL` — everything else blank, exactly as `howto.md:94` says. Rebuilt from
+the local `.env` preserving `REDIS_URL` and LF endings (a trailing `\r` becomes part of the
+value under Docker `--env-file`), backed up to `.env.bak-20260809-101211`, uploaded (md5
+matched), worker restarted: running, 0 errors in the log, 0 restart loops.
+
+**Left open / owner-gated:**
+1. Auth → URL Configuration: allow-list `/auth/callback` (dev + prod). Until then the
+   confirmation and recovery links are rejected — the code fix alone is not enough.
+2. Two throwaway accounts on the new project; `u6749011717@gmail.com` is the locked-out one.
+3. R2 public-bucket vs presigned — still the launch blocker from F5, untouched today.
+4. Wizard click-test (caption/sound controls) — still never clicked, unchanged since 08-05.
+5. Recovery + confirm-field flows need one real end-to-end run.
+
+**Gotcha for the next machine:** `pnpm` is not on PATH here and `corepack enable` fails with
+EPERM (it writes to `C:\Program Files\nodejs`). `corepack pnpm <args>` works without any
+install and needs no admin — use that.
+
+---
+
 ## 2026-08-05 — RUNTIME VERIFICATION DAY: Matrix montage actually renders now
 **Account:** _(unrecorded)_
 **Commits this session (15):** `cb8f7a2` storage route + gitignore + dev bypass ·
