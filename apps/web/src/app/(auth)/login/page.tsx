@@ -76,6 +76,15 @@ function LoginForm() {
           </button>
         </form>
 
+        <p className="mt-4 text-center text-sm">
+          <Link
+            href="/zaboravljena-lozinka"
+            className="text-zinc-400 underline-offset-4 hover:text-zinc-200 hover:underline"
+          >
+            Zaboravio si lozinku?
+          </Link>
+        </p>
+
         <p className="mt-6 text-center text-sm text-zinc-400">
           Nemaš nalog?{' '}
           <Link href="/signup" className="font-medium text-brand-300 hover:text-brand-200">
