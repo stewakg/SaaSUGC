@@ -32,6 +32,7 @@ import { createServiceClient } from '@adgen/db';
 import type { AssetKind, JobType, Json } from '@adgen/db';
 import { detectShots, downloadClip } from './scene-detect.ts';
 import { buildMontage, type PoolShot } from './montage.ts';
+import { approvedScripts, speakerGenderOf } from './approved-scripts.ts';
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -140,15 +141,27 @@ export async function runMatrixPipeline(params: Record<string, unknown>): Promis
   const offerNotes = typeof params.offerNotes === 'string' ? params.offerNotes.trim() : '';
   const tone = typeof params.tone === 'string' && params.tone.trim() ? params.tone.trim() : 'energetic';
 
-  const { variants } = await providers.script.generateVariants({
-    product: price ? `${productTitle} (${price})` : productTitle,
-    benefits: [description, offerNotes].filter(Boolean).join(' · '),
-    tone,
-    language,
-    style: 'ugc',
-    durations: [15],
-    count,
-  });
+  // Scripts the user already reviewed in the wizard win over generating fresh
+  // ones. This is what keeps script approval out of the job lifecycle: the
+  // wizard calls /api/generate-scripts, the user edits and approves, and the
+  // result rides in `params` — no extra job status, no worker state machine.
+  //
+  // Regenerating here when approved scripts exist would be worse than useless:
+  // it would silently discard the text the user chose and bill them for a
+  // second generation they never asked for.
+  const approved = approvedScripts(params.scripts);
+  const { variants } = approved
+    ? { variants: approved.slice(0, count) }
+    : await providers.script.generateVariants({
+        product: price ? `${productTitle} (${price})` : productTitle,
+        benefits: [description, offerNotes].filter(Boolean).join(' · '),
+        tone,
+        language,
+        style: 'ugc',
+        durations: [15],
+        count,
+        speakerGender: speakerGenderOf(params.speakerGender),
+      });
 
   const transitionIn = MATRIX_TRANSITIONS.some((t) => t.value === params.transitionIn)
     ? (params.transitionIn as MatrixTransition)
