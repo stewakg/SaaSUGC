@@ -391,4 +391,27 @@ current work; parked here so it isn't lost.
 - [ ] Job type **copy** (labels/descriptions/benefit bullets) should get a final editorial pass "kako korisnik
       odluči" before release — current copy is a reasonable first draft, not treated as final.
 
+### Dashboard visual review 2026-08-09 (owner walked the live page, logged in)
+Owner's verdict on the real rendered `/app`: nothing on it reads as visually finished. **Parked
+deliberately — functionality first, cosmetics later.** Recorded here so it isn't rediscovered from scratch.
+
+Root cause is not any single element: the page speaks **three unrelated visual languages** stacked
+vertically — (1) main tools: six saturated gradient cards at maximum loudness; (2) "Dodatni alati":
+flat dark rows, nearly invisible by comparison; (3) "Krediti": bare price cards in a third style.
+Each section was built on its own without a shared system, and it shows.
+
+- [ ] **Adopt one accent + neutral surfaces.** Six hues for six tools is decoration, not information —
+      nothing in the palette tells the user what matters more. Candidate direction: the yellow already
+      in the logo/CTA as the single accent, neutral dark cards, colour confined to the icon badges.
+- [ ] **Extract design tokens + primitives BEFORE reskinning** (spacing scale, radii, type scale,
+      `Card`/`Button`). Without them the next section drifts off on its own again — which is exactly
+      how the three languages above happened.
+- [ ] **Content column floats.** On a wide viewport the centred column leaves large dead margins and
+      the page reads as unfinished. Needs a max-width/layout decision, not just padding tweaks.
+- [ ] **Move the credit packs off the dashboard** to their own page (`/app/krediti`). They compete with
+      the tools for attention on every visit while a user actually needs them about once a month.
+- [ ] Order once this is unparked: direction → tokens/primitives → dashboard → wizards. **The wizards are
+      the bigger half** (8 pages, still plain/functional) and are where the user actually spends time —
+      polishing the entrance while the rooms behind it are bare is the wrong order.
+
 **DoD:** none yet — this section exists to hold the decision, not to track phase completion.
