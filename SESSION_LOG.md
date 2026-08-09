@@ -228,25 +228,59 @@ non-ASCII character — 432 changed lines for a one-line import. Caught by `git 
 restored, redone with the editor. **Never rewrite a source file through `Get-Content`/
 `Set-Content` in this repo.**
 
+**Closing stretch — migrations applied, ninth tool, password rules corrected:**
+
+- **Migrations 0005 and 0006 APPLIED by the owner and VERIFIED against the live database**, not
+  taken on trust: `job_type` now carries `revoice`, and `charge_credits` reports parameters
+  `p_amount, p_job_id, p_reason, p_user_id` — four, with the reason. Read out of PostgREST's
+  OpenAPI spec rather than by calling the function, which would have deducted credits. A
+  control check (`add_credits_idempotent`, from 0004, visible the same way) confirms the method
+  works — without it the first result would prove nothing.
+- `fa56cfa` — **ninth tool, `revoice` ("Preozvuči")**: one clip, N copies with new voice and
+  captions. Implemented as `runMatrixPipeline(params, { montage: false })` — skipping scene
+  detection is the entire difference, because the single-shot fallback already present for the
+  empty-pool case plays the clip whole. A separate function would have duplicated the
+  TTS/caption/render chain and drifted. Card renders as **USKORO** on purpose: `revoice` is
+  deliberately absent from `LIVE_TOOL_LINKS` until its wizard page exists, so it cannot 404.
+  **Trap found doing this:** the job-type list lives in THREE places nothing keeps in step —
+  `packages/core/src/types.ts`, the generated `database.types.ts`, and the SQL enum.
+- `12d27d4` — **billing bug I introduced with the script step.** Cost is computed from `count`,
+  but the worker loops over the scripts it is given. Pick 5 variants, keep 3 scripts → 3 videos,
+  billed for 5. The job now sends the kept-script count, and the step states the resulting video
+  count in words.
+- `6b3c137` — **password rules were looser than Supabase in four ways.** Owner set the policy to
+  "Lowercase, uppercase letters, digits and symbols", which maps to GoTrue's
+  `GOTRUE_PASSWORD_REQUIRED_CHARACTERS` — a list of **literal ASCII sets**, not character
+  classes. Every check here was broader: `[A-ZČĆŠŽĐ]` counted `Č`, `\p{N}` counted any Unicode
+  digit, and `[^\p{L}\p{N}]` counted a **space** as a symbol. So `Testovi!` and `Test tes1`
+  went all-green here and would have failed on submit. Sets are now transcribed verbatim, as
+  strings rather than regexes so they can be eyeballed against the dashboard.
+  **This inverts an earlier decision on purpose:** the script-gender check deliberately includes
+  `Č` because *we* define that rule; here *Supabase* defines it, so including `Č` is wrong.
+  Same instinct, opposite answer — the difference is who holds the authority.
+
 **Left open / owner-gated:**
 1. **Grade the Serbian eval sheet** (`tests/serbian-script-eval/2026-08-09-11-30-blind.md`),
    open the key file only afterwards, then set `OPENROUTER_SCRIPT_MODEL` to the winner and
    record the verdict the way `tests/kie-vs-fal.md` records its own.
-2. **Apply migration 0005** in the Supabase SQL Editor. Not urgent — the bug it fixes is
-   dormant while nothing bills a job twice — but it must land **before** per-stage billing.
-3. Set the enforceable password policy in Supabase to match the client rules.
+2. **Click-test — the one that gates everything.** Nothing added on 08-09 has been clicked, and
+   a passing build says nothing about any of it. In order of value:
+   1. **Clip suggestion grid** (`/app/matrix`, step 1) — the only piece that works with no API
+      key at all, so it proves the chain fastest. Thumbnails load from YouTube's servers;
+      "Uzmi" downloads through `/api/import-clip` and should remove the card.
+   2. **Script step** (`/app/matrix`, step 4) — generate, then generate again and check the
+      first collapses; click a collapsed header; **press "Ukloni" on the expanded one** (the
+      focus arithmetic there is the most fragile thing written today); check the button changes
+      at 5 and disables at 10; check the blue box names the right video count.
+   3. **Password recovery** end-to-end by email — written, never once run.
+   4. Caption/sound controls, outstanding since 08-05.
+3. Wizard page for `revoice`, then add it to `LIVE_TOOL_LINKS` so the card stops saying USKORO.
 4. Decide Google Cloud Vision `WEB_DETECTION` vs a Google Lens scraper API for the
    reverse-image hop — owner's call after testing both on five real products.
 5. R2 public-bucket vs presigned — still the launch blocker from F5, untouched.
-6. **Click-test, the big one.** Nothing added today has been clicked: the script review step
-   (collapse/expand especially — a build cannot verify it), the clip suggestion grid, the
-   password rules, and the recovery flow. Plus the caption/sound controls still outstanding
-   from 08-05.
+6. Brand naming: "Matrix" is the competitor's product name **and** inaccurate for what we
+   built, now that the montage engine is confirmed to be ours alone.
 7. TikTok/Instagram search — separate decision once YouTube v1 is proven.
-8. Build the competitor-style simple tool (one clip, swap audio + captions, N outputs) as a
-   **ninth tool inside AdGen** — owner confirmed it is a tool, not a separate repo. Needs its
-   own `job_type` enum value, so a migration 0006, plus a pricing entry, a wizard page and a
-   worker branch. Most of the pipeline (voice, captions, render) is reusable as-is.
 
 **Gotcha for the next machine:** `pnpm` is not on PATH here and `corepack enable` fails with
 EPERM (it writes to `C:\Program Files\nodejs`). `corepack pnpm <args>` works without any
