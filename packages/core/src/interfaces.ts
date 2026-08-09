@@ -35,7 +35,22 @@ export interface AIProvider {
   }): Promise<{ url: string; storageKey?: string }>;
 }
 
-/** Claude Opus. Mock returns canned Serbian ad scripts. */
+/**
+ * Grammatical gender the script must be written in — the gender of the VOICE
+ * that will read it, not the buyer's.
+ *
+ * This is not a nicety in Serbian: past tense and adjectives are gender-marked,
+ * so "našla sam" / "sigurna" / "hidrirana" read as a woman speaking. A male
+ * voice reading that is an obviously broken ad. English marks none of this, so
+ * models default to whatever the training data leaned toward — in practice,
+ * feminine for UGC ad copy — and will not fix it unless told.
+ *
+ * Consequence for the wizard: the voice has to be chosen BEFORE scripts are
+ * generated. That ordering is a hard dependency, not a preference.
+ */
+export type SpeakerGender = 'male' | 'female';
+
+/** Mock returns canned Serbian ad scripts; real impl goes through OpenRouter. */
 export interface ScriptProvider {
   readonly name: string;
   generateVariants(input: {
@@ -46,6 +61,8 @@ export interface ScriptProvider {
     style: string;
     durations: number[];
     count: number;
+    /** Omitted only where no voice is chosen yet; the prompt then stays neutral. */
+    speakerGender?: SpeakerGender;
   }): Promise<{
     variants: { angle: string; script: string; estDurationSec: number }[];
   }>;

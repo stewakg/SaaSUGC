@@ -17,7 +17,7 @@
  * win — but that is for the blind eval to decide, not for a default to assume.
  * Override per-eval with OPENROUTER_SCRIPT_MODEL.
  */
-import type { ScriptProvider } from '../interfaces.ts';
+import type { ScriptProvider, SpeakerGender } from '../interfaces.ts';
 
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const DEFAULT_MODEL = 'google/gemini-3-flash-preview';
@@ -67,6 +67,35 @@ const RESPONSE_FORMAT = {
   },
 } as const;
 
+/**
+ * The single most important line in this prompt for Serbian output.
+ *
+ * Left to itself the model writes in the feminine — "našla sam", "sigurna",
+ * "hidrirana" — because UGC ad copy in its training data leans that way. Read
+ * by a male voice that is an instantly broken ad, and English gives the model
+ * no signal that a choice was even being made.
+ *
+ * Both examples are spelled out rather than named abstractly ("piši u muškom
+ * rodu"): naming the rule alone leaves the model to work out which words carry
+ * gender, and it misses adjectives more often than verbs.
+ *
+ * With no voice chosen there is nothing to match, so the instruction is
+ * omitted entirely rather than guessed — a wrong guess is worse than the
+ * model's own default, which at least stays internally consistent.
+ */
+function genderInstruction(gender: SpeakerGender | undefined): string {
+  if (!gender) return '';
+  const forms =
+    gender === 'male'
+      ? 'muškom rodu (npr. "našao sam", "siguran sam", "probao sam")'
+      : 'ženskom rodu (npr. "našla sam", "sigurna sam", "probala sam")';
+  return (
+    `VAŽNO — skriptu čita glas ${gender === 'male' ? 'muškog' : 'ženskog'} pola, pa je piši u ${forms}. ` +
+    'Ovo se odnosi na SVE oblike koji nose rod: glagole u prošlom vremenu, prideve i trpne oblike. ' +
+    'Ako se rod ne može izbeći a nisi siguran, preformuliši rečenicu u sadašnje vreme.'
+  );
+}
+
 export class OpenRouterScriptProvider implements ScriptProvider {
   readonly name = 'openrouter-script';
 
@@ -80,6 +109,7 @@ export class OpenRouterScriptProvider implements ScriptProvider {
     style: string;
     durations: number[];
     count: number;
+    speakerGender?: SpeakerGender;
   }): Promise<{ variants: Variant[] }> {
     const targetDuration = input.durations[0] ?? 15;
     const userPrompt = [
@@ -87,6 +117,7 @@ export class OpenRouterScriptProvider implements ScriptProvider {
       `Proizvod: ${input.product}`,
       input.benefits ? `Prednosti/ponuda: ${input.benefits}` : '',
       `Ton: ${input.tone}. Stil: ${input.style}. Jezik: ${input.language} (piši isključivo na ovom jeziku).`,
+      genderInstruction(input.speakerGender),
       `Svaka skripta treba da traje otprilike ${targetDuration} sekundi kad se izgovori naglas (procenjuj ~2.5 reči po sekundi).`,
       `Svaka varijanta treba da ima drugačiji "ugao" (npr. problem→rešenje, društveni dokaz, hitnost/FOMO, poređenje sa alternativama...).`,
     ]
