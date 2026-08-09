@@ -87,6 +87,34 @@ usage log if exact per-image cost matters.
 **Routing conclusion: keep kie.ai primary, fal.ai fallback.** Now supported by
 measurement (speed + equal reliability), not just the earlier cost assumption.
 
+## Public list pricing — captured 2026-08-09 (NOT from our own usage)
+
+Every round above ends with "cost not captured" because neither API returns a price field.
+These are the providers' **published list prices**, read off their own pages — they are a
+planning input, not a measurement of what we are billed. The dashboards' usage logs are
+still unread.
+
+| Model | fal.ai | kie.ai |
+|---|---|---|
+| nano-banana-2 (what `image_ads` uses) | **$0.08** / image base — 2K ×1.5, 4K ×2, 0.5K ×0.75; +$0.015 if web search is used | **from $0.04** / image |
+| GPT Image 2 (not wired anywhere yet) | — | ~$0.03 (1K) · $0.05 (2K) · $0.08 (4K) |
+
+**kie.ai is roughly half of fal.ai for the identical model**, which is consistent with the
+kie-primary routing already chosen on speed and reliability — cost now points the same way
+instead of merely being assumed to.
+
+**Margin sanity check:** `image_ads` charges 4 credits and credits sell at 0.20–0.30 € each,
+so ~0.80–1.20 € of revenue against single-digit cents of provider cost. Provider price is
+not what will decide this product's economics; Remotion render time and ElevenLabs per
+variant matter far more (a `matrix` job at count=15 makes 15 TTS calls).
+
+**Supply risk, unverified.** kie.ai's prices are widely speculated to rest on reselling
+subsidised consumer subscriptions rather than on list-price API access. That is a rumour, not
+a finding — but kie.ai is our **primary** route, and a provider whose margin depends on an
+arrangement it does not control can change or break with little notice. Concrete implication:
+keep the fal.ai fallback genuinely exercised (the 08-05 round already ran fal in an isolated
+router for exactly this reason), and do not let the fallback path rot untested.
+
 ## Verdict
 **Both kie.ai and fal.ai work correctly end-to-end for image generation as coded** —
 routing/fallback logic is confirmed sound, not just typechecked. Raw quality is a wash
