@@ -385,7 +385,10 @@ export default function MatrixPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'matrix',
-          count,
+          // One video per approved script — the worker loops over the scripts
+          // it is given, not over `count`. Sending the picker's `count` here
+          // would bill for 5 videos and deliver 3 when the user kept only 3.
+          count: scripts.length > 0 ? scripts.length : count,
           params: {
             productTitle,
             price,
@@ -417,10 +420,11 @@ export default function MatrixPage() {
       if (!res.ok || !data.id) throw new Error(data.error ?? 'Greška pri pokretanju.');
 
       // Real Remotion renders take longer than mock jobs — allow up to 3 minutes.
-      // Scale by count so a 15-variant job (sequential renders) isn't cut off.
+      // Scale by the number of videos actually being rendered, which is the
+      // kept-script count when the user reviewed scripts, not the picker's.
       const job = await pollJob(data.id, {
         intervalMs: 2000,
-        timeoutMs: Math.max(180_000, count * 45_000), // ~45s/variant, floor 3min
+        timeoutMs: Math.max(180_000, (scripts.length > 0 ? scripts.length : count) * 45_000),
       });
       if (job.status === 'error') throw new Error(job.error ?? 'Render nije uspeo.');
 
@@ -910,6 +914,15 @@ export default function MatrixPage() {
             Napravi skripte, pročitaj ih i zadrži one koje valjaju. Možeš ih i doraditi — ono što ostane
             ovde je ono što će glas pročitati. Ako preskočiš ovaj korak, skripte se pišu automatski.
           </p>
+
+          {/* Says out loud that the kept scripts, not the variants picker,
+              decide how many videos get made — and therefore what it costs. */}
+          {scripts.length > 0 && (
+            <p className="rounded-lg bg-brand-400/10 p-3 text-sm text-brand-200">
+              Napraviće se {scripts.length} {scripts.length === 1 ? 'video' : 'videa'} — po jedan za svaku
+              skriptu koju zadržiš.
+            </p>
+          )}
 
           <div className="flex flex-wrap items-center gap-3">
             <button
