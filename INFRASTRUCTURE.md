@@ -170,8 +170,24 @@ the source file's doc-comments are richer than the copy ever was.
 ### F4 — Matrix + Remotion compositions (the core; mock AI, REAL render) 🟢 ⭐
 > This is the differentiator. Remotion renders **locally** — no accounts needed. Build the real ad templates here.
 
+> **⚠️ CORRECTION 2026-08-09 — the competitor description below is WRONG.** The owner re-confirmed
+> what EcomAlati's Matrix actually does: it takes **ONE** source clip, strips its audio, and returns
+> N copies of that same video with different generated audio and captions. It does **not** build
+> montages and does not cut between clips. The "multi-clip MONTAGE editor" attributed to the
+> competitor below was a misreading of their UI in July.
+>
+> **What this means:** the montage engine built in M1–M2c is *not* competitor parity — it is
+> something they do not have. One source clip, N differently-cut montages, each with its own script,
+> is our product, not theirs. Two consequences: (1) the "Matrix" name is now not just legally theirs
+> but **descriptively wrong for what we built** (see §8 naming); (2) the competitor's actual flow —
+> one clip, swap audio + captions, N outputs — is a **simpler, cheaper separate tool** we may still
+> want, alongside `edit` and `mix`. It is not a mode of this one.
+>
+> The rework record below stands as history — it describes what was built, which is correct. Only
+> the claim about what the competitor does is wrong.
+>
 > **⚠️ ARCHITECTURE GAP found 2026-07-19, montage rework LARGELY LANDED 2026-07-20.** Owner walked
-> through the real competitor Matrix UI: the real Matrix is a **multi-clip MONTAGE editor** —
+> through the real competitor Matrix UI: ~~the real Matrix is a **multi-clip MONTAGE editor**~~ —
 > (1) user uploads MULTIPLE source clips OR imports them from a TikTok/YouTube/Instagram/any link;
 > (2) product is SCRAPED in the wizard (not typed); (3) each of N creatives (count **5/10/15**) is a
 > DIFFERENT montage of those source clips + a different AI script + voiceover + captions/music/SFX.
@@ -290,6 +306,34 @@ the source file's doc-comments are richer than the copy ever was.
   - [ ] Add an **import-time gate** so the user is warned while they can still pick a different clip.
   - [ ] Detection method: a **vision model**, not pixel heuristics. Only image understanding separates "a caption the creator added" from "someone else's comment" — an edge-density heuristic flags both, and Tesseract reads text without knowing whose it is. Same OpenRouter client as the scripts above; ~2 frames/shot, one call per clip, cached by `storage_key`. ~$0.009 per 3-clip job against €3.00–4.50 of revenue.
   - [ ] **The real cost is a labelled set of the owner's own clips** to measure hit rate — everything else here is a day's work. Per this repo's own rule, unmeasured detection is CODE-COMPLETE, not done.
+- [ ] **NEW FEATURE — script review + per-stage billing.** Owner design 2026-08-09.
+  - [ ] ⚠️ **Serbian scripts come out in FEMININE gender by default** — "našla sam", "sigurna",
+    "hidrirana". A male voice reading that is a broken ad. Serbian marks gender on past tense and
+    adjectives; English does not, so no model gets this right unprompted. **Voice must therefore be
+    chosen BEFORE scripts are generated**, and its gender passed into `generateVariants`.
+    `listVoices()` already returns `gender` (ElevenLabs `labels.gender`; mock has it too), and the
+    voice list is curated by us, so there is no `unknown` case to handle.
+  - [ ] Generate ~5 script candidates, let the user read, edit and keep the ones worth using; the
+    kept set feeds the N videos. **Do NOT build this as a two-phase job** (new `jobs` status +
+    worker state machine + polling). Generate in the wizard through a light route before the job is
+    submitted and pass the approved scripts in `params`; the worker uses `params.scripts` when
+    present and only calls the provider otherwise. Needs its own rate limit — regeneration would
+    otherwise be free and unlimited.
+  - [ ] Caption timing needs no work here: ElevenLabs returns alignment for the text actually
+    spoken, so `foldAlignmentIntoWords` handles an edited script unchanged.
+  - [ ] ⚠️ **`charge_credits` is NOT safe to call twice for one job — migration 0005 before any
+    per-stage billing.** Its rollback path (`0001_init_schema.sql:186`) deletes by
+    `user_id + job_id + reason`, not by the row it just inserted, and `reason` is hardcoded to
+    `'job_spend'`. Harmless today because each job charges exactly once. Under per-stage billing a
+    second call that fails on insufficient balance would **delete the first, legitimately charged
+    row** — the user silently gets refunded for scripts because they ran out of credits for audio.
+    Fix: `insert … returning id` then `delete where id = …`, plus a `p_reason` parameter so the
+    ledger shows which stage was charged.
+  - [ ] Billing model: pay for what was produced. Scripts ~1 credit, audio ~2, video on creation;
+    stop halfway and you pay only that far. Prices are placeholders, to be tuned.
+  - [ ] **Voice cloning** — user clones a voice and picks its gender explicitly (the cloned voice
+    carries no `labels.gender`). Later; recorded so the gender plumbing above is designed with it
+    in mind rather than retrofitted.
 - [ ] **NEW FEATURE — clip suggestions ("ubaci sliku → predložimo snimke").** Owner decision 2026-08-09: source is **platform search (YouTube / TikTok / IG)**, not stock libraries and not AI generation. We only *suggest*; the user watches each candidate and decides, so this is not an auto-insert path.
   - [ ] **v1 = YouTube only.** yt-dlp supports search natively (`ytsearch10:"…"` + `--flat-playlist` returns title/duration/thumbnail/url as metadata only — no download, so previews are near-free). **TikTok and Instagram have no yt-dlp search extractor** — URL extraction only. They need a third-party API and are a **separate decision, after v1**.
   - [ ] **Search-by-image is the actual ask** (upload a product photo → get videos *of that product*), not query-from-scraped-title. An earlier note here claimed this was impossible and routed through a vision-model description — **that was wrong, corrected same day.** The working chain is two hops: **reverse image search identifies the exact product**, then its real name/model drives the platform search. Do NOT substitute a vision-model caption for hop 1 — a caption yields "black massage gun", reverse image search yields the actual listing title.
