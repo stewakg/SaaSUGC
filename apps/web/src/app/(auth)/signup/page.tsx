@@ -25,7 +25,17 @@ export default function SignupPage() {
     setError(null);
     setNotice(null);
     const supabase = createBrowserClient();
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    // emailRedirectTo is NOT optional here. Without it Supabase points the
+    // confirmation link at the project's Site URL (`/`), so the link lands on
+    // the landing page as `/?code=…` — nothing there exchanges it, the code
+    // expires unused and the user stays logged out after "confirming".
+    // /auth/callback is the route that calls exchangeCodeForSession.
+    // The URL must also be allow-listed in Supabase → Auth → URL Configuration.
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
     setLoading(false);
     if (error) {
       setError(error.message);
