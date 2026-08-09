@@ -40,7 +40,12 @@ const EnvSchema = z.object({
   REDIS_URL: z.string().optional(),
 
   // --- AI providers ---
-  ANTHROPIC_API_KEY: z.string().optional(),
+  // Ad scripts (and, later, vision) go through OpenRouter — the owner has no
+  // Anthropic account, which is why the Claude-keyed provider never ran once.
+  OPENROUTER_API_KEY: z.string().optional(),
+  // Model is swappable so the pending Serbian blind eval (INFRASTRUCTURE F5)
+  // can sweep candidates without a code change.
+  OPENROUTER_SCRIPT_MODEL: z.string().optional(),
   KIE_API_KEY: z.string().optional(),
   FAL_API_KEY: z.string().optional(),
   ELEVENLABS_API_KEY: z.string().optional(),

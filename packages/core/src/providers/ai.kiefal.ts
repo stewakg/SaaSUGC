@@ -1,7 +1,7 @@
 /**
  * Real AIProvider (F5): kie.ai (primary, cheaper) with fal.ai as the fallback.
  * Plain fetch, no SDK — matches this repo's style (scraper.real.ts,
- * script.claude.ts, billing.lemonsqueezy.ts).
+ * script.openrouter.ts, billing.lemonsqueezy.ts).
  *
  * Written now so it's ready to wire in once KIE_API_KEY and/or FAL_API_KEY exist
  * (see ACCOUNTS.md) — never instantiated until then (factory.ts gates on the

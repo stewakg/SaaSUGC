@@ -26,7 +26,7 @@ import {
   MockStorage,
   MockVoiceProvider,
 } from './mocks.ts';
-import { ClaudeScriptProvider } from './script.claude.ts';
+import { OpenRouterScriptProvider } from './script.openrouter.ts';
 import { KieAIFalRouter } from './ai.kiefal.ts';
 import { ElevenLabsVoiceProvider } from './voice.elevenlabs.ts';
 import { S3CompatibleStorage } from './storage.r2.ts';
@@ -89,11 +89,19 @@ function createAIProvider(env: ReturnType<typeof loadEnv>): AIProvider {
 
 /**
  * Script provider switch (F5). Never throws on partial config — a missing
- * ANTHROPIC_API_KEY just means mock. Same pattern as createBillingProvider.
+ * OPENROUTER_API_KEY just means mock. Same pattern as createBillingProvider.
+ *
+ * Gated on OPENROUTER_API_KEY since 2026-08-09. It previously gated on
+ * ANTHROPIC_API_KEY, a key that never existed and never would, so this branch
+ * had always returned the mock — every Matrix ad script ever produced was
+ * canned text. See INFRASTRUCTURE.md F5.
  */
 function createScriptProvider(env: ReturnType<typeof loadEnv>): ScriptProvider {
-  if (!hasKey(env, 'ANTHROPIC_API_KEY')) return new MockScriptProvider();
-  return new ClaudeScriptProvider({ apiKey: env.ANTHROPIC_API_KEY! });
+  if (!hasKey(env, 'OPENROUTER_API_KEY')) return new MockScriptProvider();
+  return new OpenRouterScriptProvider({
+    apiKey: env.OPENROUTER_API_KEY!,
+    model: env.OPENROUTER_SCRIPT_MODEL || undefined,
+  });
 }
 
 /**
