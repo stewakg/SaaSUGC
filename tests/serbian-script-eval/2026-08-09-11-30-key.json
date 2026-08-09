@@ -1,0 +1,152 @@
+[
+  {
+    "n": 1,
+    "model": "google/gemini-3.1-flash-lite",
+    "product": "Serum za lice sa hijaluronskom kiselinom"
+  },
+  {
+    "n": 2,
+    "model": "google/gemini-3.1-flash-lite",
+    "product": "Bežični usisivač za auto"
+  },
+  {
+    "n": 3,
+    "model": "google/gemini-3-flash-preview",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 4,
+    "model": "google/gemini-3.6-flash",
+    "product": "Serum za lice sa hijaluronskom kiselinom"
+  },
+  {
+    "n": 5,
+    "model": "google/gemini-3-flash-preview",
+    "product": "Serum za lice sa hijaluronskom kiselinom"
+  },
+  {
+    "n": 6,
+    "model": "google/gemini-3.6-flash",
+    "product": "Serum za lice sa hijaluronskom kiselinom"
+  },
+  {
+    "n": 7,
+    "model": "google/gemini-3.1-flash-lite",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 8,
+    "model": "google/gemini-3.1-flash-lite",
+    "product": "Bežični usisivač za auto"
+  },
+  {
+    "n": 9,
+    "model": "google/gemini-3.6-flash",
+    "product": "Bežični usisivač za auto"
+  },
+  {
+    "n": 10,
+    "model": "google/gemini-3.1-flash-lite",
+    "product": "Bežični usisivač za auto"
+  },
+  {
+    "n": 11,
+    "model": "google/gemini-3-flash-preview",
+    "product": "Serum za lice sa hijaluronskom kiselinom"
+  },
+  {
+    "n": 12,
+    "model": "google/gemini-3-flash-preview",
+    "product": "Bežični usisivač za auto"
+  },
+  {
+    "n": 13,
+    "model": "google/gemini-3.6-flash",
+    "product": "Bežični usisivač za auto"
+  },
+  {
+    "n": 14,
+    "model": "google/gemini-3.1-flash-lite",
+    "product": "Serum za lice sa hijaluronskom kiselinom"
+  },
+  {
+    "n": 15,
+    "model": "google/gemini-3-flash-preview",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 16,
+    "model": "google/gemini-3.6-flash",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 17,
+    "model": "google/gemini-3-flash-preview",
+    "product": "Bežični usisivač za auto"
+  },
+  {
+    "n": 18,
+    "model": "KONTROLA (mock, konzervirano)",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 19,
+    "model": "google/gemini-3.6-flash",
+    "product": "Serum za lice sa hijaluronskom kiselinom"
+  },
+  {
+    "n": 20,
+    "model": "google/gemini-3.1-flash-lite",
+    "product": "Serum za lice sa hijaluronskom kiselinom"
+  },
+  {
+    "n": 21,
+    "model": "google/gemini-3.1-flash-lite",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 22,
+    "model": "google/gemini-3.1-flash-lite",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 23,
+    "model": "google/gemini-3-flash-preview",
+    "product": "Bežični usisivač za auto"
+  },
+  {
+    "n": 24,
+    "model": "KONTROLA (mock, konzervirano)",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 25,
+    "model": "KONTROLA (mock, konzervirano)",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 26,
+    "model": "google/gemini-3.6-flash",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 27,
+    "model": "google/gemini-3.6-flash",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 28,
+    "model": "google/gemini-3.6-flash",
+    "product": "Bežični usisivač za auto"
+  },
+  {
+    "n": 29,
+    "model": "google/gemini-3-flash-preview",
+    "product": "Masažer za vrat i ramena sa grejanjem"
+  },
+  {
+    "n": 30,
+    "model": "google/gemini-3-flash-preview",
+    "product": "Serum za lice sa hijaluronskom kiselinom"
+  }
+]
