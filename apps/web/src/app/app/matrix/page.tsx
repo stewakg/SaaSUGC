@@ -12,6 +12,14 @@ import {
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
 import { uploadFile, type UploadedFile } from '@/lib/upload-file';
+import type { ClipSuggestion } from '@/lib/clip-search';
+
+/** 96 → "1:36". Suggestions are short, so hours are not worth handling. */
+function formatDuration(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
 
 interface ScrapeResult {
   title: string;
@@ -72,6 +80,14 @@ export default function MatrixPage() {
   const [linkUrl, setLinkUrl] = useState('');
   const [importingLink, setImportingLink] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
+
+  // Clip suggestions (YouTube only for now — yt-dlp has no TikTok/IG search).
+  // `takingId` is per-result so one pending import doesn't grey out the grid.
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<ClipSuggestion[]>([]);
+  const [takingId, setTakingId] = useState<string | null>(null);
 
   // Step 1 — product import (scrape)
   const [url, setUrl] = useState('');
@@ -173,31 +189,76 @@ export default function MatrixPage() {
     }
   }
 
+  /**
+   * Shared by the paste-a-link box and the suggestion grid: a picked
+   * suggestion is just a link the user didn't have to type, so it goes down
+   * the exact same import path rather than getting one of its own.
+   */
+  async function importClipByUrl(sourceUrl: string, name: string) {
+    const res = await fetch('/api/import-clip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: sourceUrl }),
+    });
+    const data = (await res.json()) as { url?: string; error?: string };
+    if (!res.ok || !data.url) throw new Error(data.error ?? 'Uvoz klipa nije uspeo.');
+    setClips((prev) => [...prev, { url: data.url!, name }]);
+  }
+
   async function handleImportLink() {
     const trimmed = linkUrl.trim();
     if (!trimmed) return;
     setImportingLink(true);
     setLinkError(null);
     try {
-      const res = await fetch('/api/import-clip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: trimmed }),
-      });
-      const data = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !data.url) throw new Error(data.error ?? 'Uvoz klipa nije uspeo.');
       let name = 'Uvezeni klip';
       try {
         name = new URL(trimmed).hostname.replace(/^www\./, '');
       } catch {
         /* keep default */
       }
-      setClips((prev) => [...prev, { url: data.url!, name }]);
+      await importClipByUrl(trimmed, name);
       setLinkUrl('');
     } catch (err) {
       setLinkError(err instanceof Error ? err.message : 'Nepoznata greška.');
     } finally {
       setImportingLink(false);
+    }
+  }
+
+  async function handleSearchClips() {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const res = await fetch('/api/search-clips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q }),
+      });
+      const data = (await res.json()) as { results?: ClipSuggestion[]; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Pretraga nije uspela.');
+      setSearchResults(data.results ?? []);
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Nepoznata greška.');
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  /** Downloading a suggestion is the same work as a pasted link — same route. */
+  async function takeSuggestion(s: ClipSuggestion) {
+    setTakingId(s.id);
+    setSearchError(null);
+    try {
+      await importClipByUrl(s.url, s.title);
+      setSearchResults((prev) => prev.filter((r) => r.id !== s.id));
+    } catch (err) {
+      setSearchError(err instanceof Error ? err.message : 'Nepoznata greška.');
+    } finally {
+      setTakingId(null);
     }
   }
 
@@ -319,6 +380,90 @@ export default function MatrixPage() {
               </button>
             </div>
             {linkError && <p className="mt-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{linkError}</p>}
+          </div>
+
+          <div className="border-t border-white/10 pt-4">
+            <span className="mb-1 block text-sm text-zinc-300">…ili pretraži snimke po proizvodu</span>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void handleSearchClips();
+                  }
+                }}
+                placeholder="npr. masažer za vrat"
+                maxLength={120}
+                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+              />
+              <button
+                type="button"
+                onClick={() => void handleSearchClips()}
+                disabled={!searchQuery.trim() || searching}
+                className="btn-ghost shrink-0 disabled:opacity-50"
+              >
+                {searching ? 'Tražim…' : 'Pretraži'}
+              </button>
+            </div>
+            {searchError && (
+              <p className="mt-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{searchError}</p>
+            )}
+            {!searching && !searchError && searchResults.length === 0 && searchQuery.trim() !== '' && (
+              <p className="mt-2 text-sm text-zinc-500">Nema rezultata za taj upit.</p>
+            )}
+            {searchResults.length > 0 && (
+              <>
+                <p className="mt-3 text-xs text-zinc-500">
+                  Pogledaj snimak pre nego što ga uzmeš — proveri da nema tuđih komentara ili vodenog žiga.
+                </p>
+                <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {searchResults.map((s) => (
+                    <li
+                      key={s.id}
+                      className="flex gap-3 rounded-lg border border-white/10 bg-ink-900 p-2"
+                    >
+                      {s.thumbnail && (
+                        // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail, not a local asset
+                        <img
+                          src={s.thumbnail}
+                          alt=""
+                          className="h-14 w-24 shrink-0 rounded object-cover"
+                          loading="lazy"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-xs text-zinc-200">{s.title}</p>
+                        <p className="mt-0.5 text-[11px] text-zinc-500">
+                          {s.channel ?? 'nepoznat kanal'}
+                          {s.durationSec !== null && ` · ${formatDuration(s.durationSec)}`}
+                        </p>
+                        <div className="mt-1 flex gap-3">
+                          <a
+                            href={s.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+                          >
+                            Pogledaj
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => void takeSuggestion(s)}
+                            disabled={takingId !== null}
+                            className="text-[11px] font-medium text-brand-300 hover:text-brand-200 disabled:opacity-50"
+                          >
+                            {takingId === s.id ? 'Uzimam…' : 'Uzmi'}
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
           {clips.length > 0 && (
             <ul className="space-y-2">
