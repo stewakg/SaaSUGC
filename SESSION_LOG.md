@@ -174,17 +174,79 @@ image search yields the actual listing title. Options recorded in INFRASTRUCTURE
 the image-side kie-vs-fal benchmark had been done since 08-05 while the checkbox still said
 `_pending_`.
 
+---
+
+### Third stretch — script review, per-stage billing groundwork
+
+**`OPENROUTER_API_KEY` arrived mid-session**, so the LLM side stopped being theoretical.
+
+- **Serbian blind eval RAN** (`scripts/eval-serbian-scripts.mts`): 3 models × 3 products × 3
+  variants + control, 9/9 calls first try, well under $0.10. Sheet handed to the owner for
+  grading; the key file is unopened. **Noted on delivery:** the `*ugao: …*` line leaks model
+  identity through diacritics (one model writes "Problem-Resenje", another "Društveni dokaz")
+  — grade the script text, not the label. That a model drops diacritics even in metadata is
+  itself a finding.
+- `7747f4c` — **`speakerGender` on ScriptProvider.** Every script came out feminine ("našla
+  sam", "sigurna"), so a male voice read a woman's lines. Owner caught it in the eval output.
+  Serbian marks gender on past tense and adjectives, English marks neither, so the model has
+  no signal a choice is being made. **VERIFIED BY MEASUREMENT** against the live API: female →
+  3 feminine speaker forms / 0 masculine; male → 0 feminine, masculine throughout.
+  *The first run of the checker reported the male case as failing on "Sigurna". That was the
+  checker's bug, not the model's — Serbian adjectives agree with the noun they modify, so
+  "sigurna kupovina" is correct in a male-voiced script. Only predicative adjectives track the
+  speaker. Worth remembering before anyone writes another gender check.*
+- `83e9791` — **`POST /api/generate-scripts`.** Speaker gender is resolved server-side from the
+  voice id, not trusted from the client — the wizard had already dropped that exact field once
+  (fetched `gender` from `/api/voices`, discarded it while mapping). Unknown gender yields no
+  instruction rather than a guess.
+- `16893e6` — **worker prefers `params.scripts`.** Validation is its own tested module because
+  the input is untrusted. The 2000-char cap is a cost control: ElevenLabs bills per character,
+  so an unbounded `script` field is a route from a crafted request to a large TTS bill, ×15.
+- `8abf242` — **script review step in the wizard.** Owner's design: generate ONE at a time,
+  append, older ones collapse but stay available (a rejected script is often the best starting
+  point for an edit). 5 free, 10 max. **Also removed the hardcoded step indices** —
+  `stepIndex === 4 && …` silently attaches the wrong rule to the wrong step when a step is
+  inserted, and compiles and builds either way. Gating is on step **id** now.
+- `c0c2f47` — **migration 0005, NOT APPLIED.** `charge_credits` cannot safely bill one job
+  twice: its rollback deletes by `user_id + job_id + reason` instead of by the row it inserted,
+  so a failed later charge refunds an earlier one the user already received. Fix deletes by id
+  and adds `p_reason`. Drops the old 3-arg signature explicitly — a defaulted parameter creates
+  an *overload*, and leaving both makes every existing call ambiguous.
+
+**Product decisions locked this session — do not re-litigate:**
+- Suggested clips come from **platform search**, not stock libraries and not AI generation.
+- **The competitor's Matrix is NOT a montage editor** — the F4 note claiming so was wrong and
+  is corrected. It takes one clip, strips the audio, and returns N copies with new audio and
+  captions. Our montage engine is not parity; it is something they don't have. Their simpler
+  flow is a **separate tool inside AdGen** (owner confirmed), not a mode of Matrix.
+- Credit prices are **all placeholders**. Pricing gets decided after the build, so nothing
+  should treat a number in `pricing.ts` as settled.
+
+**A mistake worth not repeating:** an import was added to `apps/worker/src/index.ts` through
+PowerShell. PowerShell 5.1 reads BOM-less UTF-8 as ANSI, so the rewrite double-encoded every
+non-ASCII character — 432 changed lines for a one-line import. Caught by `git diff --numstat`,
+restored, redone with the editor. **Never rewrite a source file through `Get-Content`/
+`Set-Content` in this repo.**
+
 **Left open / owner-gated:**
-1. **`OPENROUTER_API_KEY` in `.env`** — blocks the Serbian eval and every live LLM call.
-   Everything LLM-side is CODE-COMPLETE and unverified until this exists.
-2. Run the Serbian blind eval, grade it, then set `OPENROUTER_SCRIPT_MODEL`.
+1. **Grade the Serbian eval sheet** (`tests/serbian-script-eval/2026-08-09-11-30-blind.md`),
+   open the key file only afterwards, then set `OPENROUTER_SCRIPT_MODEL` to the winner and
+   record the verdict the way `tests/kie-vs-fal.md` records its own.
+2. **Apply migration 0005** in the Supabase SQL Editor. Not urgent — the bug it fixes is
+   dormant while nothing bills a job twice — but it must land **before** per-stage billing.
 3. Set the enforceable password policy in Supabase to match the client rules.
-4. Decide Google Cloud Vision `WEB_DETECTION` vs a Google Lens scraper API for hop 1 —
-   owner's call after testing both on five real products.
+4. Decide Google Cloud Vision `WEB_DETECTION` vs a Google Lens scraper API for the
+   reverse-image hop — owner's call after testing both on five real products.
 5. R2 public-bucket vs presigned — still the launch blocker from F5, untouched.
-6. Wizard click-test: caption/sound controls (unchanged since 08-05) **plus** the new
-   suggestion grid and the password/recovery flows — none have been clicked.
+6. **Click-test, the big one.** Nothing added today has been clicked: the script review step
+   (collapse/expand especially — a build cannot verify it), the clip suggestion grid, the
+   password rules, and the recovery flow. Plus the caption/sound controls still outstanding
+   from 08-05.
 7. TikTok/Instagram search — separate decision once YouTube v1 is proven.
+8. Build the competitor-style simple tool (one clip, swap audio + captions, N outputs) as a
+   **ninth tool inside AdGen** — owner confirmed it is a tool, not a separate repo. Needs its
+   own `job_type` enum value, so a migration 0006, plus a pricing entry, a wizard page and a
+   worker branch. Most of the pipeline (voice, captions, render) is reusable as-is.
 
 **Gotcha for the next machine:** `pnpm` is not on PATH here and `corepack enable` fails with
 EPERM (it writes to `C:\Program Files\nodejs`). `corepack pnpm <args>` works without any
