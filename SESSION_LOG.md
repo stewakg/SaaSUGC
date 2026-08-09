@@ -107,13 +107,84 @@ the local `.env` preserving `REDIS_URL` and LF endings (a trailing `\r` becomes 
 value under Docker `--env-file`), backed up to `.env.bak-20260809-101211`, uploaded (md5
 matched), worker restarted: running, 0 errors in the log, 0 restart loops.
 
+**Password rules added** (`eed4587`, `76eaad3`): 8 chars + one capital + one symbol, one
+module shared by signup and reset so they can't drift, with a live checklist. The capital
+test is `/[A-ZČĆŠŽĐ]/`, not `/[A-Z]/` — a password starting with `Č` would otherwise be told
+it has no capital letter. **The enforceable copy still has to be set in Supabase** (Auth →
+Sign In / Providers → Email); the client-side rules are UX only.
+
+---
+
+### Second half — continued with the owner away
+
+**`ScriptProvider` was ticked `[x]` and had never run once.** `factory.ts:95` gated it on
+`ANTHROPIC_API_KEY`; the owner has no Anthropic account and never did, so the branch always
+returned `MockScriptProvider` and **every Matrix ad script ever produced was canned text**.
+The dashboard sells "AI piše skriptu i čita je glasom" — ElevenLabs really does read it
+aloud (measured 08-05), but what it read was pre-written. The owner's actual LLM access is
+OpenRouter.
+
+- `3d43fa7` — **`script.openrouter.ts` replaces `script.claude.ts`.** OpenAI-compatible
+  endpoint, plain fetch. Gate is now `OPENROUTER_API_KEY`, with `OPENROUTER_SCRIPT_MODEL` as
+  an override so the Serbian eval can sweep models without a code change. Serbian prompt
+  lifted verbatim — it was the part worth keeping, and the eval must measure that exact text.
+  Requests strict `json_schema` but keeps the fence-stripping parser, because a swappable
+  model may ignore `response_format`; the parser now takes both the bare array and
+  `{ variants: [...] }`. Also handles OpenRouter returning **HTTP 200 with an error body**
+  when an upstream provider fails. 8 new parser tests. **NOT live-tested — no key here.**
+- `6b340d7` — **blind Serbian eval harness** (`scripts/eval-serbian-scripts.mts`). Drives the
+  *shipped* provider, not a copied prompt. Shuffles output and writes the model mapping to a
+  separate key file; `MockScriptProvider`'s canned lines go in as a control, added **once**
+  (the mock ignores its input, so repeating it would print identical text and give the
+  control away). Grading sheet names the two disqualifying axes: **padeži**, and
+  **ekavica/ijekavica leakage** — the app sells Serbian/Bosnian/Croatian as separate
+  languages, so "mlijeko" in Serbian output disqualifies regardless of other scores.
+  Verified only as far as possible without a key: module graph loads, missing-key path exits
+  1 with an actionable message.
+
+**Clip suggestions — new feature, owner's design decision.** Source is **platform search**,
+not stock libraries and not AI generation (owner was explicit; do not re-propose either). We
+only *suggest* — the user watches a candidate before taking it.
+
+- `7cdebf2` — **`POST /api/search-clips`**, YouTube only. That is a capability limit, not a
+  preference: yt-dlp has a search extractor for YouTube (`ytsearchN:`) and **none for TikTok
+  or Instagram**, which it resolves from a URL only. Those need a third-party API (EnsembleData,
+  SocialCrawl, TikHub, Apify all cover the three) and stay a separate decision. Metadata only
+  via `flatPlaylist` + `dumpJson` — no frame downloaded, so a dozen previews are ~free.
+  Rate limit 8/60 (tighter than import's 15/60) plus a 10-min per-query cache, because
+  repeated yt-dlp searches from one VPS IP are what gets an IP throttled.
+  **VERIFIED against live yt-dlp output, not fixtures** — a fixture would keep passing if
+  yt-dlp changed its shape: 6/6 parsed, every UI-rendered field present, 6/6 still parsed
+  after two corrupted lines were spliced in.
+- `61aa54f` — **wired into the Matrix wizard**, beside upload and link import. Taking a
+  suggestion goes through `/api/import-clip` — a suggestion is just a link the user didn't
+  type — via a shared `importClipByUrl()` so a second download path can't drift into
+  existence. Grid is captioned with the reason to review: check for someone else's comments
+  or a watermark first. **NOT click-tested — behind auth.**
+
+**Search-by-image: an earlier claim in this file's TODO was wrong and is corrected**
+(`bc10239`). Reverse image search *does* work for this, and the reason is specific to the
+business: dropshipping listings reuse the **supplier's** stock photos across hundreds of
+resellers, so the query image is already indexed all over the web. Two hops — reverse image
+search identifies the exact product, then its real name drives the platform search. Do NOT
+substitute a vision-model caption for hop 1: a caption yields "black massage gun", reverse
+image search yields the actual listing title. Options recorded in INFRASTRUCTURE F5.
+
+**Provider list prices captured** (`f40dc8d`), and the stale F5 benchmark status corrected —
+the image-side kie-vs-fal benchmark had been done since 08-05 while the checkbox still said
+`_pending_`.
+
 **Left open / owner-gated:**
-1. Auth → URL Configuration: allow-list `/auth/callback` (dev + prod). Until then the
-   confirmation and recovery links are rejected — the code fix alone is not enough.
-2. Two throwaway accounts on the new project; `u6749011717@gmail.com` is the locked-out one.
-3. R2 public-bucket vs presigned — still the launch blocker from F5, untouched today.
-4. Wizard click-test (caption/sound controls) — still never clicked, unchanged since 08-05.
-5. Recovery + confirm-field flows need one real end-to-end run.
+1. **`OPENROUTER_API_KEY` in `.env`** — blocks the Serbian eval and every live LLM call.
+   Everything LLM-side is CODE-COMPLETE and unverified until this exists.
+2. Run the Serbian blind eval, grade it, then set `OPENROUTER_SCRIPT_MODEL`.
+3. Set the enforceable password policy in Supabase to match the client rules.
+4. Decide Google Cloud Vision `WEB_DETECTION` vs a Google Lens scraper API for hop 1 —
+   owner's call after testing both on five real products.
+5. R2 public-bucket vs presigned — still the launch blocker from F5, untouched.
+6. Wizard click-test: caption/sound controls (unchanged since 08-05) **plus** the new
+   suggestion grid and the password/recovery flows — none have been clicked.
+7. TikTok/Instagram search — separate decision once YouTube v1 is proven.
 
 **Gotcha for the next machine:** `pnpm` is not on PATH here and `corepack enable` fails with
 EPERM (it writes to `C:\Program Files\nodejs`). `corepack pnpm <args>` works without any
