@@ -31,7 +31,7 @@ export function MainToolCard({
   const content = (
     <div className={cn('relative overflow-hidden rounded-2xl p-6 shadow-lg', toolGradientClass(theme))}>
       <div className="flex items-start justify-between gap-3">
-        <ToolIcon icon={icon} variant="onColor" />
+        <ToolIcon icon={icon} />
         {soon ? (
           <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-[10px] uppercase tracking-wide text-white backdrop-blur-sm">
             Uskoro

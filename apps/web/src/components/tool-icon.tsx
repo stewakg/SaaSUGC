@@ -15,33 +15,16 @@ const ICONS: Record<string, typeof Image> = {
 };
 
 /**
- * Icon chip for a tool card.
- * - `default`: brand-colored glyph in a soft rounded square (dark cards,
- *   utility rows) — matches the card-gradient/badge look in globals.css.
- * - `onColor`: white glyph in a frosted white circle, for the big vivid
- *   gradient "main tier" cards (EcomAlati-style) where the card itself
- *   already carries the color.
+ * Icon chip for a tool card — one treatment, `.icon-chip` in globals.css.
+ *
+ * There used to be a second `onColor` variant for the big vivid per-tool
+ * gradient cards. Those gradients are gone (colour carries state, not tool
+ * identity), so the variant it existed for is gone with them.
  */
-export function ToolIcon({
-  icon,
-  variant = 'default',
-  className,
-}: {
-  icon?: string;
-  variant?: 'default' | 'onColor';
-  className?: string;
-}) {
+export function ToolIcon({ icon, className }: { icon?: string; className?: string }) {
   const Icon = (icon && ICONS[icon]) || Wand2;
   return (
-    <div
-      className={cn(
-        'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
-        variant === 'onColor'
-          ? 'bg-white/20 text-white backdrop-blur-sm'
-          : 'border border-brand-400/20 bg-brand-400/10 text-brand-300',
-        className,
-      )}
-    >
+    <div className={cn('icon-chip', className)}>
       <Icon className="h-5 w-5" strokeWidth={2} />
     </div>
   );

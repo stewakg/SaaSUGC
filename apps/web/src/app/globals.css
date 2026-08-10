@@ -215,26 +215,174 @@ body {
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
 
-  /* Gradient tool card (EcomAlati-style). */
+  /* ==========================================================================
+     Primitives. Everything below reads tokens only, which is what makes them
+     correct in all three themes without a single conditional. Each carries a
+     `MIGRATED to tokens` marker so the closing sweep can grep for stragglers.
+     ========================================================================== */
+
+  /* MIGRATED to tokens — surfaces */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* MIGRATED to tokens */
   .card {
-    @apply relative overflow-hidden rounded-2xl border border-white/5 bg-ink-850/80 p-5 backdrop-blur;
+    @apply relative overflow-hidden p-5;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   }
+  /* Selected / active — the only state a card is allowed to change colour for. */
+  .card--active {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-glow);
+  }
+  /* Hover lift, opt-in so static cards don't move under the cursor. */
+  .card--lift:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-glow);
+  }
+  /* MIGRATED to tokens — was the per-tool gradient card; now one faint accent
+     wash, identical for every tool. Colour carries state, never identity. */
   .card-gradient {
-    @apply card bg-gradient-card;
+    @apply card;
+    background-image: linear-gradient(160deg, var(--accent-soft), transparent 55%);
   }
 
+  /* MIGRATED to tokens */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition;
+    border-radius: var(--radius-control);
   }
+  .btn:focus-visible {
+    outline: 2px solid var(--accent-2);
+    outline-offset: 2px;
+  }
+  /* MIGRATED to tokens */
   .btn-primary {
-    @apply btn bg-brand-400 text-ink-950 hover:bg-brand-300;
+    @apply btn;
+    background-image: var(--action-grad);
+    color: var(--accent-contrast);
+    font-weight: 600;
   }
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-glow);
+  }
+  /* MIGRATED to tokens */
   .btn-ghost {
-    @apply btn border border-white/10 bg-white/5 text-zinc-100 hover:bg-white/10;
+    @apply btn;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--txt-mid);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--panel-2);
+    color: var(--txt-hi);
   }
 
+  /* MIGRATED to tokens — badges and price pills are numbers, so they are mono
+     and tabular; the text colour is derived from the accent rather than picked
+     per theme. */
   .badge {
-    @apply inline-flex items-center rounded-full border border-brand-400/30 bg-brand-400/10 px-2.5 py-0.5 text-xs font-medium text-brand-300;
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--accent-text);
+  }
+
+  /* MIGRATED to tokens — one treatment for every text control in the app. */
+  .input {
+    @apply w-full px-3 py-2 text-sm outline-none transition;
+    background: var(--ground);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    color: var(--txt-hi);
+  }
+  .input::placeholder {
+    color: var(--txt-low);
+  }
+  .input:focus {
+    border-color: color-mix(in srgb, var(--accent-2) 50%, transparent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .input:disabled {
+    opacity: 0.5;
+  }
+
+  /* MIGRATED to tokens — progress. `.progress > i` is the fill; width is set
+     inline by the caller. */
+  .progress {
+    @apply block overflow-hidden;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--panel-2);
+  }
+  .progress > i {
+    @apply block h-full;
+    border-radius: inherit;
+    background-image: var(--action-grad);
+    transition: width 0.3s ease;
+  }
+  /* The one theatrical element in the system: a slow sheen in --live crossing
+     the fill while a render is actually happening. */
+  .progress--live > i {
+    background-image: linear-gradient(
+        90deg,
+        transparent,
+        color-mix(in srgb, var(--live) 85%, transparent),
+        transparent
+      ),
+      var(--action-grad);
+    background-size: 45% 100%, 100% 100%;
+    background-repeat: no-repeat, no-repeat;
+    animation: progress-sheen 1.8s ease-in-out infinite;
+  }
+  /* No elapsed data to honestly show a width with — travel instead of lying. */
+  .progress--indeterminate > i {
+    width: 35%;
+    animation: progress-travel 1.4s ease-in-out infinite;
+  }
+
+  /* MIGRATED to tokens — wizard step rail. Inactive chips are panel/low-text;
+     the active one is tinted with the accent, never recoloured per tool. */
+  .step-rail {
+    @apply flex items-stretch gap-1.5;
+  }
+  .step-chip {
+    @apply flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-xs transition;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-control);
+    color: var(--txt-low);
+  }
+  .step-chip--done {
+    color: var(--txt-mid);
+  }
+  .step-chip--active {
+    background: var(--accent-soft);
+    color: var(--accent-text);
+    box-shadow: inset 0 0 0 1px var(--accent);
+    border-color: transparent;
+  }
+
+  /* MIGRATED to tokens — icon chip on tool cards. */
+  .icon-chip {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center;
+    border-radius: var(--radius-control);
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+    color: var(--accent-text);
   }
 
   /* Theme picker (components/theme-switcher.tsx). The swatch carries its own
@@ -269,5 +417,41 @@ body {
   .glow::before {
     content: '';
     @apply pointer-events-none absolute inset-x-0 top-0 h-64 bg-glow-brand;
+  }
+}
+
+@keyframes progress-sheen {
+  from {
+    background-position: -60% 0, 0 0;
+  }
+  to {
+    background-position: 160% 0, 0 0;
+  }
+}
+
+@keyframes progress-travel {
+  from {
+    margin-left: -35%;
+  }
+  to {
+    margin-left: 100%;
+  }
+}
+
+/* One place to disarm every animation in the app rather than remembering to
+   gate each new one. Transitions are collapsed rather than removed so focus
+   and hover states still register instantly. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .btn-primary:hover:not(:disabled),
+  .card--lift:hover {
+    transform: none;
   }
 }
