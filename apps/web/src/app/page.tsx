@@ -71,6 +71,25 @@ export default function LandingPage() {
           Plaćaš pouzećem · Srpski, Bosanski, Hrvatski, Rumunski, Engleski ·
           Tvoj račun, tvoji podaci
         </p>
+        {/*
+          Legal links belong on every page a visitor can reach, and in Germany
+          the Impressum specifically must be reachable in two clicks from
+          anywhere. This is the landing page only — the app shell still needs
+          the same links before launch.
+        */}
+        <p className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <Link href="/uslovi" className="hover:text-zinc-300">
+            Uslovi korišćenja
+          </Link>
+          <span aria-hidden>·</span>
+          <Link href="/privatnost" className="hover:text-zinc-300">
+            Privatnost
+          </Link>
+          <span aria-hidden>·</span>
+          <Link href="/impressum" className="hover:text-zinc-300">
+            Impressum
+          </Link>
+        </p>
       </section>
     </main>
   );
