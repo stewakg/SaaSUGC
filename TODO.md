@@ -47,7 +47,7 @@ the history and the caveats live in `INFRASTRUCTURE.md`. If the two ever disagre
 | Status | Tool | Note |
 |---|---|---|
 | 🟡 | **Matrix** | Deepest path. Real script + real voice + real local render. Never yet run start-to-finish in one click-through |
-| 🟡 | **AI slike** | Real scrape + real image generation (kie/fal both live-tested) |
+| 🟡 | **AI slike** | ✅ Runs for real end-to-end (2026-08-10, 4 credits): kie.ai returned a genuine generated image. **But the image is never saved.** `ai.kiefal.ts` contains no storage call at all, so `assets.url` holds kie.ai's own temp CDN link (`tempfile.aiquickdraw.com/...`) with `storageKey: null`. When kie.ai expires it, a paid asset becomes a dead link in "Moje reklame". Voice and Matrix renders *are* persisted through `Storage`; images are the gap |
 | ❌ ⛔ | **Brzi test / Edit / Mix / Prevod** | **THEY CHARGE AND RETURN BIG BUCK BUNNY.** Confirmed live 2026-08-10: Brzi test took 2 credits (708 → 706) and returned `https://www.w3schools.com/html/mov_bbb.mp4#mock=quick_test…`. Cause is one line, not config: `apps/worker/src/index.ts:331` renders every non-matrix, non-image job through `providers.renderer`, which is `MockRenderer` whenever the Remotion Lambda env is unset. Only `matrix`/`revoice` get the real renderer, because line 41 constructs `LocalRemotionRenderer` separately for them |
 | ❌ | **Enhance** | No model chosen. Worse than "returns nothing": with an **image** source, `index.ts:327` asks the image model for `"enhance result"` — a brand-new unrelated picture, not the user's file enhanced. With a video source it falls to line 331 above |
 | ❌ | **Remove text** | Same two paths, same outcome |
@@ -85,7 +85,11 @@ placeholder text is worse than none because it reads as if it were coverage.
 | ✅ | Matrix — script generation | Click-test 2 passed: OpenRouter wrote real Serbian copy, correct gender |
 | ✅ | Matrix — caption + sound controls | Click-test 4 passed |
 | ✅ | Matrix — **submit a job and get a finished video** | **DONE 2026-08-10.** Clip search → yt-dlp import → OpenRouter script → ElevenLabs (Charlie) → scene-detect montage → Remotion render → charge → history, all in one click-through. Output: `matrix-ad-1786378804132.mp4`, 10.7 MB, h264 **+ aac**, 18.67s, word-synced Serbian captions. Balance 723 → 708 |
-| ❌ | Every other wizard | Not started: AI slike, Edit, Mix, Prevod, Brzi test |
+| ✅ | **Brzi test** | Ran. **Failed the only thing that matters**: charged 2 credits, returned Big Buck Bunny (see §3) |
+| ✅ | **AI slike** | Ran. Real kie.ai image, charged 4 credits — but the result is not persisted (see §3) |
+| ⏭️ | Edit / Mix / Prevod | **Deliberately not run.** All three share `index.ts:331` with Brzi test, which is already proven to return a placeholder. Spending 18 + 12 + 15 credits to re-prove one line is waste; they become testable the moment that line has a real renderer |
+| ❌ | Signup, password recovery | Need your inbox — password recovery sends a real email to your address |
+| ❌ | Enhance, Remove text | Nothing to test until a model is chosen |
 
 **Current local rig** (temporary, not how production works): SSH tunnel forwards the VPS
 Redis to `127.0.0.1:6379`, the worker runs **here** with real keys, and the VPS worker is
