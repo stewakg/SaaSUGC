@@ -6,6 +6,26 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "@adgen/web", "run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "web-alt",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "apps/web", "exec", "next", "dev"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "reseller",
+      "runtimeExecutable": "C:\\Sa starog\\D1tb\\Projekti\\4. Market-reseller\\run-web.cmd",
+      "runtimeArgs": [],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "blablacalendar",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "C:\\Sa starog\\D1tb\\Projekti\\3. BlaBlaCalendar\\app", "run", "dev"],
+      "port": 5173
     }
   ]
 }

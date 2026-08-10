@@ -16,6 +16,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: three-theme redesign, Prompts 1–6 (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + NEW src/lib/theme.ts + NEW src/components/theme-switcher.tsx + src/app/layout.tsx + src/app/page.tsx + src/app/(auth)/**/page.tsx + src/app/app/{page,matrix,edit,mix,translate,enhance,remove-text,ai-slike,quick-test,reklame}/page.tsx + src/components/{app-shell,tool-cards,tool-icon,job-wizard,password-rules}.tsx + DELETED src/lib/tool-theme.ts) — CLEAN @ b903276 (2026-08-10). Prompts 1–3 written directly by Claude Code; 4, 5 and 6 delegated to subagents and every diff read line by line before committing. Gates green at each of the six commits: `pnpm -r typecheck` (5 projects), `pnpm -r test` (67 tests), `pnpm --filter @adgen/web build`. ✅ RUNTIME-VERIFIED through the browser with a REAL PAGE LOAD PER THEME (cookie + reload, never a live `data-theme` flip — see the gotcha in the block below): `/` and `/app/quick-test` in all three themes, `/app` obsidian+poluton at desktop and neon at 375px, `/app/matrix` obsidian+poluton, `/app/reklame` neon. Verification was by computed-style and DOM probes, NOT by screenshot — the Browser pane never displayed, so no human eye has seen these screens. **Auth pages are CODE-COMPLETE, not runtime-verified** (reaching them needs a logged-out session; SSR markup checked instead). **Prompt 7 is NOT done** — see the open items in the block below.
 REVIEWED: matrix wizard cost display (apps/web/src/app/app/matrix/page.tsx: new `effectiveCount`) — CLEAN @ cb3bcfb (2026-08-10). Written directly by Claude Code during a click-test, not delegated — 4 call sites, one expression. ✅ RUNTIME-VERIFIED through the browser over HMR: with one kept script the footer went "Cena: 75 kredita (5 × 15)" → "Cena: 15 kredita (1 × 15)", directly under the existing "Napraviće se 1 video" line. **Billing itself was never wrong** — `/api/jobs` was already sent the kept-script count (12d27d4); only the number quoted to the user before the click was. `pnpm -r typecheck` green on all 5 projects. **Closes the "NOT click-tested" caveat in the sound-panel verdict @ e04f865** for the caption controls and both audio pickers (see the block below); the *rendered* effect of music/SFX still rests on the 08-05 dB measurements, not on this test.
 REVIEWED: yt-dlp shell escape + rate-limiter fail-open (packages/core/src/queue.ts + apps/web/src/lib/rate-limit.ts + NEW apps/web/src/lib/yt-dlp.ts + NEW apps/web/src/types/youtube-dl-exec-constants.d.ts + apps/web/next.config.mjs + api/{search-clips,import-clip}/route.ts) — CLEAN @ 4683cb3 (2026-08-10). Written directly by Claude Code while click-testing, not delegated — each fix was the thing blocking the next observation. ✅ RUNTIME-VERIFIED end-to-end through the browser: search "masazer za vrat" → 8 Serbian results → "Uzmi" → POST /api/import-clip 200 in 13.5s → card leaves the grid, clip enters the list. Measured before/after on the rate limiter: 223011ms → 740ms. **Supersedes the fail-open claim in the F5/F6-infra verdict @ 4500e0e**, which was CLEAN on a path that could not execute.
 REVIEWED: sound panel + sfx sequencing fix (packages/core/src/types.ts + remotion/src/compositions/MatrixAd.tsx + apps/web/src/app/api/upload/route.ts + apps/web/src/app/app/matrix/page.tsx + apps/worker/src/index.ts) — CLEAN @ e04f865 (2026-08-05). musicVolume prop + sfx url guard Cline-delegated (diff audited, clean); upload audio types, wizard panel, worker wiring and the sfx Sequence fix by Claude Code. ✅ RUNTIME-VERIFIED by measuring the video TAIL, after the voiceover stops, so the sources are distinguishable: voice-only −91.0 dB (silence), +music −33.7 dB, sfx before −91.0 dB, sfx after −30.3 dB. **Found a latent bug doing it:** the CTA sfx `<Audio>` sat inside `OutroCard` with no enclosing `<Sequence>`, so Remotion treated it as starting at frame 0 and it played nothing — broken since F4, invisible because the prop was never set. **NOT click-tested**: the wizard's music/SFX pickers and volume slider are behind auth.
@@ -40,6 +41,99 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-08-10 (fifth session) — the redesign lands: three themes, one CSS block each, six of seven prompts done
+**Account:** _(unrecorded)_ · **Machine:** primary. **Commits, one per prompt, all pushed:**
+`69ec18c` P1 tokens · `46f9a3e` P2 theme switcher · `f9ead0d` P3 primitives ·
+`6892c8a` P4 dashboard · `c276021` P5 wizards · `b903276` P6 landing+auth · this block.
+**Deliberately left uncommitted: nothing.**
+
+**What this was.** `design/redesign-prompts.md` staged the whole redesign as seven prompts.
+Six ran, in order, each gated and committed before the next started. **Prompt 7 (the closing
+sweep + verdict) did NOT run** — the owner called a stop for the day. Picking it up is the
+first thing tomorrow; the findings are already collected below so it starts from evidence,
+not from a fresh grep.
+
+**The owner's three open questions are answered and recorded in
+`design/redesign-prompts.md`:** sidebar stays always-visible on desktop / overlay on mobile;
+a new visitor follows the OS (`prefers-color-scheme: light` → poluton) until they pick, and
+an explicit pick then wins forever; the hero phone-frame is a neutral CSS placeholder with a
+mono `1080×1920` caption and no fake screenshot.
+
+**The one architectural claim, and it held.** No component branches on the theme. A theme is
+one `[data-theme="…"]` block in `globals.css` and nothing else. Two conventions carry it:
+- `--x-c` holds bare RGB channels so Tailwind's opacity modifiers still work on token
+  colours (`bg-accent/10`), while `--x` is the ready colour derived from it.
+- `--action-grad` and `--text-grad` are ALWAYS `background-image` values, even in the themes
+  whose "gradient" is a single flat colour. That is the whole trick behind poluton having a
+  black primary button and obsidian a violet→cyan one from identical markup, and behind the
+  hero's "prodaju" being a gradient in one theme and flat accent in the others.
+
+**Three gotchas worth not rediscovering:**
+1. **Custom properties inherit ALREADY-SUBSTITUTED.** A derived token declared only on
+   `:root` hands a nested element `<html>`'s colour even when that element carries its own
+   `data-theme`. The derived block is therefore `:root, [data-theme]` (`globals.css`
+   ~line 163). Without it the theme-switcher swatches all painted in the active theme
+   instead of the one they advertise — which is exactly how the bug was found.
+2. **Never verify a theme by flipping `data-theme` live and reading computed styles.** In a
+   Browser pane that is not compositing, `background-color` updates but `color`,
+   `border-color` and `box-shadow` stay frozen at the previous theme's values. Two probes
+   were wasted chasing a "bug" that did not exist. Verify by setting the `adgen-theme`
+   cookie and RELOADING; that is also what a real user does.
+3. **`next build` and `next dev` share `.next`.** Running the build gate while the dev server
+   is up 404s `main-app.js` and silently kills hydration — the theme switcher looked dead
+   for several minutes for exactly this reason. Gate first, restart the dev server after.
+
+**Verification level, stated plainly.** Everything below was RUN, not just compiled — but
+run through DOM and computed-style probes, because the Browser pane never displayed and
+`computer{action:"screenshot"}` failed all session with *"the Browser pane is not displayed,
+so the page is not compositing frames"*. **No human eye has seen any of these screens.**
+Runtime-checked with a real load per theme: `/` and `/app/quick-test` in all three; `/app`
+obsidian+poluton desktop and neon at 375px (sidebar at −256px, hamburger shown, no
+horizontal overflow); `/app/matrix` obsidian+poluton; `/app/reklame` neon.
+`--txt-mid` on `--ground` measures 8.14:1 obsidian, 8.09:1 poluton, 7.84:1 neon.
+**CODE-COMPLETE, never rendered:** the four `(auth)` pages — reaching them needs a logged-OUT
+session and signing the owner out was not on the table. Their SSR markup was checked instead
+(`.panel`, `.input`, `.btn-primary`, both ambient layers, `data-theme` on `<html>`).
+
+**A real cost of Prompt 2, do not discover this in production:** reading the theme cookie in
+the root layout makes EVERY route dynamic. `/`, `/login`, `/signup` and the three legal pages
+were prerendered (`○`) before and are server-rendered (`ƒ`) now. The prompt explicitly ruled
+out the blocking-inline-script alternative, and middleware already ran on all of them, so
+this was the intended trade — but it is a trade.
+
+**Prompt 7's findings are already gathered.** The sweep greps ran; the fixes did not. What is
+left, and nothing else:
+- **The whole `(legal)` route group is un-migrated** — `layout.tsx`, `uslovi`, `privatnost`,
+  `impressum` still carry `zinc-*`, `brand-*`, `text-white`, `border-white/10`, `bg-white/5`,
+  `amber-*`, `red-*`. `zinc`/`brand` are aliased to tokens so they read correctly in all
+  three themes; **`text-white`, the `white/N` borders and the amber/red notices do NOT** and
+  will look wrong in poluton. Prompt 6 scoped this group out because the legal TEXT is
+  frozen — but classNames are not text, and this needs an explicit decision.
+- **`#FFE000` (the old brand yellow) survives in exactly two places**, and both are DATA, not
+  styling: `app/app/edit/page.tsx:34` and `app/app/matrix/page.tsx:248`, the default
+  `captionColor` sent to the renderer. Per the prompt these are LISTED, not force-migrated —
+  changing them changes what the rendered video looks like, which is behaviour.
+- **Two hexes in `app/layout.tsx:24-25`** are the `themeColor` meta values. A `<meta>` tag
+  cannot take a `var()`, so these stay literal by necessity; they track the two grounds a
+  first-time visitor can land on.
+- Everything else is clean: zero raw hex in TSX outside those, zero `toolGradientClass` /
+  `tool-theme` references, zero per-tool gradient nodes in the rendered DOM, zero theme
+  conditionals in TSX (`layout.tsx`'s `data-theme={theme}` is the SSR attribute, not a
+  branch), and the three hardcoded Serbian credit words are gone — topbar, credit packs and
+  matrix's `EXTRA_SCRIPTS_COST` all route through `creditsWord()`/`creditsLabel()` now.
+
+**Also open, smaller:** the brief asked for "one variable grotesk" and the app instead uses a
+system grotesk stack (`Segoe UI Variable Text/Display` first). No webfont was added because
+`next/font/google` would put a build-time network fetch on the critical path. Worth a
+deliberate yes/no rather than leaving it as an accident.
+
+**Delegation note.** Prompts 4, 5 and 6 ran as subagents in parallel on disjoint file sets,
+which is why this fits in one session at all. `globals.css` was the one shared file: two
+agents appended to it, and the additions were split back apart by hand so each stage's CSS
+landed in its own commit rather than being smeared across two.
 
 ---
 
