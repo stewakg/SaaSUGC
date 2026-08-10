@@ -44,10 +44,12 @@ function LoginForm() {
   }
 
   return (
-    <main className="glow relative flex min-h-screen items-center justify-center overflow-hidden px-4">
-      <div className="card-gradient w-full max-w-sm p-8 animate-fade-in">
+    <main className="relative flex min-h-screen items-center justify-center px-4">
+      <div className="ambient ambient--a" aria-hidden="true" />
+      <div className="ambient ambient--b" aria-hidden="true" />
+      <div className="panel w-full max-w-sm p-8 animate-fade-in">
         <h1 className="font-display text-2xl font-bold">Uloguj se</h1>
-        <p className="mt-1 text-sm text-zinc-400">Dobrodošao nazad.</p>
+        <p className="mt-1 text-sm text-txt-mid">Dobrodošao nazad.</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <Field
@@ -69,7 +71,7 @@ function LoginForm() {
             autoComplete="current-password"
           />
 
-          {error && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
+          {error && <p className="rounded-lg bg-err/10 p-3 text-sm text-err">{error}</p>}
 
           <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
             {loading ? 'Prijava…' : 'Uloguj se'}
@@ -79,15 +81,15 @@ function LoginForm() {
         <p className="mt-4 text-center text-sm">
           <Link
             href="/zaboravljena-lozinka"
-            className="text-zinc-400 underline-offset-4 hover:text-zinc-200 hover:underline"
+            className="text-txt-mid underline-offset-4 hover:text-txt-hi hover:underline"
           >
             Zaboravio si lozinku?
           </Link>
         </p>
 
-        <p className="mt-6 text-center text-sm text-zinc-400">
+        <p className="mt-6 text-center text-sm text-txt-mid">
           Nemaš nalog?{' '}
-          <Link href="/signup" className="font-medium text-brand-300 hover:text-brand-200">
+          <Link href="/signup" className="font-medium text-accent hover:text-accent-text">
             Registruj se
           </Link>
         </p>
@@ -115,7 +117,7 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm text-zinc-300">{label}</span>
+      <span className="mb-1 block text-sm text-txt-mid">{label}</span>
       <input
         type={type}
         value={value}
@@ -123,7 +125,7 @@ function Field({
         placeholder={placeholder}
         required={required}
         autoComplete={autoComplete}
-        className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+        className="input"
       />
     </label>
   );

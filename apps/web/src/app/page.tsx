@@ -1,43 +1,56 @@
 import Link from 'next/link';
-import { JOB_DESCRIPTORS, SIGNUP_BONUS_CREDITS, creditsLabel } from '@adgen/core';
-import { cn } from '@/lib/utils';
-import { ToolIcon } from '@/components/tool-icon';
+import { JOB_DESCRIPTORS, SIGNUP_BONUS_CREDITS } from '@adgen/core';
+import { MainToolCard, UtilityToolCard } from '@/components/tool-cards';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 
 /**
  * Public landing page — EcomAlati-style hero + tool cards.
  * Reads job descriptors + pricing from @adgen/core (single source of truth).
+ * Tool cards reuse MainToolCard/UtilityToolCard from the dashboard so the two
+ * screens cannot drift.
  */
 export default function LandingPage() {
-  const tools = JOB_DESCRIPTORS;
+  const mainTools = JOB_DESCRIPTORS.filter((t) => t.tier === 'main');
+  const utilityTools = JOB_DESCRIPTORS.filter((t) => t.tier !== 'main');
 
   return (
-    <main className="glow relative min-h-screen overflow-hidden">
+    <main className="relative min-h-screen">
+      <div className="ambient ambient--a" aria-hidden="true" />
+      <div className="ambient ambient--b" aria-hidden="true" />
+
       {/* Hero */}
       <section className="container-app relative pt-20 pb-16 sm:pt-28">
-        <div className="mx-auto max-w-3xl text-center animate-fade-in">
-          <span className="badge mb-5">COD e-commerce · Balkan</span>
-          <h1 className="font-display text-4xl font-extrabold leading-tight tracking-tight sm:text-6xl">
-            AI reklame koje{' '}
-            <span className="bg-gradient-to-r from-brand-300 to-brand-500 bg-clip-text text-transparent">
-              prodaju
-            </span>
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-balance text-base text-zinc-300 sm:text-lg">
-            Zalepi link proizvoda, mi generišemo skriptu, glas, titl, muziku i
-            CTA. Vertikalni video spreman za TikTok, Reels i Shorts — za minute.
-          </p>
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/signup" className="btn-primary w-full sm:w-auto">
-              Probaj besplatno
-            </Link>
-            <Link href="/login" className="btn-ghost w-full sm:w-auto">
-              Uloguj se
-            </Link>
+        <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="animate-fade-in text-center lg:text-left">
+            <span className="badge mb-5">COD e-commerce · Balkan</span>
+            <h1 className="font-display text-[clamp(44px,8vw,88px)] font-extrabold leading-[0.95] tracking-head-tight">
+              AI reklame koje{' '}
+              <span className="bg-text-grad bg-clip-text text-transparent">
+                prodaju
+              </span>
+            </h1>
+            <p className="mx-auto mt-5 max-w-2xl text-balance text-base text-txt-mid sm:text-lg lg:mx-0">
+              Zalepi link proizvoda, mi generišemo skriptu, glas, titl, muziku i
+              CTA. Vertikalni video spreman za TikTok, Reels i Shorts — za minute.
+            </p>
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
+              <Link href="/signup" className="btn-primary w-full sm:w-auto">
+                Probaj besplatno
+              </Link>
+              <Link href="/login" className="btn-ghost w-full sm:w-auto">
+                Uloguj se
+              </Link>
+            </div>
+            <p className="mt-4 text-sm text-txt-mid">
+              {SIGNUP_BONUS_CREDITS} besplatna videa na registraciji · Bez kartice
+            </p>
           </div>
-          <p className="mt-4 text-sm text-zinc-400">
-            {SIGNUP_BONUS_CREDITS} besplatna videa na registraciji · Bez kartice
-          </p>
+
+          <div className="animate-fade-in flex justify-center">
+            <div className="phone-frame">
+              <span className="font-mono tabular text-xs text-txt-low">1080×1920</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -46,15 +59,28 @@ export default function LandingPage() {
         <div className="mb-8 flex items-end justify-between">
           <div>
             <h2 className="font-display text-2xl font-bold sm:text-3xl">Alati</h2>
-            <p className="mt-1 text-sm text-zinc-400">
+            <p className="mt-1 text-sm text-txt-mid">
               Svaki alat radi zasebno ili u kombinaciji.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tools.map((t) => (
-            <ToolCard
+          {mainTools.map((t) => (
+            <MainToolCard
+              key={t.type}
+              icon={t.icon}
+              label={t.label}
+              description={t.description}
+              cost={t.cost}
+              soon={t.type === 'ai_video'}
+            />
+          ))}
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {utilityTools.map((t) => (
+            <UtilityToolCard
               key={t.type}
               icon={t.icon}
               label={t.label}
@@ -67,7 +93,7 @@ export default function LandingPage() {
       </section>
 
       {/* Footer-ish note */}
-      <section className="container-app pb-16 text-center text-xs text-zinc-500">
+      <section className="container-app pb-16 text-center text-xs text-txt-low">
         <p>
           Plaćaš pouzećem · Srpski, Bosanski, Hrvatski, Rumunski, Engleski ·
           Tvoj račun, tvoji podaci
@@ -79,15 +105,15 @@ export default function LandingPage() {
           the same links before launch.
         */}
         <p className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <Link href="/uslovi" className="hover:text-zinc-300">
+          <Link href="/uslovi" className="hover:text-txt-mid">
             Uslovi korišćenja
           </Link>
           <span aria-hidden>·</span>
-          <Link href="/privatnost" className="hover:text-zinc-300">
+          <Link href="/privatnost" className="hover:text-txt-mid">
             Privatnost
           </Link>
           <span aria-hidden>·</span>
-          <Link href="/impressum" className="hover:text-zinc-300">
+          <Link href="/impressum" className="hover:text-txt-mid">
             Impressum
           </Link>
         </p>
@@ -97,41 +123,5 @@ export default function LandingPage() {
         </div>
       </section>
     </main>
-  );
-}
-
-function ToolCard({
-  icon,
-  label,
-  description,
-  cost,
-  soon,
-}: {
-  icon?: string;
-  label: string;
-  description: string;
-  cost: number;
-  soon?: boolean;
-}) {
-  return (
-    <div className={cn('card-gradient group transition hover:shadow-glow')}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <ToolIcon icon={icon} />
-          <h3 className="font-display text-lg font-semibold">{label}</h3>
-        </div>
-        {soon ? (
-          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wide text-zinc-400">
-            Uskoro
-          </span>
-        ) : (
-          <span className="badge">{creditsLabel(cost)}</span>
-        )}
-      </div>
-      <p className="mt-2 text-sm text-zinc-300">{description}</p>
-      <div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-brand-300 opacity-0 transition group-hover:opacity-100">
-        Otvori →
-      </div>
-    </div>
   );
 }

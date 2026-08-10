@@ -41,21 +41,23 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="glow relative flex min-h-screen items-center justify-center overflow-hidden px-4">
-      <div className="card-gradient w-full max-w-sm p-8 animate-fade-in">
+    <main className="relative flex min-h-screen items-center justify-center px-4">
+      <div className="ambient ambient--a" aria-hidden="true" />
+      <div className="ambient ambient--b" aria-hidden="true" />
+      <div className="panel w-full max-w-sm p-8 animate-fade-in">
         <h1 className="font-display text-2xl font-bold">Zaboravljena lozinka</h1>
-        <p className="mt-1 text-sm text-zinc-400">
+        <p className="mt-1 text-sm text-txt-mid">
           Pošaljemo ti link za postavljanje nove.
         </p>
 
         {sent ? (
-          <p className="mt-6 rounded-lg bg-brand-400/10 p-3 text-sm text-brand-200">
+          <p className="mt-6 rounded-lg bg-accent-soft p-3 text-sm text-accent-text">
             Ako postoji nalog sa tom adresom, link je poslat. Proveri i spam folder.
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <label className="block">
-              <span className="mb-1 block text-sm text-zinc-300">Email</span>
+              <span className="mb-1 block text-sm text-txt-mid">Email</span>
               <input
                 type="email"
                 value={email}
@@ -63,11 +65,11 @@ export default function ForgotPasswordPage() {
                 placeholder="ti@primer.rs"
                 required
                 autoComplete="email"
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+                className="input"
               />
             </label>
 
-            {error && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
+            {error && <p className="rounded-lg bg-err/10 p-3 text-sm text-err">{error}</p>}
 
             <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
               {loading ? 'Šaljem…' : 'Pošalji link'}
@@ -75,9 +77,9 @@ export default function ForgotPasswordPage() {
           </form>
         )}
 
-        <p className="mt-6 text-center text-sm text-zinc-400">
+        <p className="mt-6 text-center text-sm text-txt-mid">
           Setio si se?{' '}
-          <Link href="/login" className="font-medium text-brand-300 hover:text-brand-200">
+          <Link href="/login" className="font-medium text-accent hover:text-accent-text">
             Uloguj se
           </Link>
         </p>

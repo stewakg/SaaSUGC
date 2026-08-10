@@ -419,6 +419,44 @@ body {
     @apply pointer-events-none absolute inset-x-0 top-0 h-64 bg-glow-brand;
   }
 
+  /* MIGRATED to tokens — ambient ground glow for the landing hero and the
+     auth pages: two large blurred radials, fixed behind the content. Loudness
+     comes only from --ambient-op (already tuned per theme above — poluton is
+     deliberately barely-there), never a per-theme class here. Render both
+     `.ambient--a` and `.ambient--b` once per page. */
+  .ambient {
+    @apply pointer-events-none fixed -z-10 rounded-full;
+    width: 60vw;
+    height: 60vw;
+    max-width: 640px;
+    max-height: 640px;
+    filter: blur(120px);
+    opacity: var(--ambient-op);
+  }
+  .ambient--a {
+    top: -12%;
+    left: -8%;
+    background: radial-gradient(circle, var(--accent), transparent 70%);
+  }
+  .ambient--b {
+    bottom: -18%;
+    right: -10%;
+    background: radial-gradient(circle, var(--accent-2), transparent 70%);
+  }
+
+  /* MIGRATED to tokens — static 9:16 phone-frame placeholder for the landing
+     hero. Deliberately empty: no screenshot, no invented UI, just the frame
+     and a dimension caption. */
+  .phone-frame {
+    @apply relative mx-auto flex items-center justify-center overflow-hidden;
+    width: 100%;
+    max-width: 280px;
+    aspect-ratio: 9 / 16;
+    background: var(--panel-2);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-panel);
+  }
+
   /* MIGRATED to tokens — one-time render-complete flash. Add this class the
      moment an existing completion flag (e.g. `phase === 'done'`) goes true;
      the border sweeps from --live to --ok over ~600ms and holds. No timer —
