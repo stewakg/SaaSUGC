@@ -78,12 +78,12 @@ placeholder text is worse than none because it reads as if it were coverage.
 | ✅ | Login | Works (session was live 2026-08-10) |
 | ❌ | Signup | Not clicked this round |
 | ❌ | **Password recovery** | Never clicked. Sends a real email to your address |
-| ❌ | Dashboard `/app` | Not clicked since the credits button was rewired |
-| ❌ | `/app/reklame` (history) | Not clicked |
+| ✅ | Dashboard `/app` | Tool cards match `JOB_COST`; balance renders; "Dodaj kredit" verified against the live DB (3 → 723, `pack_agency` = 600 + 120) |
+| ✅ | `/app/reklame` (history) | Shows the finished job: Matrix · Gotovo · 15 kredita |
 | ✅ | Matrix — script generation | Click-test 2 passed: OpenRouter wrote real Serbian copy, correct gender |
 | ✅ | Matrix — caption + sound controls | Click-test 4 passed |
-| ❌ | Matrix — **submit a job and get a finished video** | The one that matters. Never done |
-| ❌ | Every other wizard | Not started |
+| ✅ | Matrix — **submit a job and get a finished video** | **DONE 2026-08-10.** Clip search → yt-dlp import → OpenRouter script → ElevenLabs (Charlie) → scene-detect montage → Remotion render → charge → history, all in one click-through. Output: `matrix-ad-1786378804132.mp4`, 10.7 MB, h264 **+ aac**, 18.67s, word-synced Serbian captions. Balance 723 → 708 |
+| ❌ | Every other wizard | Not started: AI slike, Edit, Mix, Prevod, Brzi test |
 
 **Current local rig** (temporary, not how production works): SSH tunnel forwards the VPS
 Redis to `127.0.0.1:6379`, the worker runs **here** with real keys, and the VPS worker is
