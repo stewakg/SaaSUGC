@@ -48,9 +48,9 @@ the history and the caveats live in `INFRASTRUCTURE.md`. If the two ever disagre
 |---|---|---|
 | 🟡 | **Matrix** | Deepest path. Real script + real voice + real local render. Never yet run start-to-finish in one click-through |
 | 🟡 | **AI slike** | ✅ Runs for real end-to-end (2026-08-10, 4 credits): kie.ai returned a genuine generated image. **But the image is never saved.** `ai.kiefal.ts` contains no storage call at all, so `assets.url` holds kie.ai's own temp CDN link (`tempfile.aiquickdraw.com/...`) with `storageKey: null`. When kie.ai expires it, a paid asset becomes a dead link in "Moje reklame". Voice and Matrix renders *are* persisted through `Storage`; images are the gap |
-| ❌ ⛔ | **Brzi test / Edit / Mix / Prevod** | **THEY CHARGE AND RETURN BIG BUCK BUNNY.** Confirmed live 2026-08-10: Brzi test took 2 credits (708 → 706) and returned `https://www.w3schools.com/html/mov_bbb.mp4#mock=quick_test…`. Cause is one line, not config: `apps/worker/src/index.ts:331` renders every non-matrix, non-image job through `providers.renderer`, which is `MockRenderer` whenever the Remotion Lambda env is unset. Only `matrix`/`revoice` get the real renderer, because line 41 constructs `LocalRemotionRenderer` separately for them |
-| 🟡 | **Enhance** | Still returns a placeholder today: with an **image** source, `index.ts:327` asks the image model for `"enhance result"` — a brand-new unrelated picture, not the user's file enhanced; with a video source it falls to line 331 above. **But the model question is now answered**: `fal-ai/topaz/upscale/{video,image}`, $0.02/s at 1080p ≈ $0.30 for a 15s clip. Wiring job, not research. See `research/fal-ai-catalogue.md` §1 |
-| 🟡 | **Remove text** | Same two broken paths today. **Image path is answered**: `fal-ai/image-editing/text-removal`, $0.04 per image, removes all text while preserving the background. **Video path has no affordable option** — see the burned-in-UI row in §4 — so it should not be advertised until one exists |
+| 🟡 | **Brzi test / Edit / Mix / Prevod** | **They used to charge and return Big Buck Bunny** — confirmed live 2026-08-10, Brzi test took 2 credits and returned `w3schools.com/html/mov_bbb.mp4`. **Fixed the same day**: the generic branch now throws `tool_not_implemented`, the job handler marks it `error`, and `charge_credits` never runs. Re-verified live — the job lands as "Greška", balance unchanged. They still do not *work*; they now fail honestly. Cause remains `apps/worker/src/index.ts` rendering every non-matrix, non-image job through `providers.renderer`, which is `MockRenderer` while the Remotion Lambda env is unset |
+| 🟡 | **Enhance** | Not wired yet, but no longer blocked on anything: `FalMediaEditProvider.upscaleImage/upscaleVideo` exists and is tested (`packages/core/src/providers/media-edit.fal.ts`). Decision in `research/provider-decisions.md`: **video → fal** `fal-ai/topaz/upscale/video` ($0.30 for 15s at 1080p, half of kie's $0.60 for the same model), **image → kie** `topaz/image-upscale`. ⚠️ Topaz image defaults `face_enhancement` to **true** — it retouches faces unless told not to, which on a product shot is an edit nobody asked for |
+| 🟡 | **Remove text** | Image path ready to wire: `FalMediaEditProvider.removeTextFromImage` → `fal-ai/image-editing/text-removal`, $0.04. Chosen over kie's $0.02 `nano-banana-edit` because it takes **no prompt at all** — a general editor asked to "remove all text" can regenerate the frame or invent a label, and this tool promises no blur or smearing. **Video path: do not ship.** At 6 credits (≈€1.20–1.80) against $2.10 of erase cost the margin is negative before a frame renders |
 | ❌ | **AI influencer** (`ai_video`) | F7. `generateVideo` has never been called |
 
 ## 3b. Two NEW standalone tools — owner's decision 2026-08-10
@@ -90,7 +90,7 @@ presets, do that. Reach for translation only when the task is genuinely descript
 | ❌ ⛔ | **Other platforms' burned-in UI in source clips** | 🤖 | Someone else's handle and watermark inside a paying customer's ad. Legal weight, not cosmetic. **Approach DECIDED by the owner 2026-08-10: exclude the dirty shots — never erase them.** Backed by measured prices: fal.ai's only video erasers (`bria/video/erase/{mask,keypoints}`) cost **$0.14/s**, which is $2.10 for a 15s ad against ~€3.00–4.50 of revenue for the whole video, and the keypoints one refuses input over **5 seconds**. Buying our way out is not affordable, so detection + shot filtering is the only path. See `research/fal-ai-catalogue.md` §2 |
 | ❌ | **Imported clips arrive at 360p** and get upscaled to 1080×1920 | 🤖 | Measured 2026-08-10: the imported clip was **640×360**. If output looks soft, this is why |
 | ❌ | **A 16:9 source is cover-cropped into 9:16 and roughly two thirds of the frame is thrown away** | 🤖 | Measured on the same clip: 640×360 (16:9) in, 1080×1920 out. Filling 1920 of height from 360 keeps only ~202 of the 640 px of width and upscales ~5.3×, which is why the render reads as an extreme zoom. Output size is hardcoded in `remotion/src/Root.tsx:48-49`; the crop is `objectFit: 'cover'` at `remotion/src/compositions/MatrixAd.tsx:266` |
-| ❌ | **Let the user choose the aspect ratio** — owner's request 2026-08-10 | 🤖 | Two places: filter/label clips by orientation during search, and pick the output format (9:16 / 1:1 / 16:9) before generating. Needs the composition size to come from props (Remotion `calculateMetadata`) rather than the two hardcoded numbers above |
+| 🟡 | **Let the user choose the aspect ratio** — owner's request 2026-08-10 | 🤖 | **Output format DONE and verified live**: 9:16 / 1:1 / 16:9 picker in the Matrix wizard, size flows through Remotion's `calculateMetadata`, and a real 16:9 job rendered a **1920×1080** h264 file (`matrix-ad-1786382389944.mp4`, 22.3s). Unset still falls back to 9:16 so older jobs are unaffected. **Still open: the search side** — labelling or filtering clip results by orientation, which needs checking whether yt-dlp's `--flat-playlist` metadata carries width/height at all |
 | 🟡 | **Serbian model choice** | 👤 | The blind eval ran; 30 variants sit on disk **ungraded**. Only you can grade them. Until then the model choice is a guess |
 
 ## 5. Legal (before any real customer)
@@ -130,8 +130,22 @@ Restart it with:
 ssh root@46.225.214.52 "docker start adgen-worker-prod"
 ```
 
+## 6b. Known smaller defects, found but not fixed
+
+| Item | Where | Note |
+|---|---|---|
+| **Serbian plurals are wrong everywhere** | `kredita` used unconditionally across the app | `1 kredita` should be `1 kredit`; 2–4 take `kredita`, 5+ take `kredita`. Needs one shared pluralisation helper, not a local patch |
+| **AI-generated images are never persisted** | `packages/core/src/providers/ai.kiefal.ts` | No storage call at all — `assets.url` holds kie.ai's temp CDN link with `storageKey: null`, so a paid image becomes a dead link once kie expires it |
+| **Queue poller burns its full timeout on a dead job** | `ai.kiefal.ts` | Any status it does not recognise keeps it looping to the timeout (up to 10 min) instead of failing immediately. `media-edit.fal.ts` already does it correctly — back-port that |
+| **`charge_credits` typed with 3 args** | `packages/db/src/generated/database.types.ts:158` | The live function takes four. Blocks any caller that wants `p_reason` |
+
 ## 7. Next up
 
-- Finish the click-test pass in §6.
-- Then: catalogue every kie.ai and fal.ai service/model into a local file — pick providers
-  for Enhance and Remove text, and look for capabilities worth adding.
+1. **Wire `enhance` and `remove_text`** to `FalMediaEditProvider`. The provider is written and
+   tested; what is missing is the worker branch (replace the `tool_not_implemented` throw for
+   those two types), a `capability → provider` routing table (the winner is no longer the same
+   provider for every capability), and copying results into our own storage — fal returns CDN
+   URLs that expire, the same defect the image path already has.
+2. **Clip search by orientation** — the other half of the aspect-ratio request.
+3. **Signup and password recovery click-tests** — need the owner's inbox.
+4. Then the smaller defects in §6b.

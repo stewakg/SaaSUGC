@@ -43,6 +43,84 @@ NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewe
 
 ---
 
+## 2026-08-10 (fourth session) — the first video made from the wizard, and the bug that was charging for Big Buck Bunny
+**Account:** _(unrecorded)_ · **Machine:** primary. **Commits:** `d8dfb49` Lemon Squeezy
+removal · `e276301` TODO.md · `f38e89f`, `bd04dca`, `0a22208` click-test findings ·
+`edd4e59` fal catalogue · `71692b3` new tools · `90fe378` aspect ratio + billing guard ·
+`6a46e62` media-edit provider + decisions · this block.
+
+**✅ A REAL AD WAS PRODUCED FROM THE WIZARD, first time ever.** Clip search → yt-dlp import →
+OpenRouter script → ElevenLabs voice → scene-detect montage → Remotion render → charge →
+history, in one click-through. Verified as a *file*, not from the UI's word:
+`matrix-ad-1786378804132.mp4`, 10.7 MB, `ftyp isom`, **h264 + aac** (so not a silent render),
+18.67s, and a frame at 6s shows the word-synced Serbian caption matching the generated script.
+The voice file name carries the voice id chosen in the wizard (`IKne3meq5aSn9XLyUdCD`, Charlie),
+which is what proves the ElevenLabs call was real. Balance 723 → 708.
+
+**Redis, which had blocked this for two sessions, was never the hard part.** SSH tunnel to the
+VPS Redis (`howto.md` §5), `REDIS_URL` written into all three `.env` files, worker run locally
+with the real keys. **The VPS worker had to be stopped**: it was running on all mocks
+(`script: mock-script`, `voice: mock-voice`) and listening to the same queue, so it would have
+stolen jobs and answered them with canned text that looks like success. Restart it with
+`ssh root@46.225.214.52 "docker start adgen-worker-prod"`. That the production worker has no
+real keys is itself a live defect, now in `TODO.md` §1.
+
+**🔴 THE WORST FIND: four tools were taking money for Big Buck Bunny.** Brzi test charged 2
+credits and returned `https://www.w3schools.com/html/mov_bbb.mp4`. One line explains it —
+every non-matrix, non-image job rendered through `providers.renderer`, which is `MockRenderer`
+while the Remotion Lambda env is empty; `matrix` escapes only because a `LocalRemotionRenderer`
+is constructed separately for it. Edit, Mix and Prevod share that line and were **deliberately
+not run** — 45 credits to re-prove one line is waste. Fixed by throwing instead: the handler
+marks the job `error` and returns *before* `charge_credits`. Re-verified live — job shows
+"Greška", balance unchanged at 702. This knowingly breaks mock-first for those tools; a job
+that says "Gotovo!" over a placeholder lies to the user even when it is free.
+
+**Lemon Squeezy deleted entirely** on the owner's decision — provider, both routes, the
+`Billing` interface, `MockBilling`, the factory switch, four env vars. It was code-complete and
+never called with a real key, so nothing working was lost. The "Dodaj kredit" button now goes
+straight to `/api/dev/credits/add` (404s in production). **There is now no way for a real user
+to buy credits** — a launch blocker, recorded as one.
+
+**Owner decisions this session, all recorded in `TODO.md`:**
+- Pricing/per-stage billing: **parked**. Do not price a product still being built.
+- Burned-in social-media UI: **exclude the dirty shots, never erase them.** Backed by measured
+  prices — the only video erasers cost $0.14/s, and `remove_text` earns 6 credits ≈ €1.20–1.80,
+  so erasing is negative margin before a frame renders.
+- Capabilities that do not fit Matrix's margin become **their own tools, priced separately**:
+  video object removal, product photography.
+- Aspect ratio is the user's choice. **Done and verified**: a real 16:9 job rendered 1920×1080.
+
+**On Serbian users driving English models:** the answer is usually *not* translation. Video
+object removal takes `{x, y}` keypoints — the user taps the watermark, nothing to translate.
+Where description is unavoidable (product photography), Serbian goes through OpenRouter into an
+English prompt behind Serbian preset buttons. A parallel agent then corrected this reasoning for
+`remove_text` and it was accepted: that prompt would be a hardcoded constant we write, never
+user input, so the language argument does not apply there — fal still wins, but on failure
+modes, not on language.
+
+**Research, done in parallel by three agents** (owner asked for it explicitly):
+`research/fal-ai-catalogue.md`, `research/kie-ai-catalogue.md`, `research/provider-decisions.md`.
+**Method finding worth more than the catalogues:** both platforms publish machine-readable
+surfaces — fal has `llms.txt` per model with live schema and price, plus an MCP server; kie
+returns all 408 pricing rows from one unauthenticated POST and has `docs.kie.ai/llms.txt`.
+Hand-browsing the galleries, which is how half of this was gathered, was the slow way.
+
+**Verification levels, stated plainly:**
+- **VERIFIED (run live):** Matrix end-to-end, the 16:9 render, AI slike (real kie.ai image),
+  the credits button (3 → 723), the `tool_not_implemented` guard, `/api/voices`, clip search
+  and import.
+- **CODE-COMPLETE, never executed:** `media-edit.fal.ts` — 21 unit tests with a mocked `fetch`,
+  **not one real call to fal**. It is not wired to the worker either. Do not read the tests as
+  evidence the endpoints behave as documented.
+
+**Deliberately left uncommitted:** `scratchpad/` (24 MB of Cline logs and benchmark frames;
+scanned for secret-shaped strings, the only hit is `check-env.mjs`'s own regex patterns) and
+`.claude/launch.json` (absolute paths to two sibling projects on this machine).
+
+**Next session picks up at `TODO.md` §7.**
+
+---
+
 ## 2026-08-10 (third session) — INFRASTRUCTURE.md caught up with reality; pricing deliberately parked
 **Account:** _(unrecorded)_ · **Machine:** primary. **Commits:** this block + the
 `INFRASTRUCTURE.md` correction. Started clean, `main...origin/main` in sync at `5459efe`.
