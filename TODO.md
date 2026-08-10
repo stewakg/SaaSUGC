@@ -48,9 +48,9 @@ the history and the caveats live in `INFRASTRUCTURE.md`. If the two ever disagre
 |---|---|---|
 | 🟡 | **Matrix** | Deepest path. Real script + real voice + real local render. Never yet run start-to-finish in one click-through |
 | 🟡 | **AI slike** | Real scrape + real image generation (kie/fal both live-tested) |
-| 🟡 | **Edit / Mix / Translate / Brzi test** | Wizards wired to the generic pipeline; none click-tested end to end |
-| ❌ | **Enhance** | **No model chosen.** The wizard runs and returns a fake video. The function does not exist |
-| ❌ | **Remove text** | Same — no model chosen |
+| ❌ ⛔ | **Brzi test / Edit / Mix / Prevod** | **THEY CHARGE AND RETURN BIG BUCK BUNNY.** Confirmed live 2026-08-10: Brzi test took 2 credits (708 → 706) and returned `https://www.w3schools.com/html/mov_bbb.mp4#mock=quick_test…`. Cause is one line, not config: `apps/worker/src/index.ts:331` renders every non-matrix, non-image job through `providers.renderer`, which is `MockRenderer` whenever the Remotion Lambda env is unset. Only `matrix`/`revoice` get the real renderer, because line 41 constructs `LocalRemotionRenderer` separately for them |
+| ❌ | **Enhance** | No model chosen. Worse than "returns nothing": with an **image** source, `index.ts:327` asks the image model for `"enhance result"` — a brand-new unrelated picture, not the user's file enhanced. With a video source it falls to line 331 above |
+| ❌ | **Remove text** | Same two paths, same outcome |
 | ❌ | **AI influencer** (`ai_video`) | F7. `generateVideo` has never been called |
 
 ## 4. Output quality
@@ -58,7 +58,9 @@ the history and the caveats live in `INFRASTRUCTURE.md`. If the two ever disagre
 | Status | Item | Who | Note |
 |---|---|---|---|
 | ❌ | **Other platforms' burned-in UI in source clips** | 🤖 | Someone else's handle and watermark inside a paying customer's ad. Legal weight, not cosmetic. You asked to leave it for now |
-| ❌ | **Imported clips arrive at 360p** and get upscaled to 1080×1920 | 🤖 | If output looks soft, this is why |
+| ❌ | **Imported clips arrive at 360p** and get upscaled to 1080×1920 | 🤖 | Measured 2026-08-10: the imported clip was **640×360**. If output looks soft, this is why |
+| ❌ | **A 16:9 source is cover-cropped into 9:16 and roughly two thirds of the frame is thrown away** | 🤖 | Measured on the same clip: 640×360 (16:9) in, 1080×1920 out. Filling 1920 of height from 360 keeps only ~202 of the 640 px of width and upscales ~5.3×, which is why the render reads as an extreme zoom. Output size is hardcoded in `remotion/src/Root.tsx:48-49`; the crop is `objectFit: 'cover'` at `remotion/src/compositions/MatrixAd.tsx:266` |
+| ❌ | **Let the user choose the aspect ratio** — owner's request 2026-08-10 | 🤖 | Two places: filter/label clips by orientation during search, and pick the output format (9:16 / 1:1 / 16:9) before generating. Needs the composition size to come from props (Remotion `calculateMetadata`) rather than the two hardcoded numbers above |
 | 🟡 | **Serbian model choice** | 👤 | The blind eval ran; 30 variants sit on disk **ungraded**. Only you can grade them. Until then the model choice is a guess |
 
 ## 5. Legal (before any real customer)
