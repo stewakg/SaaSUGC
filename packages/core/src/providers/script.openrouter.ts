@@ -10,17 +10,23 @@
  * verbatim from that file — it was the one part worth keeping, and the pending
  * blind eval (INFRASTRUCTURE.md F5) must measure this exact text.
  *
- * MODEL CHOICE IS UNVALIDATED FOR SERBIAN. The default is deliberately not the
- * cheapest tier: Serbian ad copy is the gating requirement, no published
- * benchmark answers it (the Serbian evals that exist measure NLU, not copy),
- * and the price gap between tiers is cents per job. Cheaper models may well
- * win — but that is for the blind eval to decide, not for a default to assume.
- * Override per-eval with OPENROUTER_SCRIPT_MODEL.
+ * MODEL CHOICE — graded 2026-08-10, and read the caveat before trusting it.
+ * The blind eval (`tests/serbian-script-eval/2026-08-09-11-30-blind.md`) put 30
+ * unlabelled variants from three models past the owner, with three canned
+ * `MockScriptProvider` lines mixed in as a control. Verdict: all 30 acceptable.
+ *
+ * That falsifies this file's previous assumption — the cheapest tier does NOT
+ * visibly break Serbian — so the default moved to it. But the control passing
+ * too means the eval did not actually separate the models, so this is "no model
+ * produced broken Serbian", not "the cheapest is as good as the best". If a bad
+ * script ever reaches production, re-run the eval scoring each axis
+ * individually; that is the measurement this one skipped.
+ * Override with OPENROUTER_SCRIPT_MODEL.
  */
 import type { ScriptProvider, SpeakerGender } from '../interfaces.ts';
 
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL = 'google/gemini-3-flash-preview';
+const DEFAULT_MODEL = 'google/gemini-3.1-flash-lite';
 
 interface Variant {
   angle: string;
