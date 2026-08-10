@@ -23,7 +23,7 @@
  * single file natively, so this isn't a downgrade there.
  */
 import { NextResponse, type NextRequest } from 'next/server';
-import youtubedl from 'youtube-dl-exec';
+import { runYtDlp } from '@/lib/yt-dlp';
 import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -58,18 +58,23 @@ export async function POST(request: NextRequest) {
 
   const dir = await mkdtemp(join(tmpdir(), 'import-clip-'));
   try {
-    await youtubedl(body.url, {
-      output: join(dir, 'clip.%(ext)s'),
+    await runYtDlp(body.url, [
+      '--output',
+      join(dir, 'clip.%(ext)s'),
       // `[protocol=https]` FIRST is load-bearing: without it, passing
-      // maxFilesize below makes yt-dlp skip the small progressive mp4 and pick
-      // a ~561MiB 1080p60 HLS stream instead (verified 2026-08-05). The later
-      // alternatives stay as fallbacks for sites with no https-progressive form.
-      format: 'b[ext=mp4][protocol=https]/b[ext=mp4]/best[ext=mp4]/best',
-      noPlaylist: true,
-      maxFilesize: '200M', // matches upload's 200MB cap
-      noWarnings: true,
-      retries: 2,
-    });
+      // --max-filesize below makes yt-dlp skip the small progressive mp4 and
+      // pick a ~561MiB 1080p60 HLS stream instead (verified 2026-08-05). The
+      // later alternatives stay as fallbacks for sites with no
+      // https-progressive form.
+      '--format',
+      'b[ext=mp4][protocol=https]/b[ext=mp4]/best[ext=mp4]/best',
+      '--no-playlist',
+      '--max-filesize',
+      '200M', // matches upload's 200MB cap
+      '--no-warnings',
+      '--retries',
+      '2',
+    ]);
     const files = await readdir(dir);
     if (files.length === 0) throw new Error('yt-dlp produced no file');
     // Backstop: yt-dlp's own --max-filesize is unreliable (it does not abort on

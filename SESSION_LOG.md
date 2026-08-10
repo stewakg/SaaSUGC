@@ -16,6 +16,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: yt-dlp shell escape + rate-limiter fail-open (packages/core/src/queue.ts + apps/web/src/lib/rate-limit.ts + NEW apps/web/src/lib/yt-dlp.ts + NEW apps/web/src/types/youtube-dl-exec-constants.d.ts + apps/web/next.config.mjs + api/{search-clips,import-clip}/route.ts) — CLEAN @ _uncommitted_ (2026-08-10). Written directly by Claude Code while click-testing, not delegated — each fix was the thing blocking the next observation. ✅ RUNTIME-VERIFIED end-to-end through the browser: search "masazer za vrat" → 8 Serbian results → "Uzmi" → POST /api/import-clip 200 in 13.5s → card leaves the grid, clip enters the list. Measured before/after on the rate limiter: 223011ms → 740ms. **Supersedes the fail-open claim in the F5/F6-infra verdict @ 4500e0e**, which was CLEAN on a path that could not execute.
 REVIEWED: sound panel + sfx sequencing fix (packages/core/src/types.ts + remotion/src/compositions/MatrixAd.tsx + apps/web/src/app/api/upload/route.ts + apps/web/src/app/app/matrix/page.tsx + apps/worker/src/index.ts) — CLEAN @ e04f865 (2026-08-05). musicVolume prop + sfx url guard Cline-delegated (diff audited, clean); upload audio types, wizard panel, worker wiring and the sfx Sequence fix by Claude Code. ✅ RUNTIME-VERIFIED by measuring the video TAIL, after the voiceover stops, so the sources are distinguishable: voice-only −91.0 dB (silence), +music −33.7 dB, sfx before −91.0 dB, sfx after −30.3 dB. **Found a latent bug doing it:** the CTA sfx `<Audio>` sat inside `OutroCard` with no enclosing `<Sequence>`, so Remotion treated it as starting at frame 0 and it played nothing — broken since F4, invisible because the prop was never set. **NOT click-tested**: the wizard's music/SFX pickers and volume slider are behind auth.
 REVIEWED: voice-id regression fix + caption editor (NEW apps/web/src/app/api/voices/route.ts + apps/web/src/app/app/matrix/page.tsx + apps/worker/src/index.ts + packages/core/src/types.ts + remotion/src/compositions/MatrixAd.tsx) — CLEAN @ 18a004a,8cc7a94 (2026-08-05). Render side Cline-delegated (diff audited, clean); voices route + worker resolve + wizard UI written by Claude Code. ✅ RUNTIME-VERIFIED: a job with the stale `voice_srp_f1` logs the fallback warning and renders with audio (−23.5 dB) instead of dying; captionY 0.3 visibly moves captions to the upper third. **NOT click-tested**: the wizard's new sliders/presets are behind auth and were not exercised in a browser — owner pass needed. `/api/voices` verified only as far as 401-unauthenticated + route registered in the build.
 REVIEWED: matrix audio muxing (packages/core/src/{interfaces,types}.ts + providers/voice.elevenlabs.ts + apps/worker/src/index.ts + remotion/src/compositions/MatrixAd.tsx) — CLEAN @ eae4b4c (2026-08-05). Two Cline tasks (core, then worker+remotion), both diffs audited line-by-line; Claude Code fixed a doc-comment placement of its own spec's making, refreshed the file's stale "NOT live-tested" header, and re-applied an absolutize fix Cline had clobbered mid-run. ✅ RUNTIME-VERIFIED BY MEASUREMENT: `volumedetect` mean −23.4 dB / max −4.0 dB against −91.0 dB (digital silence) pre-fix; duration tracks real speech (11.99s ≈ 8.4s spoken + 3s outro); filmstrip shows the highlight advancing word by word. ElevenLabs `/with-timestamps` probed live BEFORE writing any code. **Cost change: real ElevenLabs credits per variant now.** `musicUrl`/`sfxUrl` paths remain wired-but-unfed and are still NOT runtime-verified.
@@ -38,6 +39,95 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-08-10 — back on the primary machine; clip search actually runs for the first time
+**Account:** _(unrecorded)_ · **Machine:** primary (`C:\Sa starog\D1tb\Projekti\1. WebSaas`) —
+the box that was idle on 08-09. Pulled 29 commits, fast-forward, no conflict.
+
+**Environment rebuilt for the new Supabase project.** `.env` does not travel through git, so
+this machine still pointed at the abandoned `gczikdrskcpqqlyzvnby` with keys that were revoked
+on 08-09. Root `.env` regenerated (old one kept as `.env.bak-20260810`), `env:sync` run.
+**VERIFIED live, with a control:** publishable → `/auth/v1/health` 200; secret →
+`/auth/v1/admin/users` 200, so it really resolves to `service_role`; and publishable against the
+same admin endpoint → 401, which is what makes the first 200 mean anything.
+Correction worth keeping: `SUPABASE_ANON_KEY` (no `NEXT_PUBLIC_`) is read by **no code at all** —
+only declared in `env.ts:34`. `PODSETNIK.md §3` asks for it out of habit.
+
+**⚠️ I leaked two live keys into the session transcript — the SAME masking bug as 08-09.**
+A diagnostic printed a "prefix" by splitting the value on `_`; a JWT and an OpenRouter key contain
+no `_`, so the split returned the whole string. Owner replaced both. A mask whose output is
+*derived from* the value will eventually print the value. `scratchpad/check-env.mjs` now does the
+job with a regex **test** and prints only a label + length; use it instead of writing a fresh
+one-liner. Also caught: `.env.bak-20260810` was **not** covered by `.gitignore` (`.env` does not
+match it) and held live provider keys — `.env.bak*` added.
+
+**Owner also pasted the legacy `service_role` JWT instead of the `sb_secret_` key** — same project,
+wrong tab in the dashboard, and legacy was disabled on 08-09 so it would have failed with a
+confusing error. Confirmed against the live Supabase docs, not from memory: publishable replaces
+`anon`, secret replaces `service_role`, and Supabase prescribes env var names only for Edge
+Functions (`SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS`) — this repo has none, so our
+legacy-shaped names holding new-style keys are fine.
+
+**✅ CLICK-TEST 1 PASSED — clip suggestions, the first time the feature has ever run.**
+`masazer za vrat` → 8 real Serbian results ("Masažer za leđa i vrat", "Vatreni Shop",
+"Shiatsu Masazer … maliali.rs") → `Uzmi` → 200 in 13.5s → the card leaves the grid and the clip
+appears in the list. **Three real bugs stood in a row between "written" and "works", and every one
+of them was invisible to static review:**
+
+1. **The rate limiter hung every rate-limited route** — all six: `jobs`, `upload`, `import-clip`,
+   `generate-scripts`, `checkout`, `search-clips`. `createRedisConnection` sets
+   `maxRetriesPerRequest: null` because **BullMQ requires it** for blocking commands; with that
+   set, ioredis *queues* a command against a dead Redis instead of rejecting it. `rate-limit.ts`
+   catches to fail open — but `catch` only fires on a REJECTED promise, so the fail-open path was
+   unreachable **in the exact scenario it was written for**. Measured: 223011ms → 740ms. Fixed with
+   a separate `createRedisCommandClient` (`enableOfflineQueue: false`, bounded retry, error
+   listener) plus a 1s ceiling in the limiter. BullMQ keeps the old connection.
+2. **yt-dlp was looked up inside `.next/server/bin/`.** webpack bundled `youtube-dl-exec`, moving
+   the `__dirname` its binary path is built from. `serverExternalPackages` in `next.config.mjs`.
+3. **User input reached `cmd.exe` unquoted — a shell-injection hole, not just a bug.**
+   `youtube-dl-exec` turns on `shell: true` whenever **the binary's own path** contains whitespace
+   (`src/index.js:20-31`), then quotes only the binary. **Both checkouts qualify** —
+   `C:\Sa starog\…` and `D:\Projekti\2. SaaSUGC`. So `ytsearch16:masazer za vrat` searched for
+   "masazer" and reported `'za' is not a valid URL`, exiting 1 → 502 even though stdout held good
+   results. Any query with a space failed. Worse, `&` is a command separator to `cmd.exe` and `&`
+   is ordinary inside a YouTube URL. New `lib/yt-dlp.ts` spawns the binary via `execFile` with argv
+   as an array — no shell, no splitting, no metacharacters. Both routes use it.
+   **This also explains why link import "passed" on 08-05: a URL has no spaces.** One accidental
+   success is not coverage.
+
+**Two documented claims corrected:**
+- `ACCOUNTS.md:13` still sent the owner to open an Anthropic account. Now OpenRouter.
+- **The pnpm diagnosis in the 08-09 block is inverted.** pnpm 10.0.0 on this machine prints
+  *"The `pnpm` field in package.json is no longer read"* and points at `pnpm-workspace.yaml` —
+  the opposite of what `7ab6b1e` concluded. Nothing is broken, because 08-09 **mirrored** the
+  setting rather than moving it, so it still sits in both files and the workspace copy is the one
+  in force. But the explanation would send the next session the wrong way. Not yet edited in the
+  08-09 block itself — it is append-only, so this is the correction of record.
+
+**Still open from today, in priority order:**
+1. **The burned-in-UI defect is NOT fixed** — owner asked directly. 08-09 (`22e07df`) *analysed*
+   it into `INFRASTRUCTURE.md:304-308`; all four sub-items are `[ ]` and no code exists. The only
+   thing shipped is the wizard's warning label (`matrix/page.tsx:517`), which moves the work to the
+   user. Owner's evidence: `storage/renders/matrix-ad-1785935577320.mp4` at 00:14 shows a TikTok
+   reply-to-comment bubble ("Reply to Bells bells's comment / Love mine"). Note that file is dated
+   **08-05**, so it predates 08-09 and could not have shown a fix either way.
+2. **Image-driven clip search — DECIDED, NOT STARTED. Owner explicitly deferred it today to work
+   on other features; do not start it unprompted.** Design: the wizard already scrapes the product
+   page and holds `images: string[]` (`matrix/page.tsx:122`), so no upload UI is needed. Two hops —
+   image → real product name (reverse image search), then name → the YouTube search that now works.
+   **Owner's decisions:** provider is a **Google Lens scraper service, not Google Cloud Vision**;
+   the text box **stays as an editable fallback** so a bad hop 1 doesn't strand the user.
+   Recommended vendor **Apify** — one account also covers the TikTok/Instagram search still open
+   from 08-09, versus SerpApi's $75/mo floor. Needs `APIFY_API_TOKEN`; owner has not created the
+   account. Plan: `ImageSearchProvider` in `packages/core` behind the mock-first gate, a
+   `POST /api/identify-product` route, then prefill the query.
+3. Click-tests 2–4 untouched: script step, password recovery by email, caption/sound controls.
+
+**Left uncommitted at the time of writing:** everything above —
+`queue.ts`, `rate-limit.ts`, `next.config.mjs`, both yt-dlp routes, new `lib/yt-dlp.ts` +
+`types/youtube-dl-exec-constants.d.ts`, `.gitignore`, `ACCOUNTS.md`, this file.
 
 ---
 

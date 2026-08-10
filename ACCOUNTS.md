@@ -10,7 +10,7 @@
 | # | Service | What it's for | Free tier? | Keys → env var |
 |---|---------|---------------|-----------|----------------|
 | 1 | **Supabase** (supabase.com) | Cloud DB + Auth (prod) | Yes (generous) | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` (+ `NEXT_PUBLIC_*`) |
-| 2 | **Anthropic** (console.anthropic.com) | Claude Opus — ad scripts | Pay-as-you-go | `ANTHROPIC_API_KEY` |
+| 2 | **OpenRouter** (openrouter.ai) | Ad scripts (and later vision) — one key, many models | Pay-as-you-go | `OPENROUTER_API_KEY` (+ optional `OPENROUTER_SCRIPT_MODEL`) |
 | 3 | **kie.ai** | AI video/image (primary aggregator) | Pay-as-you-go, cheap | `KIE_API_KEY` |
 | 4 | **fal.ai** | AI video/image (fallback) | Pay-as-you-go | `FAL_API_KEY` |
 | 5 | **ElevenLabs** (elevenlabs.io) | TTS / voice cloning | Free tier + paid | `ELEVENLABS_API_KEY` |

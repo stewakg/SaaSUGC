@@ -18,7 +18,7 @@
  * output without Next in the way.
  */
 import { NextResponse, type NextRequest } from 'next/server';
-import youtubedl from 'youtube-dl-exec';
+import { runYtDlp } from '@/lib/yt-dlp';
 import { createServerClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
 import { parseSearchOutput, usableAsMontageMaterial, type ClipSuggestion } from '@/lib/clip-search';
@@ -72,12 +72,13 @@ export async function POST(request: NextRequest) {
     // `ytsearchN:` is a yt-dlp search *prefix*, not a URL — it goes in the
     // positional argument. Over-fetch, because the duration filter drops some
     // of what comes back.
-    const raw = await youtubedl(`ytsearch${Math.min(limit * 2, MAX_RESULTS * 2)}:${query}`, {
-      flatPlaylist: true,
-      dumpJson: true,
-      noWarnings: true,
-      retries: 1,
-    });
+    const raw = await runYtDlp(`ytsearch${Math.min(limit * 2, MAX_RESULTS * 2)}:${query}`, [
+      '--flat-playlist',
+      '--dump-json',
+      '--no-warnings',
+      '--retries',
+      '1',
+    ]);
 
     const results = parseSearchOutput(raw).filter(usableAsMontageMaterial).slice(0, limit);
 

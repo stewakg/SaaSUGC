@@ -12,6 +12,10 @@ dist/
 .env
 .env.local
 .env.*.local
+# Backups made before rewriting a .env hold the SAME live keys as the original.
+# `.env` alone does not match `.env.bak-20260810`, so it would have been offered
+# up as a new untracked file — caught 2026-08-10.
+.env.bak*
 apps/*/.env
 apps/*/.env.local
 packages/*/.env
