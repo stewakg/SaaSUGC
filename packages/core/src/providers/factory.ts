@@ -30,6 +30,7 @@ import { ElevenLabsVoiceProvider } from './voice.elevenlabs.ts';
 import { S3CompatibleStorage } from './storage.r2.ts';
 import { RemotionLambdaRenderer } from './renderer.lambda.ts';
 import type { AwsRegion } from '@remotion/lambda-client';
+import { FalMediaEditProvider } from './media-edit.fal.ts';
 import { RealScraper } from './scraper.real.ts';
 
 export interface Providers {
@@ -39,6 +40,13 @@ export interface Providers {
   renderer: Renderer;
   storage: Storage;
   scraper: Scraper;
+  /**
+   * Upscaling and text removal (F5). `null` when `FAL_API_KEY` is absent —
+   * unlike every other slot there is no mock counterpart, and inventing one
+   * would recreate exactly the bug this replaced: a tool that charges and
+   * hands back a placeholder. Callers must check for null and fail the job.
+   */
+  mediaEdit: FalMediaEditProvider | null;
 }
 
 /**
@@ -66,7 +74,14 @@ export function createProviders(overrides: Partial<Providers> = {}): Providers {
   // fetch/parse failure, so a bad URL never hard-fails the wizard.
   const scraper: Scraper = overrides.scraper ?? (env.FORCE_MOCK ? new MockScraper() : new RealScraper());
 
-  return { ai, script, voice, renderer, storage, scraper };
+  const mediaEdit =
+    overrides.mediaEdit !== undefined
+      ? overrides.mediaEdit
+      : hasKey(env, 'FAL_API_KEY')
+        ? new FalMediaEditProvider({ apiKey: env.FAL_API_KEY! })
+        : null;
+
+  return { ai, script, voice, renderer, storage, scraper, mediaEdit };
 }
 
 /**

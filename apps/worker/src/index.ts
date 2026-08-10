@@ -43,6 +43,52 @@ const providers = createProviders();
 const matrixRenderer = new LocalRemotionRenderer(providers.storage);
 
 /**
+ * Copy a provider's result into OUR storage and return our own url + key.
+ *
+ * Every external media provider hands back a URL on its own CDN, and those
+ * expire: fal's are temporary by design, and kie.ai's live under
+ * `tempfile.aiquickdraw.com` — the name says it. Writing one of those straight
+ * into `assets.url` is what makes a paid asset turn into a dead link in "Moje
+ * reklame" weeks later, which is exactly the state `image_ads` was in until
+ * 2026-08-10.
+ *
+ * Failure here fails the job on purpose. Falling back to the provider url would
+ * "succeed", charge the user, and quietly hand them the same expiring link.
+ */
+async function persistRemoteAsset(
+  remoteUrl: string,
+  keyPrefix: string,
+): Promise<{ url: string; storageKey: string }> {
+  const res = await fetch(remoteUrl);
+  if (!res.ok) {
+    throw new Error(`could not fetch provider result for ${keyPrefix} (${res.status})`);
+  }
+  const contentType = res.headers.get('content-type') ?? 'application/octet-stream';
+  const buffer = Buffer.from(await res.arrayBuffer());
+
+  // Extension from the content type, not from the url — provider urls carry
+  // query strings and signed-token suffixes that make path parsing unreliable.
+  const ext = contentType.includes('png')
+    ? 'png'
+    : contentType.includes('webp')
+      ? 'webp'
+      : contentType.includes('jpeg') || contentType.includes('jpg')
+        ? 'jpg'
+        : contentType.includes('mp4') || contentType.includes('video')
+          ? 'mp4'
+          : 'bin';
+
+  const storageKey = `${keyPrefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { url } = await providers.storage.upload(storageKey, buffer, contentType);
+  return { url, storageKey };
+}
+
+/** True when the source looks like a still image rather than a video. */
+function isImageSource(sourceUrl: string): boolean {
+  return /\.(png|jpe?g|webp|gif|avif)(\?|#|$)/i.test(sourceUrl);
+}
+
+/**
  * Absolutize a storage url for cross-process use. MockStorage (dev) hands out
  * RELATIVE urls (/api/storage/...) served by the web app; the worker's fetch and
  * the Remotion renderer both need an absolute url. Real R2/S3 urls (and
@@ -300,17 +346,102 @@ export async function runMatrixPipeline(
  * land in F5); `assets.kind` is already honest so the wizard UIs render
  * <img> vs <video> correctly today.
  */
+/**
+ * `enhance` (upscale) and `remove_text`, both real as of 2026-08-10.
+ *
+ * Routing is per capability, not per provider — the cheapest option is not the
+ * same vendor for every operation (`research/provider-decisions.md`). Today
+ * everything here goes through fal because that is the provider that is written
+ * and tested; kie.ai's `topaz/image-upscale` is $0.05 against fal's $0.08+ for
+ * the same Topaz model, so the image path is worth revisiting once a kie client
+ * exists. Recorded rather than silently ignored.
+ *
+ * ⚠️ There is no video path for `remove_text` and there deliberately never was:
+ * the only video erasers on either platform run $0.14/s — $2.10 for a 15s clip
+ * against the 6 credits (≈€1.20–1.80) this tool earns. That is negative margin
+ * before a frame renders, so the job fails with an explanation instead.
+ */
+async function runMediaEditPipeline(
+  type: 'enhance' | 'remove_text',
+  sourceUrl: string,
+  params: Record<string, unknown>,
+): Promise<PipelineAsset[]> {
+  if (!sourceUrl) {
+    throw new Error(`missing_source: ${type} zahteva otpremljeni fajl.`);
+  }
+
+  const mediaEdit = providers.mediaEdit;
+  if (!mediaEdit) {
+    // No FAL_API_KEY. Fail rather than substitute anything — see the guard at
+    // the end of runPipeline for why a placeholder is worse than an error.
+    throw new Error(
+      `provider_unavailable: "${type}" traži FAL_API_KEY, koji nije podešen — posao nije naplaćen.`,
+    );
+  }
+
+  // fal FETCHES the source url itself, so it must be reachable from the public
+  // internet. In dev, Storage is MockStorage and every url points at
+  // localhost:3000 (see resolveStorageUrl), which fal cannot see — the call
+  // would fail deep inside the provider with an opaque message. Say it plainly
+  // here instead: these two tools are blocked on R2 existing, not on code.
+  const absoluteSource = resolveStorageUrl(sourceUrl);
+  if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(absoluteSource)) {
+    throw new Error(
+      `source_not_public: "${type}" šalje fajl provajderu preko interneta, a ovaj je samo lokalan ` +
+        `(${absoluteSource}). Traži pravi Storage (R2) — posao nije naplaćen.`,
+    );
+  }
+
+  const isImage = isImageSource(sourceUrl);
+
+  if (type === 'remove_text') {
+    if (!isImage) {
+      throw new Error(
+        'video_not_supported: uklanjanje teksta radi samo na slikama za sada — posao nije naplaćen.',
+      );
+    }
+    const { url: remoteUrl } = await mediaEdit.removeTextFromImage(absoluteSource);
+    const { url, storageKey } = await persistRemoteAsset(remoteUrl, 'remove-text');
+    return [{ kind: 'image', url, storageKey }];
+  }
+
+  // enhance
+  const upscaleFactor = typeof params.upscaleFactor === 'number' ? params.upscaleFactor : undefined;
+
+  if (isImage) {
+    // faceEnhancement is off deliberately: Topaz retouches faces by default,
+    // which on a product photo is an edit the seller never asked for.
+    const { url: remoteUrl } = await mediaEdit.upscaleImage(absoluteSource, {
+      upscaleFactor,
+      faceEnhancement: false,
+    });
+    const { url, storageKey } = await persistRemoteAsset(remoteUrl, 'enhance');
+    return [{ kind: 'image', url, storageKey }];
+  }
+
+  const { url: remoteUrl } = await mediaEdit.upscaleVideo(absoluteSource, { upscaleFactor });
+  const { url, storageKey } = await persistRemoteAsset(remoteUrl, 'enhance');
+  return [{ kind: 'video', url, storageKey }];
+}
+
 async function runPipeline(type: string, params: Record<string, unknown>): Promise<PipelineAsset[]> {
   const count = typeof params.count === 'number' && params.count > 0 ? Math.floor(params.count) : 1;
 
   if (type === 'image_ads') {
     const assets: PipelineAsset[] = [];
     for (let i = 0; i < count; i++) {
-      const { url, storageKey } = await providers.ai.generateImage({
+      const generated = await providers.ai.generateImage({
         prompt: buildImageAdsPrompt(params, i),
         size: '1080x1080',
       });
-      assets.push({ kind: 'image', url, storageKey: storageKey ?? null });
+      // kie.ai and fal.ai both answer with a url on their own temporary CDN and
+      // neither persists anything for us, so until 2026-08-10 a paid image was
+      // stored as a link that expires. Copy it into our storage unless the
+      // provider already did (storageKey set means it is ours).
+      const owned = generated.storageKey
+        ? { url: generated.url, storageKey: generated.storageKey }
+        : await persistRemoteAsset(generated.url, 'image-ads');
+      assets.push({ kind: 'image', url: owned.url, storageKey: owned.storageKey });
     }
     return assets;
   }
@@ -325,15 +456,10 @@ async function runPipeline(type: string, params: Record<string, unknown>): Promi
     return runMatrixPipeline(params, { montage: false });
   }
 
-  // enhance/remove_text may hand us an image OR video source. Match the OUTPUT
-  // kind to the source: an image source flows through AIProvider (mock:
-  // placeholder image), a video/absent source through the Renderer. Mirrors how
-  // the real per-tool pipelines (F5) will route image inputs, and keeps
-  // assets.kind honest so the wizard UIs render <img> vs <video> correctly.
   const sourceUrl = typeof params.sourceUrl === 'string' ? params.sourceUrl : '';
-  if (/\.(png|jpe?g|webp|gif|avif)(\?|#|$)/i.test(sourceUrl)) {
-    const { url } = await providers.ai.generateImage({ prompt: `${type} result`, size: '1080x1080' });
-    return [{ kind: 'image', url, storageKey: null }];
+
+  if (type === 'enhance' || type === 'remove_text') {
+    return runMediaEditPipeline(type, sourceUrl, params);
   }
 
   // ⚠️ Everything that reaches this line — quick_test, edit, mix, translate, and
