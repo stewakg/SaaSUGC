@@ -53,6 +53,36 @@ the history and the caveats live in `INFRASTRUCTURE.md`. If the two ever disagre
 | 🟡 | **Remove text** | Same two broken paths today. **Image path is answered**: `fal-ai/image-editing/text-removal`, $0.04 per image, removes all text while preserving the background. **Video path has no affordable option** — see the burned-in-UI row in §4 — so it should not be advertised until one exists |
 | ❌ | **AI influencer** (`ai_video`) | F7. `generateVideo` has never been called |
 
+## 3b. Two NEW standalone tools — owner's decision 2026-08-10
+
+Both were things I had ruled out *for Matrix*. The owner's point: not fitting inside a Matrix
+video's margin is not a reason to drop a capability — it is a reason to sell it **separately,
+priced on its own**. Neither is part of the Matrix flow.
+
+| Status | Tool | Model | Cost to us | Note |
+|---|---|---|---|---|
+| ❌ | **Ukloni objekat iz videa** | `fal-ai/bria/video/erase/keypoints` or `…/mask` | **$0.14 per second** | Priced as its own job, the $2.10 for a 15s clip is chargeable instead of eaten. ⚠️ Two hard limits: the keypoints variant **refuses input longer than 5 seconds**, and the mask variant needs a **mask video** we would have to generate. Chunking a longer clip into 5s pieces breaks temporal consistency at the seams — verify before promising anything over 5s |
+| ❌ | **Fotografija proizvoda** | `fal-ai/image-apps-v2/product-photography` | not captured | Professional product shots with realistic lighting and backgrounds. A COD seller would buy this on its own, independent of any video |
+
+### ⚠️ The language problem, and how each tool answers it
+
+Owner's constraint: **our users are Serbian and may not speak English**, but these models take
+English instructions. Two different answers, and the first one is the better pattern wherever
+it is available:
+
+1. **Don't use language at all.** `bria/video/erase/keypoints` takes coordinates —
+   `{x: 100, y: 100, type: 'positive' | 'negative'}` — not a description. The user taps the
+   watermark on a frame and taps anything that must be preserved. Point at it, don't describe
+   it. Nothing to translate, nothing to get wrong, and it is a better interface in any language.
+2. **Serbian in, English out, invisibly.** Product photography genuinely needs a description.
+   Take Serbian free text and have OpenRouter turn it into the English prompt before the call —
+   `ScriptProvider` already runs through OpenRouter, so this is a prompt, not new plumbing.
+   Pair it with Serbian preset buttons (bela pozadina, drvo, mermer, studio svetlo…) so most
+   users never type at all; free text is the escape hatch, not the main path.
+
+**Rule to apply to every future tool:** if the model can be driven by clicks, coordinates, or
+presets, do that. Reach for translation only when the task is genuinely descriptive.
+
 ## 4. Output quality
 
 | Status | Item | Who | Note |
