@@ -124,6 +124,32 @@ export const MATRIX_INTRO_SECONDS = 0.6;
 export const MATRIX_FPS = 30;
 
 /**
+ * Output shapes the user can pick from. 9:16 is the default and the reason this
+ * product exists — TikTok/Reels/Shorts are vertical — but a 16:9 source
+ * cover-cropped into 9:16 throws away roughly two thirds of the frame width, so
+ * forcing every ad vertical actively destroys some footage. Measured on a real
+ * import 2026-08-10: a 640×360 clip filling a 1080×1920 frame keeps ~202 of its
+ * 640 px of width and upscales what's left ~5.3×.
+ *
+ * Keep every option a multiple of 2 in both dimensions — h264 requires it.
+ */
+export const MATRIX_ASPECTS = {
+  '9:16': { width: 1080, height: 1920, label: 'Uspravno (TikTok, Reels, Shorts)' },
+  '1:1': { width: 1080, height: 1080, label: 'Kvadrat (feed)' },
+  '16:9': { width: 1920, height: 1080, label: 'Vodoravno (YouTube)' },
+} as const satisfies Record<string, { width: number; height: number; label: string }>;
+
+export type MatrixAspect = keyof typeof MATRIX_ASPECTS;
+
+/** The shape used when nothing is chosen — unchanged from before this was selectable. */
+export const DEFAULT_MATRIX_ASPECT: MatrixAspect = '9:16';
+
+/** Narrow an untrusted value (job params, query string) to a known aspect. */
+export function toMatrixAspect(value: unknown): MatrixAspect {
+  return typeof value === 'string' && value in MATRIX_ASPECTS ? (value as MatrixAspect) : DEFAULT_MATRIX_ASPECT;
+}
+
+/**
  * Props for the `matrix-ad` Remotion composition.
  * `captionStyle` is the compact form from INFRASTRUCTURE.md §5 F4:
  * `cap:<font>:<anim>:<hexcolor>` e.g. `cap:Impact:pop:#FFE000`.
@@ -168,4 +194,12 @@ export interface MatrixAdProps {
   outroText: string;
   durationInFrames: number;
   fps: number;
+  /**
+   * Output frame size. Optional so existing callers keep rendering 1080×1920 —
+   * `Root.tsx`'s `calculateMetadata` falls back to the 9:16 default when unset.
+   * Because captions are positioned as fractions of the frame, they follow any
+   * size without further work.
+   */
+  width?: number;
+  height?: number;
 }

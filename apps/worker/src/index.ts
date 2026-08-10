@@ -16,9 +16,11 @@ import {
   createProviders,
   mockWordTimestamps,
   consoleLogger,
+  MATRIX_ASPECTS,
   MATRIX_FPS,
   MATRIX_OUTRO_SECONDS,
   MATRIX_TRANSITIONS,
+  toMatrixAspect,
   DEFAULT_BACKGROUND_VIDEO_URL,
   DEFAULT_MATRIX_CAPTION_STYLE,
   DEFAULT_MATRIX_OUTRO_TEXT,
@@ -260,6 +262,12 @@ export async function runMatrixPipeline(
         typeof params.outroText === 'string' && params.outroText ? params.outroText : DEFAULT_MATRIX_OUTRO_TEXT,
       durationInFrames,
       fps: MATRIX_FPS,
+      // Output shape, chosen in the wizard. Anything unrecognised (or a job
+      // enqueued before this existed) falls back to 9:16, so old jobs render
+      // exactly as they did before. Width/height only — the entry's `label` is
+      // UI copy and has no business inside composition props.
+      width: MATRIX_ASPECTS[toMatrixAspect(params.aspect)].width,
+      height: MATRIX_ASPECTS[toMatrixAspect(params.aspect)].height,
     };
 
     const { videoUrl, storageKey } = await matrixRenderer.render({ composition: 'matrix-ad', props: matrixProps });
@@ -326,6 +334,28 @@ async function runPipeline(type: string, params: Record<string, unknown>): Promi
   if (/\.(png|jpe?g|webp|gif|avif)(\?|#|$)/i.test(sourceUrl)) {
     const { url } = await providers.ai.generateImage({ prompt: `${type} result`, size: '1080x1080' });
     return [{ kind: 'image', url, storageKey: null }];
+  }
+
+  // ⚠️ Everything that reaches this line — quick_test, edit, mix, translate, and
+  // the video path of enhance/remove_text — has no real pipeline yet. Only
+  // `matrix`/`revoice` get a genuine render, via the `matrixRenderer` built at
+  // the top of this file; `providers.renderer` is MockRenderer whenever the
+  // Remotion Lambda env is unset, which is always today.
+  //
+  // Until 2026-08-10 this happily returned MockRenderer's placeholder — Big Buck
+  // Bunny on w3schools.com — and the caller then charged for it, because
+  // charge-on-success cannot tell a real asset from a fake one. Verified live:
+  // Brzi test took 2 credits and delivered that clip.
+  //
+  // Throwing instead is what makes the billing honest. The catch in the job
+  // handler marks the job `error` and returns BEFORE charge_credits runs, so the
+  // user keeps their credits and sees a failure rather than someone else's
+  // cartoon. Delete this guard the moment a real renderer is wired.
+  if (providers.renderer.name === 'mock-renderer') {
+    throw new Error(
+      `tool_not_implemented: "${type}" nema pravi renderer — posao nije naplaćen. ` +
+        `Alat je u izradi; Matrix i AI slike rade.`,
+    );
   }
 
   const { videoUrl, storageKey } = await providers.renderer.render({ composition: type, props: params });

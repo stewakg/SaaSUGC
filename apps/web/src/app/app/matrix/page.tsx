@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { computeJobCost } from '@adgen/core/pricing';
-import type { CaptionAnim, CaptionFont, MatrixTransition, UiLanguage } from '@adgen/core/types';
+import type { CaptionAnim, CaptionFont, MatrixAspect, MatrixTransition, UiLanguage } from '@adgen/core/types';
+import { DEFAULT_MATRIX_ASPECT, MATRIX_ASPECTS } from '@adgen/core/types';
 import {
   UI_LANGUAGES as LANGUAGES,
   MATRIX_TRANSITIONS as TRANSITIONS,
@@ -126,6 +127,7 @@ export default function MatrixPage() {
   // Step 2 — voice / captions / variants
   const [tone, setTone] = useState('energetic');
   const [count, setCount] = useState(5);
+  const [aspect, setAspect] = useState<MatrixAspect>(DEFAULT_MATRIX_ASPECT);
   const [voices, setVoices] = useState<VoiceOption[]>(VOICES_LOADING);
   const [voiceId, setVoiceId] = useState('');
 
@@ -405,6 +407,7 @@ export default function MatrixPage() {
             language,
             tone,
             voiceId,
+            aspect,
             captionStyle,
             captionX,
             captionY,
@@ -726,6 +729,29 @@ export default function MatrixPage() {
                 </button>
               ))}
             </div>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-sm text-zinc-300">Format videa</span>
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(MATRIX_ASPECTS) as MatrixAspect[]).map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => setAspect(a)}
+                  className={`h-9 rounded-lg border px-3 text-sm transition ${
+                    aspect === a
+                      ? 'border-brand-400/50 bg-brand-400/10 text-brand-200'
+                      : 'border-white/10 text-zinc-400 hover:bg-white/5'
+                  }`}
+                >
+                  {a} · {MATRIX_ASPECTS[a].label}
+                </button>
+              ))}
+            </div>
+            <span className="mt-1 block text-xs text-zinc-500">
+              {MATRIX_ASPECTS[aspect].width}×{MATRIX_ASPECTS[aspect].height}. Snimak drugog oblika se seče da popuni
+              kadar — vodoravni klip u uspravnom formatu gubi oko dve trećine širine.
+            </span>
           </label>
           <label className="block">
             <span className="mb-1 block text-sm text-zinc-300">Glas</span>

@@ -1,6 +1,6 @@
 import { Composition, type CalculateMetadataFunction } from 'remotion';
 import { MatrixAd } from './compositions/MatrixAd.tsx';
-import { MATRIX_FPS, type MatrixAdProps } from '@adgen/core/types';
+import { MATRIX_ASPECTS, MATRIX_FPS, DEFAULT_MATRIX_ASPECT, type MatrixAdProps } from '@adgen/core/types';
 import {
   DEFAULT_BACKGROUND_VIDEO_URL,
   DEFAULT_MATRIX_CAPTION_STYLE,
@@ -33,9 +33,23 @@ const defaultProps: MatrixAdProps = {
   fps: MATRIX_FPS,
 };
 
+const FALLBACK = MATRIX_ASPECTS[DEFAULT_MATRIX_ASPECT];
+
+/**
+ * Size comes from props so one composition serves every aspect ratio — the
+ * alternative, one registered `<Composition>` per shape, would duplicate the
+ * whole definition three times and drift. `selectComposition` in
+ * `renderer.local.ts` runs this with the real inputProps before rendering, so
+ * the mp4 is written at the size chosen in the wizard.
+ *
+ * Falls back to 9:16 when unset, which is what every job created before this
+ * was selectable sends.
+ */
 const calculateMetadata: CalculateMetadataFunction<MatrixAdProps> = async ({ props }) => ({
   durationInFrames: props.durationInFrames,
   fps: props.fps,
+  width: props.width ?? FALLBACK.width,
+  height: props.height ?? FALLBACK.height,
 });
 
 export const RemotionRoot: React.FC = () => {
@@ -45,8 +59,8 @@ export const RemotionRoot: React.FC = () => {
       component={MatrixAd}
       durationInFrames={defaultProps.durationInFrames}
       fps={defaultProps.fps}
-      width={1080}
-      height={1920}
+      width={FALLBACK.width}
+      height={FALLBACK.height}
       defaultProps={defaultProps}
       calculateMetadata={calculateMetadata}
     />
