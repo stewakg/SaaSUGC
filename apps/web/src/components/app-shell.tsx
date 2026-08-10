@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
+import { creditsWord } from '@adgen/core/pricing';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { cn } from '@/lib/utils';
@@ -37,11 +38,11 @@ export function AppShell({
   ];
 
   return (
-    <div className="flex min-h-screen bg-ink-950">
+    <div className="flex min-h-screen bg-ground">
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-64 border-r border-white/5 bg-ink-900 transition-transform lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 w-64 border-r border-line bg-panel transition-transform lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -60,8 +61,8 @@ export function AppShell({
                 className={cn(
                   'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition',
                   active
-                    ? 'bg-brand-400/10 text-brand-200'
-                    : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200',
+                    ? 'step-chip--active'
+                    : 'text-txt-mid hover:bg-panel-2 hover:text-txt-hi',
                 )}
               >
                 <NavIcon name={item.icon} />
@@ -73,7 +74,7 @@ export function AppShell({
         <div className="absolute inset-x-0 bottom-0 p-3">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-zinc-400 transition hover:bg-white/5 hover:text-zinc-200"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-txt-mid transition hover:bg-panel-2 hover:text-txt-hi"
           >
             <NavIcon name="logout" />
             Izloguj se
@@ -84,14 +85,14 @@ export function AppShell({
             just from the marketing page a signed-in user never sees again.
             Deliberately understated — these are obligations, not navigation.
           */}
-          <p className="mt-2 flex flex-wrap gap-x-2 gap-y-1 px-3 text-[11px] text-zinc-600">
-            <Link href="/uslovi" className="hover:text-zinc-400">
+          <p className="mt-2 flex flex-wrap gap-x-2 gap-y-1 px-3 text-[11px] text-txt-low">
+            <Link href="/uslovi" className="hover:text-txt-mid">
               Uslovi
             </Link>
-            <Link href="/privatnost" className="hover:text-zinc-400">
+            <Link href="/privatnost" className="hover:text-txt-mid">
               Privatnost
             </Link>
-            <Link href="/impressum" className="hover:text-zinc-400">
+            <Link href="/impressum" className="hover:text-txt-mid">
               Impressum
             </Link>
           </p>
@@ -101,7 +102,7 @@ export function AppShell({
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 lg:hidden"
+          className="fixed inset-0 z-30 bg-ground/80 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -109,9 +110,9 @@ export function AppShell({
       {/* Main */}
       <div className="flex flex-1 flex-col lg:pl-64">
         {/* Topbar */}
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-white/5 bg-ink-950/80 px-4 backdrop-blur sm:px-6">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-ground/80 px-4 backdrop-blur sm:px-6">
           <button
-            className="rounded-lg border border-white/10 p-2 lg:hidden"
+            className="rounded-lg border border-line p-2 lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Meni"
           >
@@ -119,12 +120,14 @@ export function AppShell({
           </button>
 
           <div className="ml-auto flex items-center gap-3">
-            <div className="flex items-center gap-2 rounded-xl border border-brand-400/20 bg-brand-400/5 px-3 py-1.5">
-              <span className="text-sm font-semibold text-brand-300">{balance}</span>
-              <span className="text-xs text-zinc-400">kredita</span>
+            <div className="flex items-baseline gap-1.5 rounded-xl border border-line bg-panel-2 px-3 py-1.5">
+              <span className="font-mono tabular text-lg font-semibold leading-none text-txt-hi">
+                {balance}
+              </span>
+              <span className="text-xs text-txt-mid">{creditsWord(balance)}</span>
             </div>
             <div className="hidden text-right sm:block">
-              <p className="max-w-[160px] truncate text-xs text-zinc-400">{email}</p>
+              <p className="max-w-[160px] truncate text-xs text-txt-mid">{email}</p>
             </div>
           </div>
         </header>
