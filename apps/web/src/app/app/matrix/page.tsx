@@ -184,7 +184,15 @@ export default function MatrixPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [resultAssets, setResultAssets] = useState<JobAsset[]>([]);
 
-  const cost = computeJobCost('matrix', count);
+  /**
+   * How many videos this job will actually make — and therefore what it costs.
+   * Keeping N scripts in the script step produces N videos regardless of the
+   * 5/10/15 picker, and that is already what /api/jobs is sent below. The
+   * footer has to quote the same number: quoting `count` put "75 kredita
+   * (5 × 15)" directly under a line reading "Napraviće se 1 video".
+   */
+  const effectiveCount = scripts.length > 0 ? scripts.length : count;
+  const cost = computeJobCost('matrix', effectiveCount);
   const captionStyle = `cap:${captionFont}:${captionAnim}:${captionColor}`;
 
   async function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -388,7 +396,7 @@ export default function MatrixPage() {
           // One video per approved script — the worker loops over the scripts
           // it is given, not over `count`. Sending the picker's `count` here
           // would bill for 5 videos and deliver 3 when the user kept only 3.
-          count: scripts.length > 0 ? scripts.length : count,
+          count: effectiveCount,
           params: {
             productTitle,
             price,
@@ -424,7 +432,7 @@ export default function MatrixPage() {
       // kept-script count when the user reviewed scripts, not the picker's.
       const job = await pollJob(data.id, {
         intervalMs: 2000,
-        timeoutMs: Math.max(180_000, (scripts.length > 0 ? scripts.length : count) * 45_000),
+        timeoutMs: Math.max(180_000, effectiveCount * 45_000),
       });
       if (job.status === 'error') throw new Error(job.error ?? 'Render nije uspeo.');
 
@@ -1101,7 +1109,7 @@ export default function MatrixPage() {
         nextLabel={nextLabel}
         costLabel={
           <p className="rounded-lg border border-brand-400/20 bg-brand-400/5 px-3 py-2 text-sm text-brand-200">
-            Cena: <span className="font-semibold">{cost} kredita</span> ({count} × 15)
+            Cena: <span className="font-semibold">{cost} kredita</span> ({effectiveCount} × 15)
             {phase === 'done' ? ' · naplaćeno' : ''}
           </p>
         }
