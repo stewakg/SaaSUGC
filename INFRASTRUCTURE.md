@@ -256,7 +256,7 @@ the source file's doc-comments are richer than the copy ever was.
   15/video on success (existing charge-on-success path from F2).
 - [x] Matrix settings screen (`/app/matrix`): voice, script tone preset, caption font/anim/color, count, transitions,
   outro text. Music/SFX shown as "uskoro" — no real audio asset source in mock mode.
-- [x] ⭐ **Caption editor — user-controllable placement/size.** DONE 2026-08-05 (`18a004a`, `8cc7a94`): `captionX`/`captionY` props (frame fractions, clamped so nothing can leave the frame), sliders for position + size, three safe-zone presets, and a warning when dragged below 72% height. `captionScale` only needed a control — the renderer already honoured it. Render side runtime-verified; **the wizard controls themselves are NOT click-tested** (behind auth). Original spec kept below for reference:
+- [x] ⭐ **Caption editor — user-controllable placement/size.** DONE 2026-08-05 (`18a004a`, `8cc7a94`): `captionX`/`captionY` props (frame fractions, clamped so nothing can leave the frame), sliders for position + size, three safe-zone presets, and a warning when dragged below 72% height. `captionScale` only needed a control — the renderer already honoured it. Render side runtime-verified; **the wizard controls are now click-tested too** (2026-08-10, click-test 4 @ `cb3bcfb`): font Impact→Montserrat, animation Pop→Smooth, preset "Centar" correctly dragging the vertical slider 46→50, size 130%, colour input present. Original spec kept below for reference:
 - [ ] ~~Caption editor — user-controllable placement/size (position is the real gap).~~ Font, animation and
   active-word colour are already user-chosen in the wizard; `captionScale` already exists as a
   `MatrixAdProps` prop but has **no UI**; **position does not exist at all** and was hardcoded in
@@ -298,39 +298,66 @@ the source file's doc-comments are richer than the copy ever was.
 ### F5 — Go real (needs accounts — see `ACCOUNTS.md`) 🟡
 > Do the one-time signup batch (`ACCOUNTS.md`), drop keys in `.env`, then swap mocks → real one by one.
 - [x] Supabase **cloud** project; point env at it; run migrations. — *Project created, all 3 migrations (0001–0003) run via the SQL Editor (no Supabase CLI available, so no `supabase link`/`db push` — ran the combined SQL by hand instead). `.env` points at the real project. **LIVE-VERIFIED 2026-07-18**: real signup → `handle_new_user()` trigger → `profiles`/`credits_ledger` rows → dashboard correctly shows a balance of 3 — the first real click-through of any part of this app against a live backend (see the note above F5). Google OAuth still NOT enabled — deferred, email/password is enough for now, not blocking.*
-- [ ] ⚠️ **`ScriptProvider` — CORRECTED 2026-08-09. This was ticked `[x]`; it has never run once.** `script.claude.ts` gates on `ANTHROPIC_API_KEY` (`factory.ts:95`), and **the owner has never had an Anthropic account** — the key was never going to arrive. Every Matrix job ever produced therefore used `MockScriptProvider`'s canned Serbian lines. The dashboard card promises "AI piše skriptu i čita je glasom": ElevenLabs really does read it aloud (verified by measurement 2026-08-05), but what it reads has always been pre-written. **The owner's actual LLM access is OpenRouter**, not Anthropic — so `script.claude.ts` was written against an account that does not and will not exist.
-  - [ ] Write an **OpenRouter** provider (OpenAI-compatible, one plain `fetch` client in the `scraper.real.ts` style). `OPENROUTER_API_KEY` in `env.ts` + `.env.example`; `factory.ts` gates on it instead. Retire `script.claude.ts`.
-  - [ ] ⚠️ **Serbian copy quality is the gating question, and no published benchmark answers it.** Serbian LLM evals exist (Serbian SuperGLUE, `gordicaleksa/serbian-llm-eval`, BenchMAX) but measure NLU — QA, inference, coreference — not ad-copy quality. Run a **blind** eval instead: the repo's own `ScriptProvider` prompt, 3 real scraped products, 5 variants × 4 candidate models, shuffled and unlabelled, **with `MockScriptProvider`'s canned lines mixed in as a control**. Grade on the axes that actually break in Serbian: **case declension (padeži)** — the most common failure; **ekavica vs ijekavica leakage** — the app sells Srpski / Bosanski / Hrvatski as *separate* languages, so a model that slips "mlijeko" into Serbian output is unusable regardless of its benchmark scores; diacritics (č ć š ž đ); translationese word order; and register (COD ad copy is colloquial and sales-y, not literary). Cost of the whole eval: under $0.50. Expectation to falsify: the cheapest tier (Gemini 3.1 Flash Lite, $0.25/$1.50 per 1M) is where Serbian breaks first — and the price gap to a larger model is cents per job, so **do not pick on price before reading the output**.
+- [x] ⚠️ **`ScriptProvider` — was CORRECTED 2026-08-09, then actually fixed and RUN.** History worth keeping: this bullet was once ticked `[x]` while `script.claude.ts` gated on `ANTHROPIC_API_KEY` (`factory.ts:95`) for an Anthropic account **the owner has never had**, so the key was never going to arrive and every Matrix job ever produced used `MockScriptProvider`'s canned Serbian lines. The dashboard card promises "AI piše skriptu i čita je glasom": ElevenLabs really did read it aloud (measured 2026-08-05), but what it read was always pre-written. **The owner's actual LLM access is OpenRouter**, not Anthropic.
+  - [x] Write an **OpenRouter** provider (OpenAI-compatible, one plain `fetch` client in the `scraper.real.ts` style). `OPENROUTER_API_KEY` in `env.ts` + `.env.example`; `factory.ts` gates on it instead. Retire `script.claude.ts`. — *Done: `packages/core/src/providers/script.openrouter.ts` (+ its own unit test), `factory.ts:100` gates on `OPENROUTER_API_KEY`, `script.claude.ts` deleted. **✅ VERIFIED live from the application 2026-08-10** (click-test 2, `SESSION_LOG.md` block for that date): `POST /api/generate-scripts → 200` in the Matrix wizard with voice Charlie (male) returned real Serbian copy — masculine forms throughout ("proveo", "našao"), cases holding, no ijekavica leakage, diacritics intact, and the price + offer typed into step 2 present in the text. Until that run it had only ever executed from the blind-eval harness, never from the app.*
+  - [~] ⚠️ **Serbian copy quality is the gating question, and no published benchmark answers it.** Serbian LLM evals exist (Serbian SuperGLUE, `gordicaleksa/serbian-llm-eval`, BenchMAX) but measure NLU — QA, inference, coreference — not ad-copy quality. Run a **blind** eval instead: the repo's own `ScriptProvider` prompt, 3 real scraped products, 5 variants × 4 candidate models, shuffled and unlabelled, **with `MockScriptProvider`'s canned lines mixed in as a control**. Grade on the axes that actually break in Serbian: **case declension (padeži)** — the most common failure; **ekavica vs ijekavica leakage** — the app sells Srpski / Bosanski / Hrvatski as *separate* languages, so a model that slips "mlijeko" into Serbian output is unusable regardless of its benchmark scores; diacritics (č ć š ž đ); translationese word order; and register (COD ad copy is colloquial and sales-y, not literary). Cost of the whole eval: under $0.50. Expectation to falsify: the cheapest tier (Gemini 3.1 Flash Lite, $0.25/$1.50 per 1M) is where Serbian breaks first — and the price gap to a larger model is cents per job, so **do not pick on price before reading the output**. — *Status 2026-08-10: the harness is built and has been run — `scripts/eval-serbian-scripts.mts`, 30 shuffled unlabelled variants on disk. **The grading has NOT happened**: every axis is still blank, and only the owner can fill them (this is a judgement about Serbian ad copy, not something the repo can self-assess). Until then the production model choice is a guess, not a measurement.*
 - [ ] ⚠️ **Source clips carry other platforms' burned-in UI — no pixel is ever inspected.** Reported by the owner 2026-08-09: rendered ads contain frames showing another creator's comment bubbles, usernames, and TikTok watermarks. These are **pixels in the file**, not overlays: TikTok burns reply-to-comment bubbles in at publish time, the standard download endpoint burns in the logo + @handle, and screen-recorded reposts carry the whole UI. No yt-dlp flag fixes any of that. Severity is legal, not cosmetic — that is a third party's handle and brand inside a paying customer's commercial ad. The pipeline is `yt-dlp → detectShots → buildMontage → render` with **no gate between "downloaded" and "15 credits spent"**.
   - [ ] Filter **shots, not clips** — a compilation may have 8 clean shots and 2 dirty. `scene-detect.ts` already splits them; sample 2 frames per shot, drop the dirty ones from the pool, and `buildMontage` never picks them. No architectural change.
   - [ ] Add an **import-time gate** so the user is warned while they can still pick a different clip.
   - [ ] Detection method: a **vision model**, not pixel heuristics. Only image understanding separates "a caption the creator added" from "someone else's comment" — an edge-density heuristic flags both, and Tesseract reads text without knowing whose it is. Same OpenRouter client as the scripts above; ~2 frames/shot, one call per clip, cached by `storage_key`. ~$0.009 per 3-clip job against €3.00–4.50 of revenue.
   - [ ] **The real cost is a labelled set of the owner's own clips** to measure hit rate — everything else here is a day's work. Per this repo's own rule, unmeasured detection is CODE-COMPLETE, not done.
 - [ ] **NEW FEATURE — script review + per-stage billing.** Owner design 2026-08-09.
-  - [ ] ⚠️ **Serbian scripts come out in FEMININE gender by default** — "našla sam", "sigurna",
+  - [x] ⚠️ **Serbian scripts come out in FEMININE gender by default** — "našla sam", "sigurna",
     "hidrirana". A male voice reading that is a broken ad. Serbian marks gender on past tense and
     adjectives; English does not, so no model gets this right unprompted. **Voice must therefore be
     chosen BEFORE scripts are generated**, and its gender passed into `generateVariants`.
     `listVoices()` already returns `gender` (ElevenLabs `labels.gender`; mock has it too), and the
-    voice list is curated by us, so there is no `unknown` case to handle.
-  - [ ] Generate ~5 script candidates, let the user read, edit and keep the ones worth using; the
+    voice list is curated by us, so there is no `unknown` case to handle. — *Done and **✅ VERIFIED
+    live 2026-08-10** (click-test 2). Gender is resolved server-side in
+    `apps/web/src/app/api/generate-scripts/route.ts` from the voice id, never trusted from the
+    client — the wizard had already dropped the field once, so this closes that class of bug. A male
+    voice produced masculine copy on the first real run.*
+  - [x] Generate ~5 script candidates, let the user read, edit and keep the ones worth using; the
     kept set feeds the N videos. **Do NOT build this as a two-phase job** (new `jobs` status +
     worker state machine + polling). Generate in the wizard through a light route before the job is
     submitted and pass the approved scripts in `params`; the worker uses `params.scripts` when
     present and only calls the provider otherwise. Needs its own rate limit — regeneration would
-    otherwise be free and unlimited.
-  - [ ] Caption timing needs no work here: ElevenLabs returns alignment for the text actually
-    spoken, so `foldAlignmentIntoWords` handles an edited script unchanged.
-  - [ ] ⚠️ **`charge_credits` is NOT safe to call twice for one job — migration 0005 before any
-    per-stage billing.** Its rollback path (`0001_init_schema.sql:186`) deletes by
-    `user_id + job_id + reason`, not by the row it just inserted, and `reason` is hardcoded to
-    `'job_spend'`. Harmless today because each job charges exactly once. Under per-stage billing a
-    second call that fails on insufficient balance would **delete the first, legitimately charged
-    row** — the user silently gets refunded for scripts because they ran out of credits for audio.
-    Fix: `insert … returning id` then `delete where id = …`, plus a `p_reason` parameter so the
-    ledger shows which stage was charged.
+    otherwise be free and unlimited. — *Built as specified, no two-phase job: `POST
+    /api/generate-scripts` (rate-limited `scripts:<uid>` 6/60, tighter than `/api/jobs` because it
+    spends provider money on every click) plus the review UI in the Matrix wizard — candidates
+    append rather than replace, `FREE_SCRIPTS = 5` on the house up to `MAX_SCRIPTS = 10`, each one
+    readable, editable and keepable. The kept set feeds the N videos through `params.scripts`.
+    ✅ Click-tested 2026-08-10.*
+  - [x] Caption timing needs no work here: ElevenLabs returns alignment for the text actually
+    spoken, so `foldAlignmentIntoWords` handles an edited script unchanged. — *Confirmed; no code
+    was needed.*
+  - [x] ⚠️ **`charge_credits` was NOT safe to call twice for one job — migration 0005.** Its old
+    rollback path (`0001_init_schema.sql:186`) deleted by `user_id + job_id + reason` rather than by
+    the row it had just inserted, with `reason` hardcoded to `'job_spend'`. Harmless while each job
+    charges exactly once; under per-stage billing a second call failing on insufficient balance
+    would have **deleted the first, legitimately charged row** — silently refunding the user for
+    scripts because they ran out of credits for audio. Fixed in
+    `supabase/migrations/0005_charge_credits_per_stage.sql`: `insert … returning id` then `delete
+    where id = …`, plus a `p_reason` parameter naming the stage, with the old 3-argument signature
+    dropped explicitly (a defaulted parameter creates an overload, not a replacement). — ***APPLIED
+    and VERIFIED against the live database 2026-08-09*** *— `charge_credits` reports four parameters
+    (`p_amount, p_job_id, p_reason, p_user_id`), read out of PostgREST's OpenAPI spec rather than by
+    calling the function, which would have deducted real credits. **This is no longer a blocker for
+    anything.***
   - [ ] Billing model: pay for what was produced. Scripts ~1 credit, audio ~2, video on creation;
-    stop halfway and you pay only that far. Prices are placeholders, to be tuned.
+    stop halfway and you pay only that far. Prices are placeholders, to be tuned. — *Not started,
+    and **deliberately parked 2026-08-10** — the owner's call: pricing a product that is still being
+    built is premature. `/api/generate-scripts` therefore charges nothing today, while the wizard's
+    button already offers "prvih 5 besplatno, pa 1 kredit". Two questions have to be answered before
+    any code, and both are business decisions, not technical ones: (1) **how the server enforces the
+    free allowance** — it cannot trust the client's `scripts.length`, since reloading the wizard
+    resets that counter and makes every script free forever, and there is no `job_id` to count
+    against at script time; (2) **whether a script's credit adds to the video price or comes out of
+    it** — the per-stage model above describes splitting one total, but `JOB_COST.matrix` is
+    currently a full 15 on top. Also note the stale generated type: `charge_credits` is still
+    declared with 3 arguments in `packages/db/src/generated/database.types.ts:158`, so the live
+    4-argument signature must be regenerated (or that one entry hand-corrected) before any caller
+    can pass `p_reason`.*
   - [ ] **Voice cloning** — user clones a voice and picks its gender explicitly (the cloned voice
     carries no `labels.gender`). Later; recorded so the gender plumbing above is designed with it
     in mind rather than retrofitted.

@@ -43,6 +43,55 @@ NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewe
 
 ---
 
+## 2026-08-10 (third session) — INFRASTRUCTURE.md caught up with reality; pricing deliberately parked
+**Account:** _(unrecorded)_ · **Machine:** primary. **Commits:** this block + the
+`INFRASTRUCTURE.md` correction. Started clean, `main...origin/main` in sync at `5459efe`.
+
+**No code was written.** The whole session was status-file repair plus one scoping decision,
+and that is worth recording precisely because the file had drifted far enough to mislead a
+session into re-doing finished work.
+
+**The trigger:** the owner asked what migration 0005 actually is, having been told it
+"blocks" script billing. It does not — **0005 was applied and live-verified on 2026-08-09**
+(`SESSION_LOG.md`, closing-stretch block). The claim that it blocks anything was stale by a
+day and would have sent this session to write a migration that already exists.
+
+**Corrected in `INFRASTRUCTURE.md` F4/F5** — every one of these was `[ ]` while the work was
+done, which is the exact failure mode the log discipline exists to prevent:
+- `ScriptProvider` + the OpenRouter provider bullet — `[x]`. `script.openrouter.ts` exists
+  with a unit test, `factory.ts:100` gates on `OPENROUTER_API_KEY`, `script.claude.ts` is
+  deleted. Verified by reading the files, not by trusting the previous block's narrative.
+- Feminine-gender default — `[x]`, resolved server-side from the voice id.
+- Script review (5 candidates, edit, keep) — `[x]`, with the rate limit and
+  `FREE_SCRIPTS`/`MAX_SCRIPTS` recorded.
+- Caption timing — `[x]`, confirmed no code was needed.
+- Migration 0005 — `[x]`, with the live verification method spelled out.
+- Caption/sound wizard controls — the "NOT click-tested" caveat replaced by what click-test 4
+  actually exercised.
+- Blind Serbian eval — `[~]`, not `[x]`: **the harness ran, the grading did not.** 30 shuffled
+  variants sit on disk with every axis blank. Only the owner can fill them. Until then the
+  production model choice is a guess.
+
+**Pricing is PARKED, by the owner's explicit decision:** "ne želim sad da sređujemo cene
+nečeg što još pravimo." Script billing therefore stays unimplemented, and the bullet now says
+so along with the two questions that must be answered first — both business, not technical:
+(1) how the server enforces the free allowance, given it cannot trust the client's
+`scripts.length` (reloading the wizard resets it, making every script free forever) and there
+is no `job_id` to count against at script-generation time; (2) whether a script's credit adds
+to the video price or comes out of it.
+
+**One real defect found while reading, NOT fixed (pricing is parked, and this is only
+reachable from that work):** `packages/db/src/generated/database.types.ts:158` still declares
+`charge_credits` with three arguments. The live function takes four. Any caller passing
+`p_reason` fails typecheck until that is regenerated or hand-corrected.
+
+**Deliberately left uncommitted:** `scratchpad/` (24 MB of Cline run logs, benchmark PNGs and
+extracted frames — scanned for secret-shaped strings first, the only hit is `check-env.mjs`'s
+own regex patterns, not a value) and `.claude/launch.json` (absolute paths to two sibling
+projects on this machine; they would be dead paths on the second machine).
+
+---
+
 ## 2026-08-10 (second session) — click-tests 2 and 4 pass; OpenRouter writes a script from inside the app for the first time
 **Account:** _(unrecorded)_ · **Machine:** primary. **Commits:** `cb3bcfb` matrix cost
 display · this block. Started from a clean `main...origin/main`, no divergence.
