@@ -64,3 +64,12 @@ remotion/.rodo/
 
 # local video test samples for Matrix scene-detection (not shared)
 Video samples/
+
+# Working directory for throwaway artefacts: Cline task specs and run logs,
+# benchmark output, frames pulled out of renders while checking them, one-off
+# probe scripts. 24 MB as of 2026-08-10 and almost all of it images.
+#
+# Conclusions belong in SESSION_LOG.md, not in here — the evidence is looked at
+# once and then only takes up space. Verified before ignoring: nothing
+# committed references anything under this path.
+scratchpad/
