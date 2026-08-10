@@ -279,9 +279,12 @@ force-migrating blind.
 
 ---
 
-## Open questions for the owner (answer before Prompt 4 if possible)
+## Open questions for the owner — ANSWERED 2026-08-10, before implementation
 
-1. Sidebar always visible on desktop, or collapsible? (Prompt 4 assumes always visible.)
-2. Default theme for brand-new visitors: obsidian, or follow the OS (light OS →
-   poluton)? (Prompts assume: follow OS until the user picks, then their pick wins.)
-3. The landing hero phone-frame: real render thumbnail or neutral placeholder?
+1. **Sidebar:** always visible on desktop, overlay on mobile — i.e. keep the current
+   behaviour. No collapse control.
+2. **Default theme for a brand-new visitor:** follow the OS via `prefers-color-scheme`
+   (light OS → poluton, otherwise obsidian) until the user picks. An explicit pick always
+   wins, forever.
+3. **Landing hero phone-frame:** neutral CSS placeholder with a mono "1080×1920" caption.
+   No fake screenshots, and no thumbnail unless a real render exists.

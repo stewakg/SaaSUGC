@@ -1,8 +1,18 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 /**
- * Dark-first theme matching the EcomAlati aesthetic:
- * near-black backgrounds, gradient tool cards, yellow (#FFE000) accent.
+ * Utility names are a thin mapping onto the CSS custom properties defined in
+ * src/app/globals.css. Colours are never literals here — a theme is one token
+ * block over there, so anything hard-coded in this file would be a colour that
+ * only one of the three themes gets right.
+ *
+ * Colours written as `rgb(var(--x-c) / <alpha-value>)` are the ones Tailwind's
+ * opacity modifiers work on (`bg-accent/10`); the rest take the ready token.
+ *
+ * `ink`, `brand` and `zinc` are kept pointing at sensible token values so the
+ * ~250 call sites that still use them stay coherent in all three themes while
+ * Prompts 3–6 migrate them.
  */
 const config: Config = {
   darkMode: 'class',
@@ -14,41 +24,91 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Near-black surface scale.
-        ink: {
-          950: '#08080A',
-          900: '#0C0C0F',
-          850: '#121216',
-          800: '#17171C',
-          700: '#1F1F26',
-          600: '#2A2A33',
-          500: '#3A3A45',
+        ground: 'rgb(var(--ground-c) / <alpha-value>)',
+        panel: {
+          DEFAULT: 'var(--panel)',
+          2: 'var(--panel-2)',
+          solid: 'rgb(var(--panel-c) / <alpha-value>)',
         },
-        // Brand accent (EcomAlati-ish yellow).
+        line: {
+          DEFAULT: 'var(--line)',
+          strong: 'var(--line-strong)',
+        },
+        txt: {
+          hi: 'var(--txt-hi)',
+          mid: 'var(--txt-mid)',
+          low: 'var(--txt-low)',
+        },
+        accent: {
+          DEFAULT: 'rgb(var(--accent-c) / <alpha-value>)',
+          2: 'rgb(var(--accent-2-c) / <alpha-value>)',
+          contrast: 'var(--accent-contrast)',
+          soft: 'var(--accent-soft)',
+          ring: 'var(--accent-ring)',
+          text: 'var(--accent-text)',
+        },
+        live: 'rgb(var(--live-c) / <alpha-value>)',
+        ok: 'rgb(var(--ok-c) / <alpha-value>)',
+        warn: 'rgb(var(--warn-c) / <alpha-value>)',
+        err: 'rgb(var(--err-c) / <alpha-value>)',
+
+        // --- legacy names, now token-backed (migrated away in Prompts 3–6) ---
+        ink: {
+          950: 'rgb(var(--ground-c) / <alpha-value>)',
+          900: 'rgb(var(--ground-c) / <alpha-value>)',
+          850: 'rgb(var(--panel-c) / <alpha-value>)',
+          800: 'rgb(var(--panel-c) / <alpha-value>)',
+          700: 'var(--line-strong)',
+          600: 'var(--line-strong)',
+          500: 'var(--txt-low)',
+        },
         brand: {
-          DEFAULT: '#FFE000',
-          50: '#FFFCEB',
-          100: '#FFF8CC',
-          200: '#FFF199',
-          300: '#FFE966',
-          400: '#FFE000',
-          500: '#E6C900',
-          600: '#B39E00',
-          700: '#807000',
+          DEFAULT: 'rgb(var(--accent-c) / <alpha-value>)',
+          50: 'var(--accent-soft)',
+          100: 'var(--accent-soft)',
+          200: 'rgb(var(--accent-c) / <alpha-value>)',
+          300: 'rgb(var(--accent-c) / <alpha-value>)',
+          400: 'rgb(var(--accent-c) / <alpha-value>)',
+          500: 'rgb(var(--accent-c) / <alpha-value>)',
+          600: 'rgb(var(--accent-c) / <alpha-value>)',
+          700: 'rgb(var(--accent-c) / <alpha-value>)',
+        },
+        // zinc is text-only in this app, so pointing it at the text ramp makes
+        // every unmigrated screen legible in the light theme too.
+        zinc: {
+          100: 'var(--txt-hi)',
+          200: 'var(--txt-hi)',
+          300: 'var(--txt-mid)',
+          400: 'var(--txt-mid)',
+          500: 'var(--txt-low)',
+          600: 'var(--txt-low)',
         },
       },
       fontFamily: {
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
         display: ['var(--font-display)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+      },
+      letterSpacing: {
+        head: '-0.02em',
+        'head-tight': '-0.035em',
+      },
+      borderRadius: {
+        panel: 'var(--radius-panel)',
+        card: 'var(--radius-card)',
+        control: 'var(--radius-control)',
       },
       backgroundImage: {
+        action: 'var(--action-grad)',
+        'text-grad': 'var(--text-grad)',
         'gradient-card':
-          'linear-gradient(135deg, rgba(255,224,0,0.12) 0%, rgba(12,12,15,0.4) 60%, rgba(8,8,10,0.9) 100%)',
+          'linear-gradient(135deg, var(--accent-soft) 0%, transparent 60%)',
         'glow-brand':
-          'radial-gradient(600px circle at 50% 0%, rgba(255,224,0,0.10), transparent 70%)',
+          'radial-gradient(600px circle at 50% 0%, var(--accent-soft), transparent 70%)',
       },
       boxShadow: {
-        glow: '0 0 40px -10px rgba(255,224,0,0.35)',
+        card: 'var(--shadow-card)',
+        glow: 'var(--shadow-glow)',
       },
       keyframes: {
         'fade-in': {
@@ -61,7 +121,15 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    plugin(({ addUtilities }) => {
+      addUtilities({
+        // Every alignable number in the app (credits, timers, dimensions) is
+        // mono with tabular figures so columns of them stop dancing.
+        '.tabular': { 'font-variant-numeric': 'tabular-nums' },
+      });
+    }),
+  ],
 };
 
 export default config;

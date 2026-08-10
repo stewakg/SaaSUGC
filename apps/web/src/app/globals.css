@@ -2,26 +2,205 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: ui-sans-serif, system-ui, sans-serif;
+/* ============================================================================
+   AdGen design tokens.
+
+   Three themes ship and the user picks one: obsidian (default, dark glass),
+   poluton (light, flat violet, black primary button) and neon (near-black
+   matte, single lime accent).
+
+   THE RULE: components never branch on the active theme. Every visual
+   difference between the three lives in a [data-theme="…"] block below, and
+   components only ever ask for a semantic token ("panel", "accent"), never a
+   colour name ("violet"). If a component needs to know which theme is on, the
+   token set is missing one — add the token here instead.
+
+   Two conventions worth knowing before editing:
+
+   - `--x-c` holds bare RGB channels ("124 92 255") so Tailwind can apply
+     opacity modifiers (`bg-accent/10`) to it; the matching `--x` is the ready
+     colour derived from it. Channels exist only for colours something needs a
+     translucent version of.
+   - `--action-grad` and `--text-grad` are always background-IMAGE values, even
+     in the themes whose "gradient" is one flat colour. That is what lets a
+     button say `background-image: var(--action-grad)` once and be right in all
+     three themes without a conditional.
+   ============================================================================ */
+
+/* --- obsidian (default) --------------------------------------------------- */
+:root,
+[data-theme='obsidian'] {
   color-scheme: dark;
+
+  --ground-c: 11 12 16;
+  --panel-c: 18 18 22;
+  --accent-c: 124 92 255;
+  --accent-2-c: 77 214 255;
+  --live-c: 198 255 77;
+
+  --panel: rgba(255, 255, 255, 0.035);
+  --panel-2: rgba(255, 255, 255, 0.06);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+
+  --txt-hi: #edeef2;
+  --txt-mid: #a6a6b5;
+  --txt-low: #63636f;
+
+  --accent-contrast: #0b0c10;
+  --action-grad: linear-gradient(92deg, #7c5cff, #4dd6ff);
+  --text-grad: linear-gradient(92deg, #7c5cff, #4dd6ff);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px -18px rgba(0, 0, 0, 0.8);
+  --shadow-glow: 0 0 40px -12px rgba(124, 92, 255, 0.55);
+
+  /* Landing ambient glows: how loud the two blurred radials are. */
+  --ambient-op: 0.5;
+}
+
+/* --- poluton (light) ------------------------------------------------------ */
+[data-theme='poluton'] {
+  color-scheme: light;
+
+  --ground-c: 246 246 249;
+  --panel-c: 255 255 255;
+  --accent-c: 91 61 245;
+  --accent-2-c: 91 61 245;
+  --live-c: 91 61 245;
+
+  --panel: #ffffff;
+  --panel-2: #efeff4;
+  --line: #e8e8ee;
+  --line-strong: #d9d9e2;
+
+  --txt-hi: #16161c;
+  --txt-mid: #4a4a56;
+  --txt-low: #8a8a96;
+
+  --accent-contrast: #ffffff;
+  /* Primary action is BLACK here; the accent carries selection/links/progress. */
+  --action-grad: linear-gradient(92deg, #16161c, #16161c);
+  --text-grad: linear-gradient(92deg, #5b3df5, #5b3df5);
+
+  --shadow-card: 0 1px 2px rgba(22, 22, 28, 0.06), 0 10px 28px -18px rgba(22, 22, 28, 0.25);
+  --shadow-glow: 0 0 32px -14px rgba(91, 61, 245, 0.45);
+
+  --ambient-op: 0.18;
+}
+
+/* --- neon (near-black matte) ---------------------------------------------- */
+[data-theme='neon'] {
+  color-scheme: dark;
+
+  --ground-c: 8 9 11;
+  --panel-c: 13 15 18;
+  --accent-c: 198 255 77;
+  --accent-2-c: 198 255 77;
+  --live-c: 198 255 77;
+
+  --panel: #0d0f12;
+  --panel-2: #14171c;
+  --line: #16191e;
+  --line-strong: #222833;
+
+  --txt-hi: #eaf2ee;
+  --txt-mid: #9aa5a0;
+  --txt-low: #7c8781;
+
+  --accent-contrast: #0a0c08;
+  --action-grad: linear-gradient(92deg, #c6ff4d, #c6ff4d);
+  --text-grad: linear-gradient(92deg, #c6ff4d, #c6ff4d);
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.6), 0 10px 30px -18px rgba(0, 0, 0, 0.9);
+  --shadow-glow: 0 0 40px -12px rgba(198, 255, 77, 0.4);
+
+  --ambient-op: 0.35;
+}
+
+/* --- OS preference, only while the user has NOT chosen --------------------
+   An explicit data-theme on <html> makes :root:not([data-theme]) stop matching,
+   so a real choice always wins over the OS. Keep the values below in sync with
+   the [data-theme='poluton'] block above — this is the same theme, reached a
+   different way. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+
+    --ground-c: 246 246 249;
+    --panel-c: 255 255 255;
+    --accent-c: 91 61 245;
+    --accent-2-c: 91 61 245;
+    --live-c: 91 61 245;
+
+    --panel: #ffffff;
+    --panel-2: #efeff4;
+    --line: #e8e8ee;
+    --line-strong: #d9d9e2;
+
+    --txt-hi: #16161c;
+    --txt-mid: #4a4a56;
+    --txt-low: #8a8a96;
+
+    --accent-contrast: #ffffff;
+    --action-grad: linear-gradient(92deg, #16161c, #16161c);
+    --text-grad: linear-gradient(92deg, #5b3df5, #5b3df5);
+
+    --shadow-card: 0 1px 2px rgba(22, 22, 28, 0.06), 0 10px 28px -18px rgba(22, 22, 28, 0.25);
+    --shadow-glow: 0 0 32px -14px rgba(91, 61, 245, 0.45);
+
+    --ambient-op: 0.18;
+  }
+}
+
+/* --- theme-independent tokens ---------------------------------------------
+   Declared on the same element (<html>) as the blocks above, so the ones that
+   reference var(--accent) pick up whichever theme is active. */
+:root {
+  /* Semantic states keep the same hue in every theme — a warning is a warning. */
+  --ok-c: 53 196 143;
+  --warn-c: 245 184 61;
+  --err-c: 240 86 74;
+
+  --ground: rgb(var(--ground-c));
+  --accent: rgb(var(--accent-c));
+  --accent-2: rgb(var(--accent-2-c));
+  --live: rgb(var(--live-c));
+  --ok: rgb(var(--ok-c));
+  --warn: rgb(var(--warn-c));
+  --err: rgb(var(--err-c));
+
+  /* Accent derivatives, so tints stay one source of truth. */
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
+  --accent-ring: color-mix(in srgb, var(--accent) 45%, transparent);
+  --accent-text: color-mix(in srgb, var(--accent), var(--txt-hi) 35%);
+
+  --radius-panel: 24px;
+  --radius-card: 16px;
+  --radius-control: 10px;
+
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', ui-sans-serif, system-ui,
+    -apple-system, Inter, Roboto, 'Helvetica Neue', sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI', ui-sans-serif, system-ui,
+    -apple-system, Inter, Roboto, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', 'JetBrains Mono', Menlo,
+    Consolas, monospace;
 }
 
 html,
 body {
-  background-color: #08080a;
-  color: #f5f5f7;
+  background-color: var(--ground);
+  color: var(--txt-hi);
   min-height: 100%;
 }
 
 @layer base {
   body {
-    @apply bg-ink-950 text-zinc-100 antialiased;
+    @apply bg-ground text-txt-hi antialiased;
     font-family: var(--font-sans);
   }
   ::selection {
-    @apply bg-brand-400/30 text-white;
+    background-color: var(--accent-soft);
+    color: var(--txt-hi);
   }
 }
 
