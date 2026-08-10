@@ -27,6 +27,33 @@ interface JobRow {
 }
 
 /**
+ * `job.cost` is the price quoted when the job was *enqueued*, not money that
+ * actually moved. The worker charges on success only, so anything that is not
+ * `done` has not been billed: an `error` job never reaches `charge_credits`,
+ * and `queued`/`running` are still only an estimate. Rendering the bare figure
+ * for every status is what made a failed placeholder-tool job read as
+ * "… · 2 kredita · tool_not_implemented: …" — i.e. as if the user had been
+ * charged for a job that produced nothing. They had not. Hence per-status copy.
+ */
+function costLabel(status: JobStatus, cost: number): string {
+  if (status === 'done') return `${cost} kredita`;
+  if (status === 'error') return 'nije naplaćeno';
+  return `procena: ${cost} kredita`;
+}
+
+/** Machine prefix on worker errors, e.g. `tool_not_implemented: `. */
+const ERROR_CODE_PREFIX = /^[a-z0-9_]+:\s*/;
+
+/**
+ * Worker errors arrive as `<code>: <poruka na srpskom>`. The part after the
+ * code is already user-facing, so drop the code; if there is no such prefix
+ * (or nothing left after it), show the string as-is rather than nothing.
+ */
+function humanError(error: string): string {
+  return error.replace(ERROR_CODE_PREFIX, '').trim() || error;
+}
+
+/**
  * "Moje reklame" — job history. RLS scopes the query to the signed-in user,
  * so no explicit ownership filter is needed.
  */
@@ -69,8 +96,9 @@ export default async function ReklamePage() {
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-zinc-500">
-                    {new Date(job.created_at).toLocaleString('sr-RS')} · {job.cost} kredita
-                    {job.status === 'error' && job.error ? ` · ${job.error}` : ''}
+                    {new Date(job.created_at).toLocaleString('sr-RS')} ·{' '}
+                    {costLabel(job.status, job.cost)}
+                    {job.status === 'error' && job.error ? ` · ${humanError(job.error)}` : ''}
                   </p>
                 </div>
                 {assets.length > 0 && (

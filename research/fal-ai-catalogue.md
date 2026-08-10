@@ -91,8 +91,10 @@ the "creative" upscalers: they invent detail, which on a product shot is a lie a
 
 **Recommendation for `remove_text`: ship the image path on `fal-ai/image-editing/text-removal`
 ($0.04) and do NOT promise the video path yet.** Both video erasers are unusable for a 15-second
-ad: $0.14/s is $2.10 per clip against ~€3.00–4.50 of revenue for the whole video, and the
-keypoints one caps the input at 5 seconds. This also settles the burned-in-UI question in
+ad: $0.14/s is $2.10 per clip, and the keypoints one caps the input at 5 seconds.
+**Corrected 2026-08-10** — an earlier draft of this line weighed that $2.10 against €3.00–4.50,
+which is a 15-credit Matrix job. `remove_text` is **6 credits ≈ €1.20–1.80** (`pricing.ts`), so
+the margin is not thin, it is **negative before a single frame renders**. This also settles the burned-in-UI question in
 `TODO.md` §4 — buying our way out of another platform's watermark is not affordable at these
 prices, so the shot-level filter (detect dirty shots, never pick them) stays the right answer.
 
