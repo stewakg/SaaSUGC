@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getJobDescriptor } from '@adgen/core/pricing';
+import { getJobDescriptor, creditsLabel } from '@adgen/core/pricing';
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
 import { uploadFile } from '@/lib/upload-file';
@@ -135,7 +135,7 @@ export default function RemoveTextPage() {
         nextLabel={nextLabel}
         costLabel={
           <p className="rounded-lg border border-brand-400/20 bg-brand-400/5 px-3 py-2 text-sm text-brand-200">
-            Cena: <span className="font-semibold">{descriptor.cost} kredita</span>
+            Cena: <span className="font-semibold">{creditsLabel(descriptor.cost)}</span>
             {genPhase === 'done' ? ' · naplaćeno' : ''}
           </p>
         }

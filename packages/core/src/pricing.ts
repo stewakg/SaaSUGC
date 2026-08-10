@@ -192,3 +192,29 @@ export const CREDIT_PACKS: CreditPack[] = [
   { id: 'pack_pro', credits: 250, priceEUR: 55, bonus: 40 },
   { id: 'pack_agency', credits: 600, priceEUR: 120, bonus: 120 },
 ];
+/**
+ * "1 kredit" vs "2 kredita" — Serbian does not pluralise the way English does,
+ * and the app said "1 kredita" everywhere, which reads as broken to a native
+ * speaker on exactly the screen where trust matters most: the price.
+ *
+ * For this noun the rule collapses to one case. Serbian normally splits into
+ * one / two-to-four / five-plus, but *kredit* takes the same form for the
+ * second and third groups, so only numbers ending in 1 differ — and 11 is the
+ * exception to that, as it is in most Slavic counting.
+ *
+ *   1 kredit · 21 kredit · 101 kredit
+ *   2 kredita · 5 kredita · 11 kredita · 100 kredita
+ *
+ * Takes the number so callers cannot get the pairing wrong:
+ * `creditsLabel(cost)` → "15 kredita".
+ */
+export function creditsLabel(n: number): string {
+  return `${n} ${creditsWord(n)}`;
+}
+
+/** Just the noun, for callers that render the number separately (styled spans). */
+export function creditsWord(n: number): string {
+  const abs = Math.abs(Math.trunc(n));
+  const endsInOne = abs % 10 === 1 && abs % 100 !== 11;
+  return endsInOne ? 'kredit' : 'kredita';
+}

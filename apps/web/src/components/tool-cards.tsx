@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { creditsLabel } from '@adgen/core/pricing';
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toolGradientClass } from '@/lib/tool-theme';
@@ -37,7 +38,7 @@ export function MainToolCard({
           </span>
         ) : (
           <span className="rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white backdrop-blur-sm">
-            {cost} kredita
+            {creditsLabel(cost)}
           </span>
         )}
       </div>
@@ -80,7 +81,7 @@ export function UtilityToolCard({ icon, label, description, cost, href, soon }: 
           Uskoro
         </span>
       ) : (
-        <span className="badge shrink-0">{cost} kredita</span>
+        <span className="badge shrink-0">{creditsLabel(cost)}</span>
       )}
     </div>
   );

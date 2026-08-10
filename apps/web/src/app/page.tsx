@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { JOB_DESCRIPTORS, SIGNUP_BONUS_CREDITS } from '@adgen/core';
+import { JOB_DESCRIPTORS, SIGNUP_BONUS_CREDITS, creditsLabel } from '@adgen/core';
 import { cn } from '@/lib/utils';
 import { ToolIcon } from '@/components/tool-icon';
 
@@ -120,7 +120,7 @@ function ToolCard({
             Uskoro
           </span>
         ) : (
-          <span className="badge">{cost} kredit{cost === 1 ? '' : 'a'}</span>
+          <span className="badge">{creditsLabel(cost)}</span>
         )}
       </div>
       <p className="mt-2 text-sm text-zinc-300">{description}</p>

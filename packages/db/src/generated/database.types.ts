@@ -155,7 +155,16 @@ export type Database = {
     Functions: {
       signup_bonus_credits: { Args: Record<string, never>; Returns: number };
       handle_new_user: { Args: Record<string, never>; Returns: undefined };
-      charge_credits: { Args: { p_user_id: string; p_job_id: string; p_amount: number }; Returns: undefined };
+      // Four arguments since migration 0005, applied and verified against the
+      // live database 2026-08-09. `p_reason` defaults to 'job_spend' in SQL, so
+      // it is optional here and every existing 3-argument caller still compiles.
+      // Hand-corrected rather than regenerated: pulling fresh types needs a live
+      // connection, and leaving the stale 3-arg signature blocked per-stage
+      // billing from ever passing a reason.
+      charge_credits: {
+        Args: { p_user_id: string; p_job_id: string | null; p_amount: number; p_reason?: string };
+        Returns: undefined;
+      };
       add_credits: { Args: { p_user_id: string; p_amount: number; p_reason: string }; Returns: number };
       add_credits_idempotent: { Args: { p_user_id: string; p_amount: number; p_reason: string; p_external_ref: string }; Returns: number };
       tg_set_updated_at: { Args: Record<string, never>; Returns: undefined };

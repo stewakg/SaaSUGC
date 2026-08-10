@@ -1,4 +1,4 @@
-import { getJobDescriptor } from '@adgen/core/pricing';
+import { getJobDescriptor, creditsLabel } from '@adgen/core/pricing';
 import { createServerClient } from '@/lib/supabase/server';
 import type { JobStatus, JobType } from '@adgen/db';
 
@@ -36,9 +36,9 @@ interface JobRow {
  * charged for a job that produced nothing. They had not. Hence per-status copy.
  */
 function costLabel(status: JobStatus, cost: number): string {
-  if (status === 'done') return `${cost} kredita`;
+  if (status === 'done') return creditsLabel(cost);
   if (status === 'error') return 'nije naplaćeno';
-  return `procena: ${cost} kredita`;
+  return `procena: ${creditsLabel(cost)}`;
 }
 
 /** Machine prefix on worker errors, e.g. `tool_not_implemented: `. */

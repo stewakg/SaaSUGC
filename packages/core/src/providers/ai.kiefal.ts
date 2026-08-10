@@ -32,6 +32,16 @@ const VIDEO_POLL_INTERVAL_MS = 5000;
 const VIDEO_MAX_WAIT_MS = 10 * 60 * 1000; // Veo-class generation commonly takes minutes
 
 /**
+ * The only fal queue statuses that mean "keep waiting". Anything else is
+ * terminal, and treating it as terminal is the point: both poll loops below
+ * used to break only on COMPLETED, so a job fal had already given up on kept
+ * being polled until the full timeout — up to 10 minutes of the user waiting
+ * for an answer that had already arrived. Found 2026-08-10 while writing
+ * media-edit.fal.ts, which got this right from the start.
+ */
+const FAL_PENDING_STATUSES = new Set(['IN_QUEUE', 'IN_PROGRESS']);
+
+/**
  * `size` is a "WxH" string (e.g. the "1080x1080" the worker sends for
  * image_ads) — neither provider accepts arbitrary dimensions, only an
  * aspect_ratio enum. Derive it rather than hardcoding one ratio, since a
@@ -178,6 +188,11 @@ export class KieAIFalRouter implements AIProvider {
       if (!statusRes.ok) throw new Error(`fal.ai status check failed (${statusRes.status})`);
       const statusJson = (await statusRes.json()) as { status: string };
       if (statusJson.status === 'COMPLETED') break;
+      if (!FAL_PENDING_STATUSES.has(statusJson.status)) {
+        throw new Error(
+          `fal.ai request ${submitJson.request_id} failed with status "${statusJson.status}"`,
+        );
+      }
       if (Date.now() - start > IMAGE_MAX_WAIT_MS) {
         throw new Error(`fal.ai request ${submitJson.request_id} timed out after ${IMAGE_MAX_WAIT_MS / 1000}s`);
       }
@@ -288,6 +303,11 @@ export class KieAIFalRouter implements AIProvider {
       if (!statusRes.ok) throw new Error(`fal.ai status check failed (${statusRes.status})`);
       const statusJson = (await statusRes.json()) as { status: string };
       if (statusJson.status === 'COMPLETED') break;
+      if (!FAL_PENDING_STATUSES.has(statusJson.status)) {
+        throw new Error(
+          `fal.ai request ${submitJson.request_id} failed with status "${statusJson.status}"`,
+        );
+      }
       if (Date.now() - start > VIDEO_MAX_WAIT_MS) {
         throw new Error(`fal.ai request ${submitJson.request_id} timed out after ${VIDEO_MAX_WAIT_MS / 1000}s`);
       }

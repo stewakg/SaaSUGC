@@ -77,6 +77,22 @@ export function AppShell({
             <NavIcon name="logout" />
             Izloguj se
           </button>
+          {/*
+            The Impressum has to be reachable in two clicks from anywhere, not
+            just from the marketing page a signed-in user never sees again.
+            Deliberately understated — these are obligations, not navigation.
+          */}
+          <p className="mt-2 flex flex-wrap gap-x-2 gap-y-1 px-3 text-[11px] text-zinc-600">
+            <Link href="/uslovi" className="hover:text-zinc-400">
+              Uslovi
+            </Link>
+            <Link href="/privatnost" className="hover:text-zinc-400">
+              Privatnost
+            </Link>
+            <Link href="/impressum" className="hover:text-zinc-400">
+              Impressum
+            </Link>
+          </p>
         </div>
       </aside>
 
