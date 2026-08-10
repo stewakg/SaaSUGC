@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { JOB_DESCRIPTORS, SIGNUP_BONUS_CREDITS, creditsLabel } from '@adgen/core';
 import { cn } from '@/lib/utils';
 import { ToolIcon } from '@/components/tool-icon';
+import { ThemeSwitcher } from '@/components/theme-switcher';
 
 /**
  * Public landing page — EcomAlati-style hero + tool cards.
@@ -90,6 +91,10 @@ export default function LandingPage() {
             Impressum
           </Link>
         </p>
+        {/* Logged-out visitors get the same theme control as signed-in ones. */}
+        <div className="mt-5 flex justify-center">
+          <ThemeSwitcher />
+        </div>
       </section>
     </main>
   );

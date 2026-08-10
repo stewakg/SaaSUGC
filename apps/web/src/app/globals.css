@@ -153,9 +153,15 @@
 }
 
 /* --- theme-independent tokens ---------------------------------------------
-   Declared on the same element (<html>) as the blocks above, so the ones that
-   reference var(--accent) pick up whichever theme is active. */
-:root {
+   The `[data-theme]` half of the selector is load-bearing, not decoration.
+   Custom properties are inherited as ALREADY-SUBSTITUTED values, so a derived
+   token declared only on :root would hand a nested element <html>'s colour even
+   when that element carries a different data-theme. Re-declaring them for any
+   element with the attribute makes the derivations recompute locally — which is
+   what lets the theme-switcher swatches paint themselves in the theme they
+   advertise instead of the one currently applied. */
+:root,
+[data-theme] {
   /* Semantic states keep the same hue in every theme — a warning is a warning. */
   --ok-c: 53 196 143;
   --warn-c: 245 184 61;
@@ -229,6 +235,34 @@ body {
 
   .badge {
     @apply inline-flex items-center rounded-full border border-brand-400/30 bg-brand-400/10 px-2.5 py-0.5 text-xs font-medium text-brand-300;
+  }
+
+  /* Theme picker (components/theme-switcher.tsx). The swatch carries its own
+     data-theme, so var(--ground)/var(--text-grad) below resolve to the theme
+     the swatch advertises rather than the one currently applied. */
+  .theme-swatch-button {
+    @apply rounded-full border p-[2px] leading-none transition;
+    border-color: var(--line-strong);
+  }
+  .theme-swatch-button:hover {
+    border-color: var(--accent);
+  }
+  .theme-swatch-button:focus-visible {
+    outline: 2px solid var(--accent-2);
+    outline-offset: 2px;
+  }
+  .theme-swatch-button--on {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-ring);
+  }
+  .theme-swatch {
+    @apply block h-[18px] w-[18px] rounded-full border;
+    border-color: var(--line-strong);
+    background-color: var(--ground);
+    background-image: var(--text-grad);
+    background-size: 100% 50%;
+    background-position: bottom;
+    background-repeat: no-repeat;
   }
 
   /* Subtle top glow used on hero/auth areas. */

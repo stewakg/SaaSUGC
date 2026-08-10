@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { ThemeSwitcher } from '@/components/theme-switcher';
 import { cn } from '@/lib/utils';
 
 /**
@@ -77,6 +78,7 @@ export function AppShell({
             <NavIcon name="logout" />
             Izloguj se
           </button>
+          <ThemeSwitcher className="mt-3 px-3" />
           {/*
             The Impressum has to be reachable in two clicks from anywhere, not
             just from the marketing page a signed-in user never sees again.
