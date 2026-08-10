@@ -54,6 +54,45 @@ const MAX_SCRIPTS = 10;
 /** Placeholder price for candidates 6-10; real pricing lands with migration 0005. */
 const EXTRA_SCRIPTS_COST = 1;
 
+/**
+ * Read a clip's real pixel size in the browser.
+ *
+ * Deliberately client-side. The obvious alternative is probing with ffprobe in
+ * the import route, but that binary lives in the worker, not the web app, and
+ * would not survive a serverless deploy. The browser already knows: point a
+ * detached <video> at the url and read `videoWidth`/`videoHeight` once metadata
+ * lands. No new dependency, no server work, works wherever the app runs.
+ *
+ * Resolves to null rather than throwing — a clip whose size we cannot read is
+ * a missing warning, never a broken wizard.
+ */
+function probeVideoSize(url: string): Promise<{ width: number; height: number } | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.muted = true;
+    const done = (result: { width: number; height: number } | null) => {
+      video.removeAttribute('src');
+      video.load();
+      resolve(result);
+    };
+    video.onloadedmetadata = () =>
+      done(video.videoWidth > 0 ? { width: video.videoWidth, height: video.videoHeight } : null);
+    video.onerror = () => done(null);
+    // A clip that never reports metadata must not leave the promise pending.
+    setTimeout(() => done(null), 10_000);
+    video.src = url;
+  });
+}
+
+/** 'portrait' | 'square' | 'landscape' — coarse on purpose, that is the decision. */
+function orientationOf(width: number, height: number): 'portrait' | 'square' | 'landscape' {
+  const ratio = width / height;
+  if (ratio > 1.05) return 'landscape';
+  if (ratio < 0.95) return 'portrait';
+  return 'square';
+}
+
 /** ~2.5 spoken words per second, the same estimate the script prompt uses. */
 function spokenSeconds(text: string): number {
   const words = text.trim().split(/\s+/).filter(Boolean).length;
@@ -99,6 +138,13 @@ export default function MatrixPage() {
 
   // Step 0 — upload source clips (the raw montage material)
   const [clips, setClips] = useState<UploadedFile[]>([]);
+  /**
+   * Real pixel size per clip url, filled in the background as clips arrive.
+   * Feeds the shape warning on the format step — a 16:9 clip forced into a 9:16
+   * frame loses about two thirds of its width, and the user should be told
+   * before spending credits, not after watching the result.
+   */
+  const [clipSizes, setClipSizes] = useState<Record<string, { width: number; height: number }>>({});
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [linkUrl, setLinkUrl] = useState('');
@@ -164,6 +210,39 @@ export default function MatrixPage() {
       cancelled = true;
     };
   }, []);
+  // Probe every clip we do not have a size for yet. Runs on the client only,
+  // costs nothing server-side, and a failure just leaves the warning unshown.
+  useEffect(() => {
+    let cancelled = false;
+    const missing = clips.map((c) => c.url).filter((url) => !(url in clipSizes));
+    if (missing.length === 0) return;
+    void (async () => {
+      for (const url of missing) {
+        const size = await probeVideoSize(url);
+        if (cancelled || !size) continue;
+        setClipSizes((prev) => ({ ...prev, [url]: size }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clips, clipSizes]);
+
+  // Clips whose shape does not match the chosen output — these get cropped.
+  const wantedShape = orientationOf(MATRIX_ASPECTS[aspect].width, MATRIX_ASPECTS[aspect].height);
+  const SHAPE_LABEL = { portrait: 'uspravan', square: 'kvadratan', landscape: 'vodoravan' } as const;
+  const mismatchedClips = clips
+    .map((c) => ({ clip: c, size: clipSizes[c.url] }))
+    .filter((e) => e.size && orientationOf(e.size.width, e.size.height) !== wantedShape)
+    .map((e) => ({ name: e.clip.name, shape: SHAPE_LABEL[orientationOf(e.size!.width, e.size!.height)] }));
+
+  // Below the output height the render is an upscale, which reads as soft. The
+  // 2026-08-10 import came in at 640×360 against a 1920-tall frame.
+  const lowResClips = clips
+    .map((c) => ({ clip: c, size: clipSizes[c.url] }))
+    .filter((e) => e.size && e.size.height < MATRIX_ASPECTS[aspect].height * 0.5)
+    .map((e) => ({ name: e.clip.name, width: e.size!.width, height: e.size!.height }));
+
   const [captionFont, setCaptionFont] = useState<CaptionFont>('Impact');
   const [captionAnim, setCaptionAnim] = useState<CaptionAnim>('pop');
   const [captionColor, setCaptionColor] = useState('#FFE000');
@@ -752,6 +831,21 @@ export default function MatrixPage() {
               {MATRIX_ASPECTS[aspect].width}×{MATRIX_ASPECTS[aspect].height}. Snimak drugog oblika se seče da popuni
               kadar — vodoravni klip u uspravnom formatu gubi oko dve trećine širine.
             </span>
+            {mismatchedClips.length > 0 && (
+              <p className="mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 p-2 text-xs text-amber-100">
+                {mismatchedClips.length === 1
+                  ? `Klip „${mismatchedClips[0].name}” je ${mismatchedClips[0].shape}, a biraš ${aspect}.`
+                  : `${mismatchedClips.length} klipa nisu ${aspect}: ${mismatchedClips.map((c) => c.name).join(', ')}.`}{' '}
+                Krajevi kadra će biti odsečeni. Ili promeni format, ili uzmi snimak istog oblika.
+              </p>
+            )}
+            {lowResClips.length > 0 && (
+              <p className="mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 p-2 text-xs text-amber-100">
+                Slaba rezolucija:{' '}
+                {lowResClips.map((c) => `${c.name} (${c.width}×${c.height})`).join(', ')}. Razvlačenje na{' '}
+                {MATRIX_ASPECTS[aspect].width}×{MATRIX_ASPECTS[aspect].height} će izgledati mutno.
+              </p>
+            )}
           </label>
           <label className="block">
             <span className="mb-1 block text-sm text-zinc-300">Glas</span>
