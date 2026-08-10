@@ -16,6 +16,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: matrix wizard cost display (apps/web/src/app/app/matrix/page.tsx: new `effectiveCount`) — CLEAN @ cb3bcfb (2026-08-10). Written directly by Claude Code during a click-test, not delegated — 4 call sites, one expression. ✅ RUNTIME-VERIFIED through the browser over HMR: with one kept script the footer went "Cena: 75 kredita (5 × 15)" → "Cena: 15 kredita (1 × 15)", directly under the existing "Napraviće se 1 video" line. **Billing itself was never wrong** — `/api/jobs` was already sent the kept-script count (12d27d4); only the number quoted to the user before the click was. `pnpm -r typecheck` green on all 5 projects. **Closes the "NOT click-tested" caveat in the sound-panel verdict @ e04f865** for the caption controls and both audio pickers (see the block below); the *rendered* effect of music/SFX still rests on the 08-05 dB measurements, not on this test.
 REVIEWED: yt-dlp shell escape + rate-limiter fail-open (packages/core/src/queue.ts + apps/web/src/lib/rate-limit.ts + NEW apps/web/src/lib/yt-dlp.ts + NEW apps/web/src/types/youtube-dl-exec-constants.d.ts + apps/web/next.config.mjs + api/{search-clips,import-clip}/route.ts) — CLEAN @ 4683cb3 (2026-08-10). Written directly by Claude Code while click-testing, not delegated — each fix was the thing blocking the next observation. ✅ RUNTIME-VERIFIED end-to-end through the browser: search "masazer za vrat" → 8 Serbian results → "Uzmi" → POST /api/import-clip 200 in 13.5s → card leaves the grid, clip enters the list. Measured before/after on the rate limiter: 223011ms → 740ms. **Supersedes the fail-open claim in the F5/F6-infra verdict @ 4500e0e**, which was CLEAN on a path that could not execute.
 REVIEWED: sound panel + sfx sequencing fix (packages/core/src/types.ts + remotion/src/compositions/MatrixAd.tsx + apps/web/src/app/api/upload/route.ts + apps/web/src/app/app/matrix/page.tsx + apps/worker/src/index.ts) — CLEAN @ e04f865 (2026-08-05). musicVolume prop + sfx url guard Cline-delegated (diff audited, clean); upload audio types, wizard panel, worker wiring and the sfx Sequence fix by Claude Code. ✅ RUNTIME-VERIFIED by measuring the video TAIL, after the voiceover stops, so the sources are distinguishable: voice-only −91.0 dB (silence), +music −33.7 dB, sfx before −91.0 dB, sfx after −30.3 dB. **Found a latent bug doing it:** the CTA sfx `<Audio>` sat inside `OutroCard` with no enclosing `<Sequence>`, so Remotion treated it as starting at frame 0 and it played nothing — broken since F4, invisible because the prop was never set. **NOT click-tested**: the wizard's music/SFX pickers and volume slider are behind auth.
 REVIEWED: voice-id regression fix + caption editor (NEW apps/web/src/app/api/voices/route.ts + apps/web/src/app/app/matrix/page.tsx + apps/worker/src/index.ts + packages/core/src/types.ts + remotion/src/compositions/MatrixAd.tsx) — CLEAN @ 18a004a,8cc7a94 (2026-08-05). Render side Cline-delegated (diff audited, clean); voices route + worker resolve + wizard UI written by Claude Code. ✅ RUNTIME-VERIFIED: a job with the stale `voice_srp_f1` logs the fallback warning and renders with audio (−23.5 dB) instead of dying; captionY 0.3 visibly moves captions to the upper third. **NOT click-tested**: the wizard's new sliders/presets are behind auth and were not exercised in a browser — owner pass needed. `/api/voices` verified only as far as 401-unauthenticated + route registered in the build.
@@ -39,6 +40,96 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-08-10 (second session) — click-tests 2 and 4 pass; OpenRouter writes a script from inside the app for the first time
+**Account:** _(unrecorded)_ · **Machine:** primary. **Commits:** `cb3bcfb` matrix cost
+display · this block. Started from a clean `main...origin/main`, no divergence.
+
+**The harness was fixed before any repo work, and it was not cosmetic.**
+`~/.claude/settings.json` pointed both its `PreToolUse` hook and its statusLine at
+`C:\Users\Stevan\` — a profile that does not exist on this box (it is `C:\Users\stewa\`).
+The force-push guard had therefore **never executed once**; a `git push --force origin main`
+would have gone straight through. Paths corrected and the guard **PROVEN, not assumed**:
+feeding it a `{"tool_name":"Bash","tool_input":{"command":"git push --force origin main"}}`
+payload now exits 2 with `BLOCKED`. It deliberately still permits `--force-with-lease`.
+Note this only matters because two machines are now in play — the exact class of loss
+`aikutak` paid three weeks for.
+
+**No password was ever typed.** The dev server on :3000 was already up from another
+session *and already authenticated* (Supabase cookie for `iqfzhnndhhrprkrkfygd`), so the
+whole wizard was reachable. Worth recording as method: the first probe of
+`/api/generate-scripts` returned **200 while I believed I was anonymous**, which is what
+revealed the live session — the route 401s without a user, so the 200 was the evidence.
+
+**✅ CLICK-TEST 2 PASSED — the OpenRouter ScriptProvider has now run from the application.**
+Until today it had only ever run from the blind-eval harness; INFRASTRUCTURE.md F5 records
+that every Matrix ad ever produced used `MockScriptProvider`'s canned lines. Voice was set
+to **Charlie (male)** on purpose, so the test was the hard one rather than the cosmetic one.
+`POST /api/generate-scripts → 200`, UI showed `1/10 · muški rod`, and the text came back:
+
+> "Celo jutro sam **proveo** za kompjuterom i vrat mi je ukočen! Konačno sam **našao** spas
+> u ovom šijacu masažeru sa grejanjem… Sada je samo 3.490 dinara, dostava je besplatna, a
+> plaćaš tek kad stigne na adresu."
+
+Both gender-bearing forms are masculine, cases hold, no ijekavica leakage, diacritics
+intact, and the price + offer typed into step 2 reached the copy. The chain
+**ElevenLabs voice → server-side `resolveGender` → Serbian prompt** works end-to-end; the
+gender is resolved from `labels.gender` on the server, never trusted from the client.
+
+**✅ CLICK-TEST 4 PASSED — caption and sound controls, both behind auth and never clicked
+until now** (the `@ e04f865` verdict says so explicitly). Font Impact→Montserrat, animation
+Pop→Smooth, position preset "Centar" (which correctly dragged the vertical slider 46→50),
+size 130%, colour input present. Both audio pickers: `POST /api/upload → 200` each, both
+filenames render, and the **"Jačina muzike" slider only appears once music exists** (25%
+default). The WAV used was synthesised in-page rather than uploaded by hand, since the pane
+was not displayed and no file dialog was drivable — `audio/wav` is in the route's
+`ALLOWED_TYPES`, so the path exercised is the real one.
+
+**`/api/voices` is now RUNTIME-VERIFIED beyond the 401-plus-registered check** it had at
+`@ 18a004a`: it returns 50+ real voices including the owner's own clones (Milojica, Matori
+pripovedač, Slobodan, "Stari ja"). A mock could not know those names.
+
+**BUG FOUND AND FIXED — the wizard quoted a price for videos it wasn't going to make**
+(`cb3bcfb`, see the ledger). Only visible once a script is actually kept, which is why
+static review never caught it and why the click-test did.
+
+**No finished video was produced, and here is exactly why** — the owner asked. Three
+blockers, all measured, none of them the renderer:
+1. **Redis is not running** — 127.0.0.1:6379 refused, `REDIS_URL` empty in `.env`.
+2. **No worker process** — only the Next dev server is up.
+3. **Credits: 3, and one Matrix video costs 15.** Account `stewa_kg@yahoo.com`. Lemon
+   Squeezy is entirely unconfigured, so topping up means touching Supabase directly.
+
+The renderer is *not* a blocker: the worker bypasses the factory and constructs
+`LocalRemotionRenderer` directly (`apps/worker/src/index.ts:41`), which is how the 08-05
+renders were produced. `docker` is absent on this machine; `ssh` is present, so the VPS
+Redis tunnel used on 07-18 remains the viable route.
+
+**Aside, no repo impact:** the owner asked for the `caveman` skill
+(github.com/JuliusBrussee/caveman, MIT). It was installed by hand into `~/.claude/skills/`
+rather than via the project's `irm … | iex`, verified byte-identical to source, then
+**deleted again** once the owner chose the official plugin install — `claude plugin install`
+targets `~/.claude/plugins/`, so leaving the hand copy would have meant two skills named
+`caveman`. Read the installer before it runs: it backs `settings.json` up to `.bak` once,
+merges only `SessionStart` + `UserPromptSubmit` (our `PreToolUse` guard is untouched), and
+**will not replace an existing statusLine** — it prints a NOTE and skips its own badge. It
+detects Cline via the VS Code extension, which is absent here, so the `cline` CLI pipeline
+this repo depends on is unaffected.
+
+**Still open, in priority order:**
+1. **Click-test 3 (password recovery by email) NOT STARTED** — it needs a real mail sent to
+   the owner's address and access to that inbox, so it is owner-gated, not blocked on code.
+2. The burned-in-UI defect remains untouched and **the owner explicitly declined to start it
+   this session** — do not open it unprompted. Same standing instruction as image-driven
+   clip search.
+3. The Serbian blind eval (`tests/serbian-script-eval/2026-08-09-11-30-blind.md`) is still
+   **ungraded**, every axis `_`. Until it is graded the script model is an unvalidated
+   default — note that today's single sample was good, which is evidence but not the eval.
+
+**Deliberately left uncommitted:** `.claude/launch.json` (machine-local absolute paths to
+sibling projects, same as every prior session) and `scratchpad/` (untracked).
 
 ---
 
