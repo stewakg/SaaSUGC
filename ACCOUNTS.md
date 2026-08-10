@@ -2,7 +2,7 @@
 
 > Do these in **one sitting** so Cline never stops mid-build waiting on you. Nothing here is needed until **Phase F5**
 > — the whole app (F0–F4) builds on mocks/local first. Use a **dedicated project email** for all of these.
-> **Billing accounts (Lemon Squeezy, later Stripe) must be under the Gewerbe holder (wife) — everything else can be the project email.**
+> **Whatever billing provider is eventually chosen must be under the Gewerbe holder (wife) — everything else can be the project email.**
 >
 > For each: create the account → grab the key → paste into the matching `.env` var (names from `INFRASTRUCTURE.md §6`).
 > Claude/Cline will NOT create accounts, enter passwords, or do KYC for you — that part is yours.
@@ -19,15 +19,14 @@
 | 8 | **Vercel** (vercel.com) | Deploy the Next.js web app | Yes (hobby) | (linked via CLI/GitHub, no manual key) |
 | 9 | **GitHub** | Repo hosting / CI | Yes | (SSH / token) |
 | 10 | **Domain** (registrar of choice) | Your brand domain + email | ~€10/yr | DNS to Vercel; email forwarding |
-| 11 | **Lemon Squeezy** (lemonsqueezy.com) — *F6, needs USt-IdNr* | Billing (Merchant of Record) | Rev-share fees | `LEMONSQUEEZY_API_KEY`, `LEMONSQUEEZY_STORE_ID`, `LEMONSQUEEZY_WEBHOOK_SECRET` |
+| ~~11~~ | ~~**Lemon Squeezy**~~ — **DROPPED 2026-08-10**, owner's decision: it will not be used. Code and env vars removed. | *no billing provider chosen* | — | *none* |
 
-**Also have ready (payout):** a **Wise** or **Payoneer** (or bank) account for Lemon Squeezy payouts — under the Gewerbe holder.
+**Also have ready (payout):** a **Wise** or **Payoneer** (or bank) account for whatever payment provider replaces Lemon Squeezy — under the Gewerbe holder.
 
 **Notes**
-- #11 Lemon Squeezy: in addition to the three keys above, once the store + its products/variants exist you must also
-  fill in `LEMONSQUEEZY_VARIANT_MAP` — a JSON object mapping each `CREDIT_PACKS` id (e.g. `pack_starter`) to its
-  Lemon Squeezy variant id, e.g. `LEMONSQUEEZY_VARIANT_MAP={"pack_starter":"123456","pack_creator":"123457"}`.
-  Without it the checkout route can't create a Lemon Squeezy checkout (the provider falls back to mock billing).
+- #11 was Lemon Squeezy and is gone — there is **no signup to do for billing**. In dev, credits come from the
+  dashboard's "Dodaj kredit" button, which hits `GET /api/dev/credits/add` (404s in production). Picking a real
+  provider is still a launch blocker; see `INFRASTRUCTURE.md` F6.
 - #6 R2: in addition to the four keys above, you must also set `R2_PUBLIC_URL` — the public read URL for the bucket.
   Enable either a custom domain or the R2.dev subdomain from the Cloudflare dashboard (Settings → Public access),
   then paste it as `R2_PUBLIC_URL` (writing to a bucket doesn't tell you how to read it back). Same applies to

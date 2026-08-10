@@ -46,7 +46,7 @@
           │  Supabase   │ │ R2 / S3   │  storage of rendered assets
           │ Postgres+Auth│ └───────────┘
           └─────────────┘
-   Billing: abstract layer → mock (dev) → Lemon Squeezy (launch)
+   Billing: NONE — removed 2026-08-10, no provider chosen (dev credits via /api/dev/credits/add)
 ```
 
 | Layer | Choice | Notes |
@@ -59,7 +59,7 @@
 | Voice | **ElevenLabs** (`eleven_v3`, params `stability`, `voice_id`, `speed`) | direct |
 | Script | **Anthropic Claude (Opus)** | direct |
 | Storage | **Cloudflare R2** (free egress) or S3 | abstracted |
-| Billing | **abstract → mock → Lemon Squeezy** | wired last (needs USt-ID) |
+| Billing | **none — undecided** | Lemon Squeezy removed 2026-08-10; nothing chosen yet |
 
 **Reference repos (MIT) — copy modules, do NOT fork wholesale:**
 - Open-AI-UGC (`github.com/Anil-matcha/Open-AI-UGC`) — credits/Stripe patterns, image-to-video reference for the influencer feature.
@@ -76,7 +76,7 @@
 ```
 /apps/web            Next.js app (Vercel)         — UI, auth, API routes, enqueues jobs
 /apps/worker         Node worker (Hetzner/Docker) — queue consumer, generation orchestration; Dockerfile lives here
-/packages/core       shared TS: interfaces + mock impls (AIProvider, Renderer, Storage, Billing), zod env, types
+/packages/core       shared TS: interfaces + mock impls (AIProvider, Renderer, Storage, Scraper), zod env, types
 /packages/db         Supabase schema, SQL migrations, generated types, typed client helpers
 /remotion            Remotion project — ad compositions (templates, captions, transitions)
 /infra               docker-compose (local Redis; prod worker+Redis in docker-compose.prod.yml)
@@ -128,7 +128,7 @@ the source file's doc-comments are richer than the copy ever was.
 | `VoiceProvider` | silent placeholder mp3 | ElevenLabs (`voice.elevenlabs.ts`) |
 | `Renderer` | placeholder mp4 | local Remotion (dev) / Lambda (prod) |
 | `Storage` | local disk + `/api/storage` | R2/S3 (`storage.r2.ts`) |
-| `Billing` | instant credit in dev | Lemon Squeezy (`billing.lemonsqueezy.ts`) |
+| ~~`Billing`~~ | *interface deleted 2026-08-10* | dev credits: `GET /api/dev/credits/add` → `add_credits` RPC |
 | `Scraper` | canned product | **real from day one** — fetch + cheerio, mock only as fallback |
 | `Logger` | console | console (structured) |
 
@@ -382,7 +382,8 @@ the source file's doc-comments are richer than the copy ever was.
 - **DoD:** each tool works with real providers behind the same interfaces; failures don't bill users; mocks still usable when keys absent.
 
 ### F6 — Billing + launch 🟡
-- [x] `Billing` real = **Lemon Squeezy** (Merchant of Record): credit packs, checkout, webhook → add credits. (Needs USt-IdNr — wire when available.) — *code-complete + typechecked, but NEVER live-tested against a real Lemon Squeezy account/webhook (none exists yet, same situation as `scraper.real.ts` was in F3). Lemon Squeezy's dashboard has a "send test event" feature — use it to verify `parseWebhook` once the account exists.*
+- [ ] ⚠️ **No payment provider. Lemon Squeezy was DELETED 2026-08-10** on the owner's decision ("neće se koristiti"). It had been code-complete and typechecked but was never called with a real key, so nothing working was lost. Removed wholesale rather than left dormant: `billing.lemonsqueezy.ts`, `POST /api/billing/checkout`, `POST /api/billing/webhook`, the `Billing` interface, `MockBilling`, its factory switch, and the four `LEMONSQUEEZY_*` env vars. The abstraction went too — one mock implementation with no caller is not an abstraction, and the next provider's webhook shape will not be Lemon Squeezy's. **Kept:** `CREDIT_PACKS` (still drives the dashboard cards), migration 0004's `add_credits_idempotent` (harmless, and any future provider wants it), and `GET /api/dev/credits/add`, which the "Dodaj kredit" button now hits directly — it 404s under `NODE_ENV=production`, so it cannot leak free credits.
+  - [ ] **Choosing a replacement is a launch blocker** and has not been started. Until then there is no way for a real user to buy credits.
 - [~] Deploy: **web → Vercel** (still manual/TODO — no Vercel account exists yet), **worker → Hetzner** (Docker container next to "aikutak", + Redis) — *`apps/worker/Dockerfile` + `infra/docker-compose.prod.yml` written, isolated container/volume names (compose project `adgen`) so it can't collide with "aikutak" on the same box. **LIVE-VERIFIED 2026-07-18**: built and deployed for real on the VPS (`/opt/adgen-saas`), `adgen-worker-prod` + `adgen-redis-prod` running stably, and a real job was processed end-to-end (see the F2 DoD note). Two real bugs surfaced only by this live deploy and fixed: (1) `packages/core/src/env.ts` — `z.string().url().optional()` rejects an empty string, but `.env`/Docker `--env-file` write unset optional keys as `KEY=` (empty string, not absent) — added an `optionalUrl()` preprocessor treating `''` as `undefined`; (2) `packages/core/src/queue.ts` — same failure class, `??` doesn't fall through on `''`, so a blank `REDIS_URL=` tried to connect to Redis at the literal empty string instead of defaulting — fixed with explicit `|| undefined` before the `??` chain; (3) `apps/worker/Dockerfile` — the Playwright `v1.48.0-jammy` base image ships Node 20.18.0, but `@supabase/supabase-js` needs Node 22+'s native `WebSocket` global, causing a crash loop until a NodeSource Node 22 install was added right after the `FROM` line. The Playwright base image tag itself needed no change. Domain + DNS still TODO (needs a registrar decision + money — your call, not autonomous).*
   ⚠️ **If web does end up on Vercel:** `POST /api/upload` (F5 tool wizards) proxies the file through the server, but
   Vercel Serverless Functions have a platform-level request-body limit (historically ~4.5MB) that isn't
@@ -443,8 +444,7 @@ ANTHROPIC_API_KEY=         KIE_API_KEY=        FAL_API_KEY=        ELEVENLABS_AP
 R2_ACCOUNT_ID= R2_ACCESS_KEY_ID= R2_SECRET_ACCESS_KEY= R2_BUCKET= R2_PUBLIC_URL=   # or AWS_* + AWS_S3_PUBLIC_URL for S3
 # Remotion Lambda (prod)
 REMOTION_AWS_ACCESS_KEY_ID= REMOTION_AWS_SECRET_ACCESS_KEY= REMOTION_LAMBDA_FUNCTION_NAME= REMOTION_SERVE_URL= REMOTION_AWS_REGION=
-# Billing (F6)
-LEMONSQUEEZY_API_KEY= LEMONSQUEEZY_STORE_ID= LEMONSQUEEZY_WEBHOOK_SECRET= LEMONSQUEEZY_VARIANT_MAP=
+# Billing — none. Removed 2026-08-10, no provider chosen.
 ```
 
 ---

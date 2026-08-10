@@ -39,8 +39,12 @@ is the number that decides whether `edit` at 18 credits is profitable or a loss 
 
 ## Two liabilities to keep an eye on
 
-1. **Lemon Squeezy takes ~5% + €0.50 per transaction** (Merchant of Record). A real
-   deduction that comes off before COGS — factor it into any margin math.
+1. **Payment-processor fees are unknown, because there is no processor.** Lemon Squeezy
+   (~5% + €0.50 per transaction as a Merchant of Record) was the assumption and was
+   dropped on 2026-08-10 — the code is deleted and no replacement is chosen. Every margin
+   figure below therefore omits a processing fee that will exist. Whatever is picked, its
+   cut comes off before COGS; a Merchant of Record costs more than a bare gateway but
+   absorbs EU VAT handling, which is the reason this was the plan in the first place.
 2. **"Neiskorišćeni krediti se prenose"** (unused credits roll over) is a **deferred
    liability**. A user who hoards credits for months and then burns them all on
    expensive-tool usage in one month can spike that month's COGS well above what was

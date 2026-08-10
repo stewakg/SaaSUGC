@@ -10,7 +10,6 @@
 import { hasKey, loadEnv } from '../env.ts';
 import type {
   AIProvider,
-  Billing,
   Renderer,
   ScriptProvider,
   Scraper,
@@ -19,7 +18,6 @@ import type {
 } from '../interfaces.ts';
 import {
   MockAIProvider,
-  MockBilling,
   MockRenderer,
   MockScriptProvider,
   MockScraper,
@@ -32,7 +30,6 @@ import { ElevenLabsVoiceProvider } from './voice.elevenlabs.ts';
 import { S3CompatibleStorage } from './storage.r2.ts';
 import { RemotionLambdaRenderer } from './renderer.lambda.ts';
 import type { AwsRegion } from '@remotion/lambda-client';
-import { LemonSqueezyBilling } from './billing.lemonsqueezy.ts';
 import { RealScraper } from './scraper.real.ts';
 
 export interface Providers {
@@ -41,7 +38,6 @@ export interface Providers {
   voice: VoiceProvider;
   renderer: Renderer;
   storage: Storage;
-  billing: Billing;
   scraper: Scraper;
 }
 
@@ -64,15 +60,13 @@ export function createProviders(overrides: Partial<Providers> = {}): Providers {
 
   const renderer: Renderer = overrides.renderer ?? createRendererProvider(env);
 
-  const billing: Billing = overrides.billing ?? createBillingProvider(env);
-
   // Scraper is REAL-capable from day one (no paid account needed) — F3
   // enables it by default. FORCE_MOCK still gates it for deterministic tests;
   // RealScraper itself also falls back to mock data per-request on any
   // fetch/parse failure, so a bad URL never hard-fails the wizard.
   const scraper: Scraper = overrides.scraper ?? (env.FORCE_MOCK ? new MockScraper() : new RealScraper());
 
-  return { ai, script, voice, renderer, storage, billing, scraper };
+  return { ai, script, voice, renderer, storage, scraper };
 }
 
 /**
@@ -89,7 +83,8 @@ function createAIProvider(env: ReturnType<typeof loadEnv>): AIProvider {
 
 /**
  * Script provider switch (F5). Never throws on partial config — a missing
- * OPENROUTER_API_KEY just means mock. Same pattern as createBillingProvider.
+ * OPENROUTER_API_KEY just means mock — the same partial-config posture every
+ * switch in this file takes.
  *
  * Gated on OPENROUTER_API_KEY since 2026-08-09. It previously gated on
  * ANTHROPIC_API_KEY, a key that never existed and never would, so this branch
@@ -107,7 +102,7 @@ function createScriptProvider(env: ReturnType<typeof loadEnv>): ScriptProvider {
 /**
  * Voice provider switch (F5). Needs the Storage instance (ElevenLabs persists
  * MP3s there). Never throws on partial config — missing ELEVENLABS_API_KEY
- * means mock. Same pattern as createBillingProvider.
+ * means mock.
  */
 function createVoiceProvider(env: ReturnType<typeof loadEnv>, storage: Storage): VoiceProvider {
   if (!hasKey(env, 'ELEVENLABS_API_KEY')) return new MockVoiceProvider();
@@ -118,7 +113,7 @@ function createVoiceProvider(env: ReturnType<typeof loadEnv>, storage: Storage):
  * Storage provider switch (F5): R2 if R2_BUCKET is set, S3 if AWS_S3_BUCKET is
  * set, otherwise mock local disk. Never throws on partial config — if a bucket
  * var is present but its companion creds/public-URL are missing, warn and fall
- * back to mock. Same pattern as createBillingProvider.
+ * back to mock.
  */
 function createStorageProvider(env: ReturnType<typeof loadEnv>): Storage {
   if (hasKey(env, 'R2_BUCKET')) {
@@ -179,33 +174,6 @@ function createRendererProvider(env: ReturnType<typeof loadEnv>): Renderer {
     serveUrl: env.REMOTION_SERVE_URL!,
     region: (env.REMOTION_AWS_REGION ?? 'eu-central-1') as AwsRegion,
   });
-}
-
-/**
- * Billing provider switch (F6). Kept out of `loadReal` on purpose: Lemon
- * Squeezy is wired now (code-complete, never live-tested), whereas the other
- * providers still throw from loadReal until F5. Must not throw on a partial
- * config — a user who sets only LEMONSQUEEZY_API_KEY without the
- * store/webhook/variant-map vars yet must NOT crash the whole worker/web
- * process at module load; fall back to mock with a warning instead.
- */
-function createBillingProvider(env: ReturnType<typeof loadEnv>): Billing {
-  if (!hasKey(env, 'LEMONSQUEEZY_API_KEY')) return new MockBilling();
-  try {
-    return new LemonSqueezyBilling({
-      apiKey: env.LEMONSQUEEZY_API_KEY!,
-      storeId: env.LEMONSQUEEZY_STORE_ID ?? '',
-      webhookSecret: env.LEMONSQUEEZY_WEBHOOK_SECRET ?? '',
-      variantMapJson: env.LEMONSQUEEZY_VARIANT_MAP,
-    });
-  } catch (err) {
-    console.warn(
-      `[core] LEMONSQUEEZY_API_KEY is set but billing config is incomplete — falling back to mock billing: ${
-        err instanceof Error ? err.message : err
-      }`,
-    );
-    return new MockBilling();
-  }
 }
 
 /** Quick helper for code that only needs one provider. */

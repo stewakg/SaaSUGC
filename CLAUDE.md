@@ -103,8 +103,11 @@ on 2026-08-05 (an absolutize fix vanished, and the symptom looked like a Remotio
 Wait for the completion notification, then edit.
 
 ## Baseline gates
-`pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core` + `@adgen/worker` — 25 tests
-as of 2026-07-20, covering the montage chain + caption/cost logic), and
-`pnpm --filter @adgen/web build` must pass before calling anything done. All F5/F6 real providers (kie.ai/fal.ai/Claude/ElevenLabs/R2/Lambda/
-LemonSqueezy) are CODE-COMPLETE but have NEVER been called with a real key — treat
-them as unverified until a real call happens.
+`pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core` + `@adgen/worker` — 41 tests
+as of 2026-08-10, covering the montage chain, caption/cost logic, approved scripts and the
+OpenRouter provider), and `pnpm --filter @adgen/web build` must pass before calling
+anything done. Provider reality as of 2026-08-10: **kie.ai, fal.ai, ElevenLabs and
+OpenRouter have all been called live** (see `INFRASTRUCTURE.md` F5); **R2 and Remotion
+Lambda are still CODE-COMPLETE and have never been called with a real key** — treat those
+two as unverified until a real call happens. Billing no longer exists at all: Lemon Squeezy
+was deleted 2026-08-10 and nothing replaced it.

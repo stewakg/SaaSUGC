@@ -4,9 +4,18 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * Starts a credit-pack purchase via the active Billing provider — a real
- * Lemon Squeezy hosted checkout once configured (F6), or the dev mock
- * "instant credit" redirect (see /api/dev/credits/add) until then.
+ * Grants a credit pack instantly — DEV ONLY.
+ *
+ * This used to POST /api/billing/checkout and follow whatever URL the active
+ * Billing provider returned (a Lemon Squeezy hosted checkout in production, the
+ * dev route in development). Lemon Squeezy was removed on 2026-08-10 and no
+ * payment provider replaced it, so the indirection had exactly one destination
+ * left and is gone: the button navigates straight to the dev route.
+ *
+ * `GET /api/dev/credits/add` 404s when NODE_ENV is production, so shipping this
+ * button as-is cannot grant free credits to a real user — it simply stops
+ * working, which is the correct failure. Wiring it to a real provider is a
+ * launch blocker tracked in INFRASTRUCTURE.md F6.
  */
 export function AddCreditsButton({
   packId,
@@ -16,32 +25,17 @@ export function AddCreditsButton({
   className?: string;
 }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  async function handleClick() {
+  function handleClick() {
     setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packId }),
-      });
-      const data = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !data.url) throw new Error(data.error ?? 'Greška pri pokretanju kupovine.');
-      window.location.href = data.url;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Nepoznata greška.');
-      setLoading(false);
-    }
+    // A plain navigation, not fetch: the route answers with a redirect back to
+    // /app?credited=1, and letting the browser follow it refreshes the balance.
+    window.location.href = `/api/dev/credits/add?pack=${encodeURIComponent(packId)}`;
   }
 
   return (
-    <div>
-      <button onClick={handleClick} disabled={loading} className={cn(className, 'disabled:opacity-50')}>
-        {loading ? '…' : 'Dodaj kredit'}
-      </button>
-      {error && <p className="mt-1 text-xs text-red-300">{error}</p>}
-    </div>
+    <button onClick={handleClick} disabled={loading} className={cn(className, 'disabled:opacity-50')}>
+      {loading ? '…' : 'Dodaj kredit'}
+    </button>
   );
 }
