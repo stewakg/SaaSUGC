@@ -533,7 +533,7 @@ export default function MatrixPage() {
       label: 'Upload klipova',
       content: (
         <div className="space-y-4">
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-txt-mid">
             Otpremi jedan ili više video snimaka — od njih se pravi reklama. Svaki snimak može biti kompilacija više kadrova.
           </p>
           <label className="block">
@@ -542,20 +542,20 @@ export default function MatrixPage() {
               accept="video/mp4,video/quicktime,video/webm"
               multiple
               onChange={(e) => void handleFilesChange(e)}
-              className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-400/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-400/20"
+              className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
             />
           </label>
-          {uploading && <p className="text-sm text-zinc-300">Otpremam…</p>}
-          {uploadError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{uploadError}</p>}
-          <div className="border-t border-white/10 pt-4">
-            <span className="mb-1 block text-sm text-zinc-300">…ili nalepi link (TikTok / YouTube / Instagram)</span>
+          {uploading && <p className="text-sm text-txt-mid">Otpremam…</p>}
+          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{uploadError}</p>}
+          <div className="border-t border-line pt-4">
+            <span className="mb-1 block text-sm text-txt-mid">…ili nalepi link (TikTok / YouTube / Instagram)</span>
             <div className="flex gap-2">
               <input
                 type="url"
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
                 placeholder="https://www.tiktok.com/@…/video/…"
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+                className="input"
               />
               <button
                 type="button"
@@ -566,11 +566,11 @@ export default function MatrixPage() {
                 {importingLink ? 'Uvozim…' : 'Uvezi'}
               </button>
             </div>
-            {linkError && <p className="mt-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{linkError}</p>}
+            {linkError && <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{linkError}</p>}
           </div>
 
-          <div className="border-t border-white/10 pt-4">
-            <span className="mb-1 block text-sm text-zinc-300">…ili pretraži snimke po proizvodu</span>
+          <div className="border-t border-line pt-4">
+            <span className="mb-1 block text-sm text-txt-mid">…ili pretraži snimke po proizvodu</span>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -584,7 +584,7 @@ export default function MatrixPage() {
                 }}
                 placeholder="npr. masažer za vrat"
                 maxLength={120}
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+                className="input"
               />
               <button
                 type="button"
@@ -596,21 +596,21 @@ export default function MatrixPage() {
               </button>
             </div>
             {searchError && (
-              <p className="mt-2 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{searchError}</p>
+              <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{searchError}</p>
             )}
             {!searching && !searchError && searchResults.length === 0 && searchQuery.trim() !== '' && (
-              <p className="mt-2 text-sm text-zinc-500">Nema rezultata za taj upit.</p>
+              <p className="mt-2 text-sm text-txt-low">Nema rezultata za taj upit.</p>
             )}
             {searchResults.length > 0 && (
               <>
-                <p className="mt-3 text-xs text-zinc-500">
+                <p className="mt-3 text-xs text-txt-low">
                   Pogledaj snimak pre nego što ga uzmeš — proveri da nema tuđih komentara ili vodenog žiga.
                 </p>
                 <ul className="mt-2 grid gap-2 sm:grid-cols-2">
                   {searchResults.map((s) => (
                     <li
                       key={s.id}
-                      className="flex gap-3 rounded-lg border border-white/10 bg-ink-900 p-2"
+                      className="flex gap-3 rounded-card border border-line bg-ground p-2"
                     >
                       {s.thumbnail && (
                         // eslint-disable-next-line @next/next/no-img-element -- remote YouTube thumbnail, not a local asset
@@ -622,8 +622,8 @@ export default function MatrixPage() {
                         />
                       )}
                       <div className="min-w-0 flex-1">
-                        <p className="line-clamp-2 text-xs text-zinc-200">{s.title}</p>
-                        <p className="mt-0.5 text-[11px] text-zinc-500">
+                        <p className="line-clamp-2 text-xs text-txt-hi">{s.title}</p>
+                        <p className="mt-0.5 text-[11px] text-txt-low">
                           {s.channel ?? 'nepoznat kanal'}
                           {s.durationSec !== null && ` · ${formatDuration(s.durationSec)}`}
                         </p>
@@ -632,7 +632,7 @@ export default function MatrixPage() {
                             href={s.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] text-zinc-400 underline-offset-2 hover:text-zinc-200 hover:underline"
+                            className="text-[11px] text-txt-mid underline-offset-2 hover:text-txt-hi hover:underline"
                           >
                             Pogledaj
                           </a>
@@ -640,7 +640,7 @@ export default function MatrixPage() {
                             type="button"
                             onClick={() => void takeSuggestion(s)}
                             disabled={takingId !== null}
-                            className="text-[11px] font-medium text-brand-300 hover:text-brand-200 disabled:opacity-50"
+                            className="text-[11px] font-medium text-accent-text hover:text-accent disabled:opacity-50"
                           >
                             {takingId === s.id ? 'Uzimam…' : 'Uzmi'}
                           </button>
@@ -657,15 +657,15 @@ export default function MatrixPage() {
               {clips.map((c, i) => (
                 <li
                   key={c.url}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-ink-900 px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-control border border-line bg-ground px-3 py-2"
                 >
-                  <span className="truncate text-sm text-zinc-300">
+                  <span className="truncate text-sm text-txt-mid">
                     {i + 1}. {c.name}
                   </span>
                   <button
                     type="button"
                     onClick={() => removeClip(i)}
-                    className="shrink-0 text-xs text-red-300 hover:text-red-200"
+                    className="shrink-0 text-xs text-err hover:text-err/80"
                   >
                     Ukloni
                   </button>
@@ -682,14 +682,14 @@ export default function MatrixPage() {
       content: (
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Link ka proizvodu</span>
+            <span className="mb-1 block text-sm text-txt-mid">Link ka proizvodu</span>
             <div className="flex gap-2">
               <input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://prodavnica.rs/proizvod/..."
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+                className="input"
               />
               <button
                 type="button"
@@ -700,12 +700,12 @@ export default function MatrixPage() {
                 {scrapePhase === 'loading' ? 'Uvozim…' : 'Uvezi'}
               </button>
             </div>
-            <span className="mt-1 block text-xs text-zinc-500">
+            <span className="mt-1 block text-xs text-txt-low">
               Povuci naziv, cenu i opis sa stranice proizvoda — AI iz toga piše skriptu. Možeš i ručno da uneseš.
             </span>
           </label>
 
-          {scrapeError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{scrapeError}</p>}
+          {scrapeError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{scrapeError}</p>}
 
           {images.length > 0 && (
             <div className="flex gap-2 overflow-x-auto">
@@ -715,39 +715,39 @@ export default function MatrixPage() {
                   key={src}
                   src={src}
                   alt=""
-                  className="h-20 w-20 shrink-0 rounded-lg border border-white/10 object-cover"
+                  className="h-20 w-20 shrink-0 rounded-card border border-line object-cover"
                 />
               ))}
             </div>
           )}
 
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Naziv proizvoda</span>
+            <span className="mb-1 block text-sm text-txt-mid">Naziv proizvoda</span>
             <input
               value={productTitle}
               onChange={(e) => setProductTitle(e.target.value)}
               placeholder="npr. Bežične slušalice Pro"
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+              className="input"
             />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Cena</span>
+            <span className="mb-1 block text-sm text-txt-mid">Cena</span>
             <input
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="npr. 2.990 RSD"
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+              className="input"
             />
           </label>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-sm text-zinc-300">Jezik</span>
+              <span className="mb-1 block text-sm text-txt-mid">Jezik</span>
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as UiLanguage)}
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+                className="input"
               >
                 {LANGUAGES.map((l) => (
                   <option key={l.value} value={l.value}>
@@ -757,11 +757,11 @@ export default function MatrixPage() {
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm text-zinc-300">Ton skripte</span>
+              <span className="mb-1 block text-sm text-txt-mid">Ton skripte</span>
               <select
                 value={tone}
                 onChange={(e) => setTone(e.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+                className="input"
               >
                 {TONES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -773,13 +773,13 @@ export default function MatrixPage() {
           </div>
 
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Prednosti / ponuda (op.)</span>
+            <span className="mb-1 block text-sm text-txt-mid">Prednosti / ponuda (op.)</span>
             <textarea
               value={offerNotes}
               onChange={(e) => setOfferNotes(e.target.value)}
               rows={2}
               placeholder="npr. besplatna dostava, 20% popust, plaćanje pouzećem"
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+              className="input resize-y"
             />
           </label>
         </div>
@@ -791,17 +791,17 @@ export default function MatrixPage() {
       content: (
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Broj varijanti videa</span>
+            <span className="mb-1 block text-sm text-txt-mid">Broj varijanti videa</span>
             <div className="flex gap-2">
               {[5, 10, 15].map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setCount(n)}
-                  className={`h-9 min-w-9 px-2 rounded-lg border text-sm transition ${
+                  className={`h-9 min-w-9 px-2 rounded-control border text-sm font-mono tabular transition ${
                     count === n
-                      ? 'border-brand-400/50 bg-brand-400/10 text-brand-200'
-                      : 'border-white/10 text-zinc-400 hover:bg-white/5'
+                      ? 'border-accent-ring bg-accent-soft text-accent-text'
+                      : 'border-line text-txt-mid hover:bg-panel-2'
                   }`}
                 >
                   {n}
@@ -810,29 +810,32 @@ export default function MatrixPage() {
             </div>
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Format videa</span>
+            <span className="mb-1 block text-sm text-txt-mid">Format videa</span>
             <div className="flex flex-wrap gap-2">
               {(Object.keys(MATRIX_ASPECTS) as MatrixAspect[]).map((a) => (
                 <button
                   key={a}
                   type="button"
                   onClick={() => setAspect(a)}
-                  className={`h-9 rounded-lg border px-3 text-sm transition ${
+                  className={`h-9 rounded-control border px-3 text-sm transition ${
                     aspect === a
-                      ? 'border-brand-400/50 bg-brand-400/10 text-brand-200'
-                      : 'border-white/10 text-zinc-400 hover:bg-white/5'
+                      ? 'border-accent-ring bg-accent-soft text-accent-text'
+                      : 'border-line text-txt-mid hover:bg-panel-2'
                   }`}
                 >
                   {a} · {MATRIX_ASPECTS[a].label}
                 </button>
               ))}
             </div>
-            <span className="mt-1 block text-xs text-zinc-500">
-              {MATRIX_ASPECTS[aspect].width}×{MATRIX_ASPECTS[aspect].height}. Snimak drugog oblika se seče da popuni
-              kadar — vodoravni klip u uspravnom formatu gubi oko dve trećine širine.
+            <span className="mt-1 block text-xs text-txt-low">
+              <span className="font-mono tabular">
+                {MATRIX_ASPECTS[aspect].width}×{MATRIX_ASPECTS[aspect].height}
+              </span>
+              . Snimak drugog oblika se seče da popuni kadar — vodoravni klip u uspravnom formatu gubi oko dve
+              trećine širine.
             </span>
             {mismatchedClips.length > 0 && (
-              <p className="mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 p-2 text-xs text-amber-100">
+              <p className="mt-2 rounded-control border border-warn/40 bg-warn/10 p-2 text-xs text-warn">
                 {mismatchedClips.length === 1
                   ? `Klip „${mismatchedClips[0].name}” je ${mismatchedClips[0].shape}, a biraš ${aspect}.`
                   : `${mismatchedClips.length} klipa nisu ${aspect}: ${mismatchedClips.map((c) => c.name).join(', ')}.`}{' '}
@@ -840,7 +843,7 @@ export default function MatrixPage() {
               </p>
             )}
             {lowResClips.length > 0 && (
-              <p className="mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 p-2 text-xs text-amber-100">
+              <p className="mt-2 rounded-control border border-warn/40 bg-warn/10 p-2 text-xs text-warn">
                 Slaba rezolucija:{' '}
                 {lowResClips.map((c) => `${c.name} (${c.width}×${c.height})`).join(', ')}. Razvlačenje na{' '}
                 {MATRIX_ASPECTS[aspect].width}×{MATRIX_ASPECTS[aspect].height} će izgledati mutno.
@@ -848,11 +851,11 @@ export default function MatrixPage() {
             )}
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Glas</span>
+            <span className="mb-1 block text-sm text-txt-mid">Glas</span>
             <select
               value={voiceId}
               onChange={(e) => setVoiceId(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+              className="input"
             >
               {voices.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -863,22 +866,22 @@ export default function MatrixPage() {
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-sm text-zinc-300">Font titlova</span>
+              <span className="mb-1 block text-sm text-txt-mid">Font titlova</span>
               <select
                 value={captionFont}
                 onChange={(e) => setCaptionFont(e.target.value as CaptionFont)}
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+                className="input"
               >
                 <option value="Impact">Impact</option>
                 <option value="Montserrat">Montserrat</option>
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm text-zinc-300">Animacija</span>
+              <span className="mb-1 block text-sm text-txt-mid">Animacija</span>
               <select
                 value={captionAnim}
                 onChange={(e) => setCaptionAnim(e.target.value as CaptionAnim)}
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+                className="input"
               >
                 <option value="pop">Pop</option>
                 <option value="smooth">Smooth</option>
@@ -887,19 +890,19 @@ export default function MatrixPage() {
             </label>
           </div>
           <label className="flex items-center gap-3">
-            <span className="text-sm text-zinc-300">Boja aktivne reči</span>
+            <span className="text-sm text-txt-mid">Boja aktivne reči</span>
             <input
               type="color"
               value={captionColor}
               onChange={(e) => setCaptionColor(e.target.value)}
-              className="h-9 w-14 rounded-lg border border-white/10 bg-ink-900"
+              className="h-9 w-14 rounded-control border border-line bg-ground"
             />
-            <span className="text-xs text-zinc-500">{captionColor}</span>
+            <span className="text-xs text-txt-low font-mono tabular">{captionColor}</span>
           </label>
 
-          <div className="rounded-xl border border-white/10 bg-ink-900/50 p-3">
+          <div className="rounded-card border border-line bg-ground/50 p-3">
             <div className="mb-2 flex flex-wrap items-center gap-2">
-              <span className="text-sm text-zinc-300">Pozicija titla</span>
+              <span className="text-sm text-txt-mid">Pozicija titla</span>
               {CAPTION_PRESETS.map((p) => {
                 const active = Math.abs(captionY - p.y) < 0.01 && Math.abs(captionX - 0.5) < 0.01;
                 return (
@@ -910,10 +913,10 @@ export default function MatrixPage() {
                       setCaptionX(0.5);
                       setCaptionY(p.y);
                     }}
-                    className={`rounded-lg border px-2 py-1 text-xs transition ${
+                    className={`rounded-control border px-2 py-1 text-xs transition ${
                       active
-                        ? 'border-brand-400/50 bg-brand-400/10 text-brand-200'
-                        : 'border-white/10 text-zinc-400 hover:border-white/20 hover:text-zinc-200'
+                        ? 'border-accent-ring bg-accent-soft text-accent-text'
+                        : 'border-line text-txt-mid hover:border-line-strong hover:text-txt-hi'
                     }`}
                   >
                     {p.label}
@@ -923,9 +926,9 @@ export default function MatrixPage() {
             </div>
 
             <label className="mb-2 block">
-              <span className="mb-1 flex justify-between text-xs text-zinc-400">
+              <span className="mb-1 flex justify-between text-xs text-txt-mid">
                 <span>Gore / dole</span>
-                <span>{Math.round(captionY * 100)}%</span>
+                <span className="font-mono tabular">{Math.round(captionY * 100)}%</span>
               </span>
               <input
                 type="range"
@@ -933,14 +936,14 @@ export default function MatrixPage() {
                 max={92}
                 value={Math.round(captionY * 100)}
                 onChange={(e) => setCaptionY(Number(e.target.value) / 100)}
-                className="w-full accent-brand-400"
+                className="w-full accent-accent"
               />
             </label>
 
             <label className="mb-2 block">
-              <span className="mb-1 flex justify-between text-xs text-zinc-400">
+              <span className="mb-1 flex justify-between text-xs text-txt-mid">
                 <span>Levo / desno</span>
-                <span>{Math.round(captionX * 100)}%</span>
+                <span className="font-mono tabular">{Math.round(captionX * 100)}%</span>
               </span>
               <input
                 type="range"
@@ -948,14 +951,14 @@ export default function MatrixPage() {
                 max={85}
                 value={Math.round(captionX * 100)}
                 onChange={(e) => setCaptionX(Number(e.target.value) / 100)}
-                className="w-full accent-brand-400"
+                className="w-full accent-accent"
               />
             </label>
 
             <label className="block">
-              <span className="mb-1 flex justify-between text-xs text-zinc-400">
+              <span className="mb-1 flex justify-between text-xs text-txt-mid">
                 <span>Veličina</span>
-                <span>{Math.round(captionScale * 100)}%</span>
+                <span className="font-mono tabular">{Math.round(captionScale * 100)}%</span>
               </span>
               <input
                 type="range"
@@ -963,38 +966,38 @@ export default function MatrixPage() {
                 max={150}
                 value={Math.round(captionScale * 100)}
                 onChange={(e) => setCaptionScale(Number(e.target.value) / 100)}
-                className="w-full accent-brand-400"
+                className="w-full accent-accent"
               />
             </label>
 
             {captionY > 0.72 ? (
-              <p className="mt-2 text-xs text-amber-400/90">
+              <p className="mt-2 text-xs text-warn">
                 ⚠ Titl je nisko — TikTok i Reels tu crtaju svoj interfejs (ime naloga, opis, muzika),
                 pa se može preklopiti. Preporuka: ostani iznad 70%.
               </p>
             ) : null}
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-ink-900/50 p-3">
-            <span className="mb-2 block text-sm text-zinc-300">Zvuk (opciono)</span>
+          <div className="rounded-card border border-line bg-ground/50 p-3">
+            <span className="mb-2 block text-sm text-txt-mid">Zvuk (opciono)</span>
 
             <label className="mb-3 block">
-              <span className="mb-1 block text-xs text-zinc-400">
+              <span className="mb-1 block text-xs text-txt-mid">
                 Muzika u pozadini {music ? `— ${music.name}` : ''}
               </span>
               <input
                 type="file"
                 accept="audio/*"
                 onChange={(e) => handleAudioUpload(e, 'music')}
-                className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-400/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-400/20"
+                className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
               />
             </label>
 
             {music ? (
               <label className="mb-3 block">
-                <span className="mb-1 flex justify-between text-xs text-zinc-400">
+                <span className="mb-1 flex justify-between text-xs text-txt-mid">
                   <span>Jačina muzike</span>
-                  <span>{Math.round(musicVolume * 100)}%</span>
+                  <span className="font-mono tabular">{Math.round(musicVolume * 100)}%</span>
                 </span>
                 <input
                   type="range"
@@ -1002,10 +1005,10 @@ export default function MatrixPage() {
                   max={100}
                   value={Math.round(musicVolume * 100)}
                   onChange={(e) => setMusicVolume(Number(e.target.value) / 100)}
-                  className="w-full accent-brand-400"
+                  className="w-full accent-accent"
                 />
                 {musicVolume > 0.45 ? (
-                  <span className="mt-1 block text-xs text-amber-400/90">
+                  <span className="mt-1 block text-xs text-warn">
                     ⚠ Na ovoj jačini muzika lako nadjača glas. Preporuka: ispod 40%.
                   </span>
                 ) : null}
@@ -1013,20 +1016,20 @@ export default function MatrixPage() {
             ) : null}
 
             <label className="block">
-              <span className="mb-1 block text-xs text-zinc-400">
+              <span className="mb-1 block text-xs text-txt-mid">
                 Zvučni efekat na CTA kartici {sfx ? `— ${sfx.name}` : ''}
               </span>
               <input
                 type="file"
                 accept="audio/*"
                 onChange={(e) => handleAudioUpload(e, 'sfx')}
-                className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-400/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-400/20"
+                className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
               />
             </label>
 
-            {audioUploading && <p className="mt-2 text-xs text-zinc-300">Otpremam…</p>}
-            {audioError && <p className="mt-2 rounded-lg bg-red-500/10 p-2 text-xs text-red-300">{audioError}</p>}
-            <p className="mt-2 text-xs text-zinc-500">
+            {audioUploading && <p className="mt-2 text-xs text-txt-mid">Otpremam…</p>}
+            {audioError && <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-2 text-xs text-err">{audioError}</p>}
+            <p className="mt-2 text-xs text-txt-low">
               Koristi samo muziku na koju imaš prava — otpremljeni zapis ide direktno u gotov oglas.
             </p>
           </div>
@@ -1038,7 +1041,7 @@ export default function MatrixPage() {
       label: 'Skripte',
       content: (
         <div className="space-y-4">
-          <p className="text-sm text-zinc-400">
+          <p className="text-sm text-txt-mid">
             Napravi skripte, pročitaj ih i zadrži one koje valjaju. Možeš ih i doraditi — ono što ostane
             ovde je ono što će glas pročitati. Ako preskočiš ovaj korak, skripte se pišu automatski.
           </p>
@@ -1046,9 +1049,9 @@ export default function MatrixPage() {
           {/* Says out loud that the kept scripts, not the variants picker,
               decide how many videos get made — and therefore what it costs. */}
           {scripts.length > 0 && (
-            <p className="rounded-lg bg-brand-400/10 p-3 text-sm text-brand-200">
-              Napraviće se {scripts.length} {scripts.length === 1 ? 'video' : 'videa'} — po jedan za svaku
-              skriptu koju zadržiš.
+            <p className="rounded-control bg-accent-soft p-3 text-sm text-accent-text">
+              Napraviće se <span className="font-mono tabular">{scripts.length}</span>{' '}
+              {scripts.length === 1 ? 'video' : 'videa'} — po jedan za svaku skriptu koju zadržiš.
             </p>
           )}
 
@@ -1064,26 +1067,28 @@ export default function MatrixPage() {
                 : scripts.length === 0
                   ? 'Napravi skriptu'
                   : scripts.length >= FREE_SCRIPTS
-                    ? `Napravi još (${EXTRA_SCRIPTS_COST} kredit)`
+                    ? `Napravi još (${creditsLabel(EXTRA_SCRIPTS_COST)})`
                     : 'Napravi sledeću'}
             </button>
             {scripts.length > 0 && (
-              <span className="text-xs text-zinc-500">
-                {scripts.length}/{MAX_SCRIPTS}
+              <span className="text-xs text-txt-low">
+                <span className="font-mono tabular">
+                  {scripts.length}/{MAX_SCRIPTS}
+                </span>
                 {speakerGender && ` · ${speakerGender === 'male' ? 'muški' : 'ženski'} rod`}
               </span>
             )}
             {scripts.length >= MAX_SCRIPTS && (
-              <span className="text-xs text-zinc-500">Dostigao si maksimum — obriši neku da napraviš novu.</span>
+              <span className="text-xs text-txt-low">Dostigao si maksimum — obriši neku da napraviš novu.</span>
             )}
           </div>
 
-          {scriptError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{scriptError}</p>}
+          {scriptError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{scriptError}</p>}
 
           {/* Silence here means the copy may not match the voice — worth saying,
               because in Serbian that is a broken ad, not a stylistic quibble. */}
           {scripts.length > 0 && !speakerGender && (
-            <p className="rounded-lg bg-amber-500/10 p-3 text-xs text-amber-200">
+            <p className="rounded-control border border-warn/40 bg-warn/10 p-3 text-xs text-warn">
               Pol glasa nije prepoznat, pa skripte nisu pisane ni u muškom ni u ženskom rodu. Proveri da
               se slažu sa glasom koji si izabrao.
             </p>
@@ -1094,9 +1099,7 @@ export default function MatrixPage() {
             return (
               <div
                 key={i}
-                className={`rounded-lg border transition ${
-                  open ? 'border-brand-400/40 bg-ink-900 p-3' : 'border-white/10 bg-ink-900/50 px-3 py-2'
-                }`}
+                className={`card p-3 ${open ? 'card--active' : ''}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   {/* The whole header toggles: a collapsed candidate is one
@@ -1107,17 +1110,17 @@ export default function MatrixPage() {
                     onClick={() => setOpenScript(open ? null : i)}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    <span className="shrink-0 text-xs text-zinc-500">{i + 1}.</span>
-                    <span className="truncate text-xs text-zinc-400">{s.angle}</span>
+                    <span className="shrink-0 text-xs text-txt-low font-mono tabular">{i + 1}.</span>
+                    <span className="truncate text-xs text-txt-mid">{s.angle}</span>
                     {!open && (
-                      <span className="truncate text-xs text-zinc-600">— {s.script.slice(0, 60)}…</span>
+                      <span className="truncate text-xs text-txt-low">— {s.script.slice(0, 60)}…</span>
                     )}
                   </button>
-                  <span className="shrink-0 text-[11px] text-zinc-600">~{spokenSeconds(s.script)}s</span>
+                  <span className="shrink-0 text-[11px] text-txt-low font-mono tabular">~{spokenSeconds(s.script)}s</span>
                   <button
                     type="button"
                     onClick={() => removeScript(i)}
-                    className="shrink-0 text-xs text-red-300 hover:text-red-200"
+                    className="shrink-0 text-xs text-err hover:text-err/80"
                   >
                     Ukloni
                   </button>
@@ -1130,11 +1133,11 @@ export default function MatrixPage() {
                       onChange={(e) => updateScript(i, e.target.value)}
                       rows={4}
                       maxLength={2000}
-                      className="mt-2 w-full resize-y rounded-lg border border-white/10 bg-ink-950 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+                      className="input mt-2 resize-y"
                     />
-                    <p className="mt-1 text-[11px] text-zinc-600">
-                      {s.script.trim().split(/\s+/).filter(Boolean).length} reči · ~{spokenSeconds(s.script)}s
-                      izgovoreno
+                    <p className="mt-1 text-[11px] text-txt-low">
+                      <span className="font-mono tabular">{s.script.trim().split(/\s+/).filter(Boolean).length}</span>{' '}
+                      reči · <span className="font-mono tabular">~{spokenSeconds(s.script)}s</span> izgovoreno
                     </p>
                   </>
                 )}
@@ -1150,11 +1153,11 @@ export default function MatrixPage() {
       content: (
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Intro tranzicija</span>
+            <span className="mb-1 block text-sm text-txt-mid">Intro tranzicija</span>
             <select
               value={transitionIn}
               onChange={(e) => setTransitionIn(e.target.value as MatrixTransition)}
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+              className="input"
             >
               {TRANSITIONS.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -1164,11 +1167,11 @@ export default function MatrixPage() {
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Tekst na CTA kartici</span>
+            <span className="mb-1 block text-sm text-txt-mid">Tekst na CTA kartici</span>
             <input
               value={outroText}
               onChange={(e) => setOutroText(e.target.value)}
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+              className="input"
             />
           </label>
         </div>
@@ -1228,8 +1231,9 @@ export default function MatrixPage() {
         canNext={canNext}
         nextLabel={nextLabel}
         costLabel={
-          <p className="rounded-lg border border-brand-400/20 bg-brand-400/5 px-3 py-2 text-sm text-brand-200">
-            Cena: <span className="font-semibold">{creditsLabel(cost)}</span> ({effectiveCount} × 15)
+          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
+            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(cost)}</span>{' '}
+            <span className="font-mono tabular">({effectiveCount} × 15)</span>
             {phase === 'done' ? ' · naplaćeno' : ''}
           </p>
         }
@@ -1248,18 +1252,29 @@ function GenerateStep({
   assets: JobAsset[];
 }) {
   if (phase === 'running') {
-    return <p className="text-sm text-zinc-300">Renderujem pravi MP4 lokalno (Remotion)… ovo može potrajati minut-dva. ⏳</p>;
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-txt-mid">
+          Renderujem pravi MP4 lokalno (Remotion)… ovo može potrajati minut-dva. ⏳
+        </p>
+        {/* No elapsed/percentage data exists in this component's state, so the
+            fill travels rather than claiming a width it cannot back up. */}
+        <div className="progress progress--indeterminate">
+          <i />
+        </div>
+      </div>
+    );
   }
   if (phase === 'error') {
-    return <p className="text-sm text-red-300">{errorMsg}</p>;
+    return <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (
-      <div className="space-y-4">
+      <div className="flash-done space-y-4 rounded-card border border-line p-3">
         {assets.map((a) => (
           <div key={a.url} className="space-y-1">
-            <video src={a.url} controls className="w-full max-w-[240px] rounded-lg border border-white/10" />
-            <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-brand-300 underline">
+            <video src={a.url} controls className="w-full max-w-[240px] rounded-card border border-line" />
+            <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-accent-text underline">
               Preuzmi
             </a>
           </div>
@@ -1267,5 +1282,5 @@ function GenerateStep({
       </div>
     );
   }
-  return <p className="text-sm text-zinc-400">Klikni „Pokreni&rdquo; da renderuješ pravi video lokalno.</p>;
+  return <p className="text-sm text-txt-mid">Klikni „Pokreni&rdquo; da renderuješ pravi video lokalno.</p>;
 }

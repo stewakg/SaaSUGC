@@ -418,6 +418,25 @@ body {
     content: '';
     @apply pointer-events-none absolute inset-x-0 top-0 h-64 bg-glow-brand;
   }
+
+  /* MIGRATED to tokens — one-time render-complete flash. Add this class the
+     moment an existing completion flag (e.g. `phase === 'done'`) goes true;
+     the border sweeps from --live to --ok over ~600ms and holds. No timer —
+     the animation's own fill-mode carries the end state. */
+  .flash-done {
+    animation: flash-done 0.6s ease-out forwards;
+  }
+}
+
+@keyframes flash-done {
+  from {
+    border-color: var(--live);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--live) 35%, transparent);
+  }
+  to {
+    border-color: var(--ok);
+    box-shadow: none;
+  }
 }
 
 @keyframes progress-sheen {

@@ -100,14 +100,14 @@ export default function AiSlikePage() {
       content: (
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Link ka proizvodu</span>
+            <span className="mb-1 block text-sm text-txt-mid">Link ka proizvodu</span>
             <div className="flex gap-2">
               <input
                 type="url"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://prodavnica.rs/proizvod/..."
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+                className="input"
               />
               <button
                 type="button"
@@ -120,7 +120,7 @@ export default function AiSlikePage() {
             </div>
           </label>
 
-          {scrapeError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{scrapeError}</p>}
+          {scrapeError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{scrapeError}</p>}
 
           {scrapePhase === 'done' && (
             <div className="space-y-3">
@@ -132,26 +132,26 @@ export default function AiSlikePage() {
                       key={src}
                       src={src}
                       alt=""
-                      className="h-20 w-20 shrink-0 rounded-lg border border-white/10 object-cover"
+                      className="h-20 w-20 shrink-0 rounded-card border border-line object-cover"
                     />
                   ))}
                 </div>
               )}
               <label className="block">
-                <span className="mb-1 block text-sm text-zinc-300">Naziv proizvoda</span>
+                <span className="mb-1 block text-sm text-txt-mid">Naziv proizvoda</span>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+                  className="input"
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-sm text-zinc-300">Cena</span>
+                <span className="mb-1 block text-sm text-txt-mid">Cena</span>
                 <input
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="npr. 2.990 RSD"
-                  className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+                  className="input"
                 />
               </label>
             </div>
@@ -165,17 +165,17 @@ export default function AiSlikePage() {
       content: (
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Broj slika</span>
+            <span className="mb-1 block text-sm text-txt-mid">Broj slika</span>
             <div className="flex gap-2">
               {[1, 2, 3, 4].map((n) => (
                 <button
                   key={n}
                   type="button"
                   onClick={() => setCount(n)}
-                  className={`h-9 w-9 rounded-lg border text-sm transition ${
+                  className={`h-9 w-9 rounded-control border text-sm font-mono tabular transition ${
                     count === n
-                      ? 'border-brand-400/50 bg-brand-400/10 text-brand-200'
-                      : 'border-white/10 text-zinc-400 hover:bg-white/5'
+                      ? 'border-accent-ring bg-accent-soft text-accent-text'
+                      : 'border-line text-txt-mid hover:bg-panel-2'
                   }`}
                 >
                   {n}
@@ -184,11 +184,11 @@ export default function AiSlikePage() {
             </div>
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Jezik</span>
+            <span className="mb-1 block text-sm text-txt-mid">Jezik</span>
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as UiLanguage)}
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+              className="input"
             >
               {LANGUAGES.map((l) => (
                 <option key={l.value} value={l.value}>
@@ -198,13 +198,13 @@ export default function AiSlikePage() {
             </select>
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Napomene o ponudi</span>
+            <span className="mb-1 block text-sm text-txt-mid">Napomene o ponudi</span>
             <textarea
               value={offerNotes}
               onChange={(e) => setOfferNotes(e.target.value)}
               rows={3}
               placeholder="npr. besplatna dostava, popust 20%..."
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none transition focus:border-brand-400/50 focus:ring-1 focus:ring-brand-400/30"
+              className="input resize-y"
             />
           </label>
         </div>
@@ -251,8 +251,11 @@ export default function AiSlikePage() {
         canNext={canNext}
         nextLabel={nextLabel}
         costLabel={
-          <p className="rounded-lg border border-brand-400/20 bg-brand-400/5 px-3 py-2 text-sm text-brand-200">
-            Cena: <span className="font-semibold">{creditsLabel(cost)}</span> ({count} × 4)
+          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
+            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(cost)}</span>{' '}
+            <span className="font-mono tabular">
+              ({count} × 4)
+            </span>
             {genPhase === 'done' ? ' · naplaćeno' : ''}
           </p>
         }
@@ -271,10 +274,10 @@ function GenerateStep({
   assets: JobAsset[];
 }) {
   if (phase === 'running') {
-    return <p className="text-sm text-zinc-300">Generišem AI slike… ⏳</p>;
+    return <p className="text-sm text-txt-mid">Generišem AI slike… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-red-300">{errorMsg}</p>;
+    return <p className="text-sm text-err">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (
@@ -282,8 +285,8 @@ function GenerateStep({
         {assets.map((a) => (
           <div key={a.url} className="space-y-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={a.url} alt="" className="aspect-square w-full rounded-lg border border-white/10 object-cover" />
-            <a href={a.url} download target="_blank" rel="noreferrer" className="text-xs text-brand-300 underline">
+            <img src={a.url} alt="" className="aspect-square w-full rounded-card border border-line object-cover" />
+            <a href={a.url} download target="_blank" rel="noreferrer" className="text-xs text-accent-text underline">
               Preuzmi
             </a>
           </div>
@@ -291,5 +294,5 @@ function GenerateStep({
       </div>
     );
   }
-  return <p className="text-sm text-zinc-400">Klikni „Pokreni&rdquo; da generišeš AI slike.</p>;
+  return <p className="text-sm text-txt-mid">Klikni „Pokreni&rdquo; da generišeš AI slike.</p>;
 }

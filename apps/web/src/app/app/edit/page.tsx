@@ -95,19 +95,19 @@ export default function EditPage() {
       label: 'Uvezi video',
       content: (
         <div className="space-y-4">
-          <p className="text-sm text-zinc-400">Otpremi video koji želiš da urediš.</p>
+          <p className="text-sm text-txt-mid">Otpremi video koji želiš da urediš.</p>
           <label className="block">
             <input
               type="file"
               accept="video/mp4,video/quicktime,video/webm"
               onChange={(e) => void handleFileChange(e)}
-              className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-400/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-400/20"
+              className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
             />
           </label>
-          {uploadPhase === 'uploading' && <p className="text-sm text-zinc-300">Otpremam…</p>}
-          {uploadError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{uploadError}</p>}
+          {uploadPhase === 'uploading' && <p className="text-sm text-txt-mid">Otpremam…</p>}
+          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{uploadError}</p>}
           {uploadPhase === 'done' && sourceUrl && (
-            <p className="truncate text-sm text-brand-200">Otpremljeno: {sourceName}</p>
+            <p className="truncate text-sm text-accent-text">Otpremljeno: {sourceName}</p>
           )}
         </div>
       ),
@@ -119,24 +119,24 @@ export default function EditPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-sm text-zinc-300">Početak (sek)</span>
+              <span className="mb-1 block text-sm text-txt-mid">Početak (sek)</span>
               <input
                 type="number"
                 min={0}
                 value={trimStartSec}
                 onChange={(e) => setTrimStartSec(Math.max(0, Number(e.target.value)))}
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+                className="input font-mono tabular"
               />
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm text-zinc-300">Kraj (sek, opciono)</span>
+              <span className="mb-1 block text-sm text-txt-mid">Kraj (sek, opciono)</span>
               <input
                 type="number"
                 min={0}
                 value={trimEndSec}
                 onChange={(e) => setTrimEndSec(e.target.value === '' ? '' : Number(e.target.value))}
                 placeholder="do kraja"
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+                className="input font-mono tabular"
               />
             </label>
           </div>
@@ -150,22 +150,22 @@ export default function EditPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block text-sm text-zinc-300">Font titlova</span>
+              <span className="mb-1 block text-sm text-txt-mid">Font titlova</span>
               <select
                 value={captionFont}
                 onChange={(e) => setCaptionFont(e.target.value as CaptionFont)}
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+                className="input"
               >
                 <option value="Impact">Impact</option>
                 <option value="Montserrat">Montserrat</option>
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-sm text-zinc-300">Animacija</span>
+              <span className="mb-1 block text-sm text-txt-mid">Animacija</span>
               <select
                 value={captionAnim}
                 onChange={(e) => setCaptionAnim(e.target.value as CaptionAnim)}
-                className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+                className="input"
               >
                 <option value="pop">Pop</option>
                 <option value="smooth">Smooth</option>
@@ -174,22 +174,22 @@ export default function EditPage() {
             </label>
           </div>
           <label className="flex items-center gap-3">
-            <span className="text-sm text-zinc-300">Boja aktivne reči</span>
+            <span className="text-sm text-txt-mid">Boja aktivne reči</span>
             <input
               type="color"
               value={captionColor}
               onChange={(e) => setCaptionColor(e.target.value)}
-              className="h-9 w-14 rounded-lg border border-white/10 bg-ink-900"
+              className="h-9 w-14 rounded-control border border-line bg-ground"
             />
-            <span className="text-xs text-zinc-500">{captionColor}</span>
+            <span className="text-xs text-txt-low font-mono tabular">{captionColor}</span>
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Brend tekst (opciono)</span>
+            <span className="mb-1 block text-sm text-txt-mid">Brend tekst (opciono)</span>
             <input
               value={brandingText}
               onChange={(e) => setBrandingText(e.target.value)}
               placeholder="npr. @tvojbrend"
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+              className="input"
             />
           </label>
         </div>
@@ -239,8 +239,8 @@ export default function EditPage() {
         canNext={canNext}
         nextLabel={nextLabel}
         costLabel={
-          <p className="rounded-lg border border-brand-400/20 bg-brand-400/5 px-3 py-2 text-sm text-brand-200">
-            Cena: <span className="font-semibold">{creditsLabel(descriptor.cost)}</span>
+          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
+            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(descriptor.cost)}</span>
             {genPhase === 'done' ? ' · naplaćeno' : ''}
           </p>
         }
@@ -259,18 +259,18 @@ function GenerateStep({
   assets: JobAsset[];
 }) {
   if (phase === 'running') {
-    return <p className="text-sm text-zinc-300">Uređujem video… ⏳</p>;
+    return <p className="text-sm text-txt-mid">Uređujem video… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-red-300">{errorMsg}</p>;
+    return <p className="text-sm text-err">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (
       <div className="space-y-4">
         {assets.map((a) => (
           <div key={a.url} className="space-y-1">
-            <video src={a.url} controls className="w-full max-w-[240px] rounded-lg border border-white/10" />
-            <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-brand-300 underline">
+            <video src={a.url} controls className="w-full max-w-[240px] rounded-card border border-line" />
+            <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-accent-text underline">
               Preuzmi
             </a>
           </div>
@@ -278,5 +278,5 @@ function GenerateStep({
       </div>
     );
   }
-  return <p className="text-sm text-zinc-400">Klikni „Pokreni&rdquo; da urediš video.</p>;
+  return <p className="text-sm text-txt-mid">Klikni „Pokreni&rdquo; da urediš video.</p>;
 }

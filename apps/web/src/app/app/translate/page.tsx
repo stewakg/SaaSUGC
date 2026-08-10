@@ -86,19 +86,19 @@ export default function TranslatePage() {
       label: 'Uvezi video',
       content: (
         <div className="space-y-4">
-          <p className="text-sm text-zinc-400">Otpremi strani reklamni video koji treba prevesti.</p>
+          <p className="text-sm text-txt-mid">Otpremi strani reklamni video koji treba prevesti.</p>
           <label className="block">
             <input
               type="file"
               accept="video/mp4,video/quicktime,video/webm"
               onChange={(e) => void handleFileChange(e)}
-              className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-400/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-400/20"
+              className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
             />
           </label>
-          {uploadPhase === 'uploading' && <p className="text-sm text-zinc-300">Otpremam…</p>}
-          {uploadError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{uploadError}</p>}
+          {uploadPhase === 'uploading' && <p className="text-sm text-txt-mid">Otpremam…</p>}
+          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{uploadError}</p>}
           {uploadPhase === 'done' && sourceUrl && (
-            <p className="truncate text-sm text-brand-200">Otpremljeno: {sourceName}</p>
+            <p className="truncate text-sm text-accent-text">Otpremljeno: {sourceName}</p>
           )}
         </div>
       ),
@@ -109,11 +109,11 @@ export default function TranslatePage() {
       content: (
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Ciljni jezik</span>
+            <span className="mb-1 block text-sm text-txt-mid">Ciljni jezik</span>
             <select
               value={targetLanguage}
               onChange={(e) => setTargetLanguage(e.target.value as UiLanguage)}
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+              className="input"
             >
               {LANGUAGES.map((l) => (
                 <option key={l.value} value={l.value}>
@@ -127,11 +127,11 @@ export default function TranslatePage() {
               type="checkbox"
               checked={cloneVoice}
               onChange={(e) => setCloneVoice(e.target.checked)}
-              className="h-4 w-4 rounded border-white/20 bg-ink-900 text-brand-400"
+              className="h-4 w-4 rounded border-line bg-ground text-accent"
             />
-            <span className="text-sm text-zinc-300">Kloniraj originalni glas govornika</span>
+            <span className="text-sm text-txt-mid">Kloniraj originalni glas govornika</span>
           </label>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-txt-low">
             Kloniranje glasa (ElevenLabs) je F5+ funkcija koja zahteva pravi nalog — u mock režimu se preskače.
           </p>
         </div>
@@ -178,8 +178,8 @@ export default function TranslatePage() {
         canNext={canNext}
         nextLabel={nextLabel}
         costLabel={
-          <p className="rounded-lg border border-brand-400/20 bg-brand-400/5 px-3 py-2 text-sm text-brand-200">
-            Cena: <span className="font-semibold">{creditsLabel(descriptor.cost)}</span>
+          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
+            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(descriptor.cost)}</span>
             {genPhase === 'done' ? ' · naplaćeno' : ''}
           </p>
         }
@@ -198,18 +198,18 @@ function GenerateStep({
   assets: JobAsset[];
 }) {
   if (phase === 'running') {
-    return <p className="text-sm text-zinc-300">Prevodim oglas… ⏳</p>;
+    return <p className="text-sm text-txt-mid">Prevodim oglas… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-red-300">{errorMsg}</p>;
+    return <p className="text-sm text-err">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (
       <div className="space-y-4">
         {assets.map((a) => (
           <div key={a.url} className="space-y-1">
-            <video src={a.url} controls className="w-full max-w-[240px] rounded-lg border border-white/10" />
-            <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-brand-300 underline">
+            <video src={a.url} controls className="w-full max-w-[240px] rounded-card border border-line" />
+            <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-accent-text underline">
               Preuzmi
             </a>
           </div>
@@ -217,5 +217,5 @@ function GenerateStep({
       </div>
     );
   }
-  return <p className="text-sm text-zinc-400">Klikni „Pokreni&rdquo; da prevedeš oglas.</p>;
+  return <p className="text-sm text-txt-mid">Klikni „Pokreni&rdquo; da prevedeš oglas.</p>;
 }

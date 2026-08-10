@@ -88,32 +88,32 @@ export default function MixPage() {
       label: 'Uvezi klipove',
       content: (
         <div className="space-y-4">
-          <p className="text-sm text-zinc-400">Otpremi najmanje {MIN_CLIPS} klipa koje želiš da spojiš u jedan video.</p>
+          <p className="text-sm text-txt-mid">Otpremi najmanje {MIN_CLIPS} klipa koje želiš da spojiš u jedan video.</p>
           <label className="block">
             <input
               type="file"
               accept="video/mp4,video/quicktime,video/webm"
               multiple
               onChange={(e) => void handleFilesChange(e)}
-              className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-400/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-400/20"
+              className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
             />
           </label>
-          {uploading && <p className="text-sm text-zinc-300">Otpremam…</p>}
-          {uploadError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{uploadError}</p>}
+          {uploading && <p className="text-sm text-txt-mid">Otpremam…</p>}
+          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{uploadError}</p>}
           {clips.length > 0 && (
             <ul className="space-y-2">
               {clips.map((c, i) => (
                 <li
                   key={c.url}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-ink-900 px-3 py-2"
+                  className="flex items-center justify-between gap-2 rounded-control border border-line bg-ground px-3 py-2"
                 >
-                  <span className="truncate text-sm text-zinc-300">
+                  <span className="truncate text-sm text-txt-mid">
                     {i + 1}. {c.name}
                   </span>
                   <button
                     type="button"
                     onClick={() => removeClip(i)}
-                    className="shrink-0 text-xs text-red-300 hover:text-red-200"
+                    className="shrink-0 text-xs text-err hover:text-err/80"
                   >
                     Ukloni
                   </button>
@@ -130,11 +130,11 @@ export default function MixPage() {
       content: (
         <div className="space-y-4">
           <label className="block">
-            <span className="mb-1 block text-sm text-zinc-300">Tranzicija između klipova</span>
+            <span className="mb-1 block text-sm text-txt-mid">Tranzicija između klipova</span>
             <select
               value={transition}
               onChange={(e) => setTransition(e.target.value as MatrixTransition)}
-              className="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-400/50"
+              className="input"
             >
               {TRANSITIONS.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -148,9 +148,9 @@ export default function MixPage() {
               type="checkbox"
               checked={backgroundMusic}
               onChange={(e) => setBackgroundMusic(e.target.checked)}
-              className="h-4 w-4 rounded border-white/20 bg-ink-900 text-brand-400"
+              className="h-4 w-4 rounded border-line bg-ground text-accent"
             />
-            <span className="text-sm text-zinc-300">Dodaj pozadinsku muziku</span>
+            <span className="text-sm text-txt-mid">Dodaj pozadinsku muziku</span>
           </label>
         </div>
       ),
@@ -196,8 +196,8 @@ export default function MixPage() {
         canNext={canNext}
         nextLabel={nextLabel}
         costLabel={
-          <p className="rounded-lg border border-brand-400/20 bg-brand-400/5 px-3 py-2 text-sm text-brand-200">
-            Cena: <span className="font-semibold">{creditsLabel(descriptor.cost)}</span>
+          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
+            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(descriptor.cost)}</span>
             {genPhase === 'done' ? ' · naplaćeno' : ''}
           </p>
         }
@@ -216,18 +216,18 @@ function GenerateStep({
   assets: JobAsset[];
 }) {
   if (phase === 'running') {
-    return <p className="text-sm text-zinc-300">Spajam klipove… ⏳</p>;
+    return <p className="text-sm text-txt-mid">Spajam klipove… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-red-300">{errorMsg}</p>;
+    return <p className="text-sm text-err">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (
       <div className="space-y-4">
         {assets.map((a) => (
           <div key={a.url} className="space-y-1">
-            <video src={a.url} controls className="w-full max-w-[240px] rounded-lg border border-white/10" />
-            <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-brand-300 underline">
+            <video src={a.url} controls className="w-full max-w-[240px] rounded-card border border-line" />
+            <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-accent-text underline">
               Preuzmi
             </a>
           </div>
@@ -235,5 +235,5 @@ function GenerateStep({
       </div>
     );
   }
-  return <p className="text-sm text-zinc-400">Klikni „Pokreni&rdquo; da spojiš klipove.</p>;
+  return <p className="text-sm text-txt-mid">Klikni „Pokreni&rdquo; da spojiš klipove.</p>;
 }

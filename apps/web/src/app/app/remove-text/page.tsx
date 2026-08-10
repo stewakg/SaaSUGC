@@ -76,19 +76,19 @@ export default function RemoveTextPage() {
       label: 'Uvezi fajl',
       content: (
         <div className="space-y-4">
-          <p className="text-sm text-zinc-400">Otpremi sliku ili video sa kog treba ukloniti tekst/titlove.</p>
+          <p className="text-sm text-txt-mid">Otpremi sliku ili video sa kog treba ukloniti tekst/titlove.</p>
           <label className="block">
             <input
               type="file"
               accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp"
               onChange={(e) => void handleFileChange(e)}
-              className="block w-full text-sm text-zinc-400 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-400/10 file:px-3 file:py-2 file:text-sm file:font-medium file:text-brand-200 hover:file:bg-brand-400/20"
+              className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
             />
           </label>
-          {uploadPhase === 'uploading' && <p className="text-sm text-zinc-300">Otpremam…</p>}
-          {uploadError && <p className="rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{uploadError}</p>}
+          {uploadPhase === 'uploading' && <p className="text-sm text-txt-mid">Otpremam…</p>}
+          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{uploadError}</p>}
           {uploadPhase === 'done' && sourceUrl && (
-            <p className="truncate text-sm text-brand-200">Otpremljeno: {sourceName}</p>
+            <p className="truncate text-sm text-accent-text">Otpremljeno: {sourceName}</p>
           )}
         </div>
       ),
@@ -134,8 +134,8 @@ export default function RemoveTextPage() {
         canNext={canNext}
         nextLabel={nextLabel}
         costLabel={
-          <p className="rounded-lg border border-brand-400/20 bg-brand-400/5 px-3 py-2 text-sm text-brand-200">
-            Cena: <span className="font-semibold">{creditsLabel(descriptor.cost)}</span>
+          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
+            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(descriptor.cost)}</span>
             {genPhase === 'done' ? ' · naplaćeno' : ''}
           </p>
         }
@@ -154,10 +154,10 @@ function GenerateStep({
   assets: JobAsset[];
 }) {
   if (phase === 'running') {
-    return <p className="text-sm text-zinc-300">Uklanjam tekst… ⏳</p>;
+    return <p className="text-sm text-txt-mid">Uklanjam tekst… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-red-300">{errorMsg}</p>;
+    return <p className="text-sm text-err">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (
@@ -166,11 +166,11 @@ function GenerateStep({
           <div key={a.url} className="space-y-1">
             {a.kind === 'image' ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={a.url} alt="" className="w-full max-w-[240px] rounded-lg border border-white/10" />
+              <img src={a.url} alt="" className="w-full max-w-[240px] rounded-card border border-line" />
             ) : (
-              <video src={a.url} controls className="w-full max-w-[240px] rounded-lg border border-white/10" />
+              <video src={a.url} controls className="w-full max-w-[240px] rounded-card border border-line" />
             )}
-            <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-brand-300 underline">
+            <a href={a.url} download target="_blank" rel="noreferrer" className="block text-xs text-accent-text underline">
               Preuzmi
             </a>
           </div>
@@ -178,5 +178,5 @@ function GenerateStep({
       </div>
     );
   }
-  return <p className="text-sm text-zinc-400">Klikni „Pokreni&rdquo; da ukloniš tekst.</p>;
+  return <p className="text-sm text-txt-mid">Klikni „Pokreni&rdquo; da ukloniš tekst.</p>;
 }

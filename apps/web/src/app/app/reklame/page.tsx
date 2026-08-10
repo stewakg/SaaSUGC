@@ -10,10 +10,10 @@ const STATUS_LABEL: Record<JobStatus, string> = {
 };
 
 const STATUS_CLASS: Record<JobStatus, string> = {
-  queued: 'border-white/10 bg-white/5 text-zinc-400',
-  running: 'border-brand-400/30 bg-brand-400/10 text-brand-200',
-  done: 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300',
-  error: 'border-red-400/30 bg-red-400/10 text-red-300',
+  queued: 'border-line bg-panel-2 text-txt-mid',
+  running: 'border-live/30 bg-live/10 text-live',
+  done: 'border-ok/30 bg-ok/10 text-ok',
+  error: 'border-err/30 bg-err/10 text-err',
 };
 
 interface JobRow {
@@ -70,13 +70,13 @@ export default async function ReklamePage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold sm:text-3xl">Moje reklame</h1>
-        <p className="mt-1 text-sm text-zinc-400">Istorija generisanih oglasa.</p>
+        <p className="mt-1 text-sm text-txt-mid">Istorija generisanih oglasa.</p>
       </div>
 
       {!jobs || jobs.length === 0 ? (
         <div className="card-gradient p-8 text-center">
-          <p className="text-sm text-zinc-300">Još nemaš nijednu reklamu.</p>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="text-sm text-txt-mid">Još nemaš nijednu reklamu.</p>
+          <p className="mt-1 text-sm text-txt-low">
             Pokreni „Brzi test&rdquo; sa početne da vidiš kako pipeline radi.
           </p>
         </div>
@@ -88,16 +88,16 @@ export default async function ReklamePage() {
               <li key={job.id} className="card flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{getJobDescriptor(job.type).label}</span>
+                    <span className="font-medium text-txt-hi">{getJobDescriptor(job.type).label}</span>
                     <span
-                      className={`rounded-full border px-2 py-0.5 text-[11px] ${STATUS_CLASS[job.status]}`}
+                      className={`rounded-full border px-2 py-0.5 text-[11px] font-mono tabular ${STATUS_CLASS[job.status]}`}
                     >
                       {STATUS_LABEL[job.status]}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-zinc-500">
-                    {new Date(job.created_at).toLocaleString('sr-RS')} ·{' '}
-                    {costLabel(job.status, job.cost)}
+                  <p className="mt-1 text-xs text-txt-low">
+                    <span className="font-mono tabular">{new Date(job.created_at).toLocaleString('sr-RS')}</span> ·{' '}
+                    <span className="font-mono tabular">{costLabel(job.status, job.cost)}</span>
                     {job.status === 'error' && job.error ? ` · ${humanError(job.error)}` : ''}
                   </p>
                 </div>

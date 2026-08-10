@@ -50,7 +50,7 @@ export default function QuickTestPage() {
     {
       id: 'overview',
       label: descriptor.label,
-      content: <p className="text-sm text-zinc-300">{descriptor.description}</p>,
+      content: <p className="text-sm text-txt-mid">{descriptor.description}</p>,
     },
     {
       id: 'run',
@@ -90,8 +90,8 @@ export default function QuickTestPage() {
         canNext={phase !== 'running'}
         nextLabel={nextLabel}
         costLabel={
-          <p className="rounded-lg border border-brand-400/20 bg-brand-400/5 px-3 py-2 text-sm text-brand-200">
-            Cena: <span className="font-semibold">{creditsLabel(descriptor.cost)}</span>
+          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
+            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(descriptor.cost)}</span>
             {phase === 'done' ? ' · naplaćeno' : ''}
           </p>
         }
@@ -110,22 +110,22 @@ function RunStep({
   assets: JobAsset[];
 }) {
   if (phase === 'running') {
-    return <p className="text-sm text-zinc-300">Generišem probni video… ⏳</p>;
+    return <p className="text-sm text-txt-mid">Generišem probni video… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-red-300">{errorMsg}</p>;
+    return <p className="text-sm text-err">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (
       <div className="space-y-2">
-        <p className="text-sm text-brand-200">Gotovo!</p>
+        <p className="text-sm text-accent-text">Gotovo!</p>
         {assets.map((a) => (
           <a
             key={a.url}
             href={a.url}
             target="_blank"
             rel="noreferrer"
-            className="block truncate text-xs text-zinc-400 underline"
+            className="block truncate text-xs text-txt-mid underline"
           >
             {a.url}
           </a>
@@ -133,5 +133,5 @@ function RunStep({
       </div>
     );
   }
-  return <p className="text-sm text-zinc-400">Klikni „Pokreni&rdquo; da generišeš probni video.</p>;
+  return <p className="text-sm text-txt-mid">Klikni „Pokreni&rdquo; da generišeš probni video.</p>;
 }
