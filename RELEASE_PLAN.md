@@ -56,15 +56,32 @@ records OUR url. Applied on the `image_ads`, `enhance` and `remove_text` paths; 
 never touched a provider CDN because we render them ourselves. **Switching to R2 changes no
 code at all** — the same call writes to R2 instead of local disk the moment `R2_*` is set.
 
-Two consequences of L1.6 that are code, not a dashboard setting:
+**Owner's decision, 2026-08-11: 30 days for EVERYTHING, sources included**, stated plainly in
+the terms — anything made on the platform is available to download for 30 days. One rule, one
+sentence, no exceptions to explain, and storage stays inside one Cloudflare plan forever.
 
-- **The `assets` rows outlive the objects.** After the lifecycle rule fires, "Moje reklame"
-  will list jobs whose files are gone and render dead links. The history needs an expired
-  state, and if 30 days is sold as a feature the remaining time should be visible to the user
-  — that is Serbian copy, so the owner's call.
-- **Do not let the rule eat SOURCE uploads.** A customer's own clips and imported footage land
-  in the same bucket. If those expire, re-running a job silently breaks. Separate prefixes with
-  separate rules, or exempt sources.
+I had warned that expiring sources would break re-running a job. **I checked, and that warning
+was overstated:** the app has no re-run, retry or regenerate path anywhere — a job consumes its
+sources once, at creation. Nothing in the product today reads an `uploads/` object after its
+job finishes. The warning becomes real only if a "run this again" feature is ever added, and
+then it is that feature's problem to solve.
+
+The key prefixes are ALREADY separated, so per-prefix lifecycle rules need no code:
+
+| Prefix | What | Suggested rule |
+|---|---|---|
+| `uploads/<userId>/` | customer's own clips + yt-dlp imports | 30 days |
+| `renders/` | finished matrix videos | 30 days |
+| `image-ads/`, `enhance/`, `remove-text/` | generated results | 30 days |
+| `voice/` | TTS mp3, an INTERMEDIATE the render consumes and nothing reads again | **much shorter — a day or two is enough** |
+
+`voice/` is worth splitting out: a matrix job with `count=15` writes 15 mp3s that exist only to
+be muxed into the render. Keeping them 30 days is pure waste.
+
+The one consequence that IS code: **the `assets` rows outlive the objects.** Once the rule
+fires, "Moje reklame" will list jobs whose files are gone and render dead links. The history
+needs an expired state, and if 30 days is sold as a feature the remaining time should be
+visible. The wording is Serbian copy, so the owner's call; the state is mine.
 
 One known limit worth fixing before large video passes through it: `persistRemoteAsset` buffers
 the whole file in memory (`Buffer.from(await res.arrayBuffer())`). Fine for images, a memory
@@ -96,6 +113,21 @@ spike on the worker for an upscaled video. Streaming it would be the fix.
 | L3.4 | Remove or hard-gate the dev credit button | Claude | `AddCreditsButton` navigates to `GET /api/dev/credits/add`, which 404s in production. It fails safe, but it ships a button that is visibly broken to a paying user. |
 | L3.5 | Tests on the money path | Claude | ✅ done @ `77594e9` — 67 → 105 tests. Still no coverage of the job state machine; see the seam note under L2. |
 | L3.6 | **Reversals: refund, chargeback, failed capture** | Claude, once L3.1 is chosen | Owner's requirement, 2026-08-11: if a payment is reversed, the credits must not be granted — or must be taken back if they already were. Mirror image of L3.3: the same `credits_ledger` + `external_ref` that stops double-granting is what lets a reversal find the exact grant to undo. Three cases, and they are not the same: (a) reversal arrives before the grant → never grant; (b) after the grant, credits unspent → debit them back; (c) after the grant, credits already SPENT → the balance would go negative. Case (c) needs a decision, not code: allow a negative balance, clamp at zero and eat the loss, or freeze the account. **Do not let the balance silently clamp by accident.** |
+
+| L3.7 | Paid "keep it forever" tier (owner's idea, 2026-08-11) | Claude, after L1.6 | Cheap to build: retention already maps onto key prefixes, so a paid asset writes to an `archive/` prefix with no lifecycle rule and everything else to the 30-day one. The BUSINESS side needs a decision first, see below. |
+
+**On selling permanent storage — worth deciding with open eyes, then it is a one-line code
+change.** Three things to weigh, none of them blocking:
+
+- A one-time fee buys a forever obligation. Revenue happens once; the storage bill recurs for
+  as long as the account exists. It is the one product decision here that gets *more* expensive
+  the more successful it is. A yearly renewal, or "forever" with a per-account size cap, keeps
+  the same upsell without the open-ended tail.
+- Willingness to pay may be low for a reason that is nobody's fault: **the customer already
+  downloaded the file.** They are paying for convenience, not access. That is a real product
+  but a modest one.
+- "Forever" and GDPR erasure pull against each other. When someone asks for their account to be
+  deleted, the promise has to yield — say so in the terms rather than discover it later.
 
 **Owner's policy decision, recorded 2026-08-11: all credit purchases are final, no refunds.** Two
 things that must not be confused with each other:
