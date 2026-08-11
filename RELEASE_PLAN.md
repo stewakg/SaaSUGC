@@ -45,6 +45,30 @@ deliver.
 | L1.3 | Create a Cloudflare R2 bucket, set `R2_*` | **Owner** | `storage.r2.ts` is written and typechecks but **has never made a single real call**. Until this exists, rendered files have nowhere durable to live, and `enhance`/`remove_text` are hard-blocked — they refuse `localhost` source URLs because fal.ai cannot fetch them. |
 | L1.4 | Settle how R2 URLs are exposed | Claude, once L1.3 exists | `S3CompatibleStorage.getUrl` currently returns a permanent, unauthenticated, guessable URL. `INFRASTRUCTURE.md:379` already flags this as a launch blocker, not a nice-to-have. Signed URLs with a TTL is the expected answer. |
 | L1.5 | A sending email address | **Owner** | Supabase auth mail (confirmations, password resets) currently goes out on Supabase defaults. |
+| L1.6 | 30-day retention on generated assets | **Owner sets the rule, Claude handles the aftermath** | Owner's decision, 2026-08-11: everything created on the site stays available for 30 days. The deletion itself is a **bucket lifecycle rule in the Cloudflare dashboard**, not code. The code part is what happens AFTER an object disappears — see the note below. |
+
+**Copying provider output into our own storage is already built**, and is the reason
+`persistRemoteAsset()` exists (`apps/worker/src/index.ts:59`). kie.ai answers with URLs on
+`tempfile.aiquickdraw.com` and fal's are temporary by design, so before 2026-08-10 a paid image
+was stored as a link that expired — a dead asset in "Moje reklame" weeks later. Every generated
+asset now goes: provider generates → we fetch it → we upload it to `providers.storage` → the DB
+records OUR url. Applied on the `image_ads`, `enhance` and `remove_text` paths; matrix renders
+never touched a provider CDN because we render them ourselves. **Switching to R2 changes no
+code at all** — the same call writes to R2 instead of local disk the moment `R2_*` is set.
+
+Two consequences of L1.6 that are code, not a dashboard setting:
+
+- **The `assets` rows outlive the objects.** After the lifecycle rule fires, "Moje reklame"
+  will list jobs whose files are gone and render dead links. The history needs an expired
+  state, and if 30 days is sold as a feature the remaining time should be visible to the user
+  — that is Serbian copy, so the owner's call.
+- **Do not let the rule eat SOURCE uploads.** A customer's own clips and imported footage land
+  in the same bucket. If those expire, re-running a job silently breaks. Separate prefixes with
+  separate rules, or exempt sources.
+
+One known limit worth fixing before large video passes through it: `persistRemoteAsset` buffers
+the whole file in memory (`Buffer.from(await res.arrayBuffer())`). Fine for images, a memory
+spike on the worker for an upscaled video. Streaming it would be the fix.
 
 ---
 
