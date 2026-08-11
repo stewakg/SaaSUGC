@@ -45,7 +45,11 @@
 
   --txt-hi: #edeef2;
   --txt-mid: #a6a6b5;
-  --txt-low: #63636f;
+  /* Was #63636F, which measured 3.24:1 on this ground — under the 4.5:1 that
+     body-sized text needs, and it carries real information (job dates, costs,
+     step labels), not decoration. #7E7E8C measures 4.76:1 and is still clearly
+     the quietest of the three text tokens. */
+  --txt-low: #7e7e8c;
 
   --accent-contrast: #0b0c10;
   --action-grad: linear-gradient(92deg, #7c5cff, #4dd6ff);
@@ -75,7 +79,10 @@
 
   --txt-hi: #16161c;
   --txt-mid: #4a4a56;
-  --txt-low: #8a8a96;
+  /* Was #8A8A96 — 3.16:1 on this ground, and it was carrying the footer legal
+     links and every job date and cost on /app/reklame. #6B6B78 measures 4.77:1
+     on --ground and 5.26:1 on the white --panel. */
+  --txt-low: #6b6b78;
 
   --accent-contrast: #ffffff;
   /* Primary action is BLACK here; the accent carries selection/links/progress. */
@@ -139,7 +146,7 @@
 
     --txt-hi: #16161c;
     --txt-mid: #4a4a56;
-    --txt-low: #8a8a96;
+    --txt-low: #6b6b78;
 
     --accent-contrast: #ffffff;
     --action-grad: linear-gradient(92deg, #16161c, #16161c);
@@ -314,6 +321,17 @@ body {
     color: var(--accent-text);
   }
 
+  /* MIGRATED to tokens — a badge for something that is NOT a price and NOT
+     active. The accent-tinted .badge reads as a live value; "USKORO" is
+     neither, and the brief is explicit that an unavailable tool must not get
+     a different hue. Neutral also keeps it legible inside the dimmed card,
+     where the accent version measured 4.35:1. */
+  .badge--muted {
+    background: var(--panel-2);
+    border-color: var(--line-strong);
+    color: var(--txt-mid);
+  }
+
   /* MIGRATED to tokens — one treatment for every text control in the app. */
   .input {
     @apply w-full px-3 py-2 text-sm outline-none transition;
@@ -372,6 +390,15 @@ body {
   .step-rail {
     @apply flex items-stretch gap-1.5;
   }
+  /* A flex item's `min-width: auto` resolves to its MIN-CONTENT, and a
+     `truncate`d label is `white-space: nowrap`, so its min-content is the full
+     untruncated string. Six of those refused to shrink and pushed /app/matrix
+     to 544px wide inside a 375px screen — the page scrolled sideways instead of
+     the labels ellipsising. Letting the chip's children shrink is the fix; the
+     `truncate` they already carry then does its job. */
+  .step-chip > * {
+    min-width: 0;
+  }
   .step-chip {
     @apply flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-xs transition;
     background: var(--panel);
@@ -396,6 +423,16 @@ body {
     background: var(--accent-soft);
     border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
     color: var(--accent-text);
+  }
+
+  /* Reusable focus-visible recipe for interactive elements that don't use
+     .btn or .theme-swatch-button (nav links, footer links, ad-hoc toggle
+     buttons, custom pickers) — same outline as .btn so keyboard focus stays
+     visible and consistent everywhere. Purely additive: no visual effect
+     except on :focus-visible. */
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--accent-2);
+    outline-offset: 2px;
   }
 
   /* Theme picker (components/theme-switcher.tsx). The swatch carries its own

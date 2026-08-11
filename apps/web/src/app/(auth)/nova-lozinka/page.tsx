@@ -77,7 +77,7 @@ export default function NewPasswordPage() {
             <p className="mt-6 text-center text-sm text-txt-mid">
               <Link
                 href="/zaboravljena-lozinka"
-                className="font-medium text-accent hover:text-accent-text"
+                className="focus-ring rounded font-medium text-accent hover:text-accent-text"
               >
                 Pošalji novi link
               </Link>

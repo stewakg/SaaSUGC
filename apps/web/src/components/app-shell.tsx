@@ -59,7 +59,7 @@ export function AppShell({
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition',
+                  'focus-ring flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition',
                   active
                     ? 'step-chip--active'
                     : 'text-txt-mid hover:bg-panel-2 hover:text-txt-hi',
@@ -74,7 +74,7 @@ export function AppShell({
         <div className="absolute inset-x-0 bottom-0 p-3">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-txt-mid transition hover:bg-panel-2 hover:text-txt-hi"
+            className="focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-txt-mid transition hover:bg-panel-2 hover:text-txt-hi"
           >
             <NavIcon name="logout" />
             Izloguj se
@@ -86,13 +86,13 @@ export function AppShell({
             Deliberately understated — these are obligations, not navigation.
           */}
           <p className="mt-2 flex flex-wrap gap-x-2 gap-y-1 px-3 text-[11px] text-txt-low">
-            <Link href="/uslovi" className="hover:text-txt-mid">
+            <Link href="/uslovi" className="focus-ring rounded hover:text-txt-mid">
               Uslovi
             </Link>
-            <Link href="/privatnost" className="hover:text-txt-mid">
+            <Link href="/privatnost" className="focus-ring rounded hover:text-txt-mid">
               Privatnost
             </Link>
-            <Link href="/impressum" className="hover:text-txt-mid">
+            <Link href="/impressum" className="focus-ring rounded hover:text-txt-mid">
               Impressum
             </Link>
           </p>
@@ -108,11 +108,15 @@ export function AppShell({
       )}
 
       {/* Main */}
-      <div className="flex flex-1 flex-col lg:pl-64">
+      {/* min-w-0 is load-bearing: a flex item's min-width defaults to
+          min-content, so one wide child (the 6-step wizard rail) was widening
+          this whole column past the viewport and scrolling the page sideways
+          on a phone. */}
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
         {/* Topbar */}
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-ground/80 px-4 backdrop-blur sm:px-6">
           <button
-            className="rounded-lg border border-line p-2 lg:hidden"
+            className="focus-ring rounded-lg border border-line p-2 lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Meni"
           >

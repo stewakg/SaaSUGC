@@ -82,6 +82,7 @@ export default function RemoveTextPage() {
               type="file"
               accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp"
               onChange={(e) => void handleFileChange(e)}
+              aria-label="Uvezi fajl"
               className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
             />
           </label>

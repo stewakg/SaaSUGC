@@ -172,7 +172,8 @@ export default function AiSlikePage() {
                   key={n}
                   type="button"
                   onClick={() => setCount(n)}
-                  className={`h-9 w-9 rounded-control border text-sm font-mono tabular transition ${
+                  aria-pressed={count === n}
+                  className={`focus-ring h-9 w-9 rounded-control border text-sm font-mono tabular transition ${
                     count === n
                       ? 'border-accent-ring bg-accent-soft text-accent-text'
                       : 'border-line text-txt-mid hover:bg-panel-2'

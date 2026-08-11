@@ -81,7 +81,7 @@ function LoginForm() {
         <p className="mt-4 text-center text-sm">
           <Link
             href="/zaboravljena-lozinka"
-            className="text-txt-mid underline-offset-4 hover:text-txt-hi hover:underline"
+            className="focus-ring rounded text-txt-mid underline-offset-4 hover:text-txt-hi hover:underline"
           >
             Zaboravio si lozinku?
           </Link>
@@ -89,7 +89,7 @@ function LoginForm() {
 
         <p className="mt-6 text-center text-sm text-txt-mid">
           Nemaš nalog?{' '}
-          <Link href="/signup" className="font-medium text-accent hover:text-accent-text">
+          <Link href="/signup" className="focus-ring rounded font-medium text-accent hover:text-accent-text">
             Registruj se
           </Link>
         </p>

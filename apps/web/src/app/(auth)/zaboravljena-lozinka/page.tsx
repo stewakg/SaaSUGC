@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
 
         <p className="mt-6 text-center text-sm text-txt-mid">
           Setio si se?{' '}
-          <Link href="/login" className="font-medium text-accent hover:text-accent-text">
+          <Link href="/login" className="focus-ring rounded font-medium text-accent hover:text-accent-text">
             Uloguj se
           </Link>
         </p>

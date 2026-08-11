@@ -95,6 +95,7 @@ export default function MixPage() {
               accept="video/mp4,video/quicktime,video/webm"
               multiple
               onChange={(e) => void handleFilesChange(e)}
+              aria-label="Uvezi klipove"
               className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
             />
           </label>
@@ -113,7 +114,7 @@ export default function MixPage() {
                   <button
                     type="button"
                     onClick={() => removeClip(i)}
-                    className="shrink-0 text-xs text-err-text hover:text-err-text opacity-80"
+                    className="focus-ring shrink-0 rounded p-1 -m-1 text-xs text-err-text hover:underline"
                   >
                     Ukloni
                   </button>

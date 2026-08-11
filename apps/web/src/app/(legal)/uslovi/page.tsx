@@ -52,7 +52,7 @@ export default function UsloviPage() {
       <p>
         Zadržavaš sva prava na materijal koji otpremiš. Daješ nam samo dozvolu da ga obradimo radi izrade reklame koju
         si naručio, uključujući prosleđivanje spoljnim servisima navedenim u{' '}
-        <a href="/privatnost" className="text-accent-text hover:underline">
+        <a href="/privatnost" className="focus-ring rounded text-accent-text hover:underline">
           Politici privatnosti
         </a>
         .

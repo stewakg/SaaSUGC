@@ -90,6 +90,7 @@ export default function EnhancePage() {
               type="file"
               accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp"
               onChange={(e) => void handleFileChange(e)}
+              aria-label="Uvezi fajl"
               className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
             />
           </label>
@@ -114,7 +115,8 @@ export default function EnhancePage() {
                   key={f.value}
                   type="button"
                   onClick={() => setUpscaleFactor(f.value)}
-                  className={`h-9 rounded-control border px-4 text-sm font-mono tabular transition ${
+                  aria-pressed={upscaleFactor === f.value}
+                  className={`focus-ring h-9 rounded-control border px-4 text-sm font-mono tabular transition ${
                     upscaleFactor === f.value
                       ? 'border-accent-ring bg-accent-soft text-accent-text'
                       : 'border-line text-txt-mid hover:bg-panel-2'

@@ -20,7 +20,7 @@ export default function ImpressumPage() {
 
       <div className="rounded-xl border border-err/40 bg-err/10 p-4 text-sm text-err-text">
         <p className="font-semibold">Ništa na ovoj stranici nije popunjeno izmišljenim podacima — namerno.</p>
-        <p className="mt-1 text-err-text opacity-80">
+        <p className="mt-1 text-err-text">
           Impressum je zvanična izjava, ne marketinški tekst. Pogrešan ili izmišljen podatak je prekršaj i osnov za
           opomenu (Abmahnung). Svaka vrednost mora doći iz stvarnih dokumenata o registraciji delatnosti.
         </p>

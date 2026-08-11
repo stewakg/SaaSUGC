@@ -542,6 +542,7 @@ export default function MatrixPage() {
               accept="video/mp4,video/quicktime,video/webm"
               multiple
               onChange={(e) => void handleFilesChange(e)}
+              aria-label="Upload klipova"
               className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
             />
           </label>
@@ -632,7 +633,7 @@ export default function MatrixPage() {
                             href={s.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-[11px] text-txt-mid underline-offset-2 hover:text-txt-hi hover:underline"
+                            className="focus-ring rounded text-[11px] text-txt-mid underline-offset-2 hover:text-txt-hi hover:underline"
                           >
                             Pogledaj
                           </a>
@@ -640,7 +641,7 @@ export default function MatrixPage() {
                             type="button"
                             onClick={() => void takeSuggestion(s)}
                             disabled={takingId !== null}
-                            className="text-[11px] font-medium text-accent-text hover:text-accent disabled:opacity-50"
+                            className="focus-ring rounded p-1 -m-1 text-[11px] font-medium text-accent-text hover:text-accent disabled:opacity-50"
                           >
                             {takingId === s.id ? 'Uzimam…' : 'Uzmi'}
                           </button>
@@ -665,7 +666,7 @@ export default function MatrixPage() {
                   <button
                     type="button"
                     onClick={() => removeClip(i)}
-                    className="shrink-0 text-xs text-err-text hover:text-err-text opacity-80"
+                    className="focus-ring shrink-0 rounded p-1 -m-1 text-xs text-err-text hover:underline"
                   >
                     Ukloni
                   </button>
@@ -798,7 +799,8 @@ export default function MatrixPage() {
                   key={n}
                   type="button"
                   onClick={() => setCount(n)}
-                  className={`h-9 min-w-9 px-2 rounded-control border text-sm font-mono tabular transition ${
+                  aria-pressed={count === n}
+                  className={`focus-ring h-9 min-w-9 px-2 rounded-control border text-sm font-mono tabular transition ${
                     count === n
                       ? 'border-accent-ring bg-accent-soft text-accent-text'
                       : 'border-line text-txt-mid hover:bg-panel-2'
@@ -817,7 +819,8 @@ export default function MatrixPage() {
                   key={a}
                   type="button"
                   onClick={() => setAspect(a)}
-                  className={`h-9 rounded-control border px-3 text-sm transition ${
+                  aria-pressed={aspect === a}
+                  className={`focus-ring h-9 rounded-control border px-3 text-sm transition ${
                     aspect === a
                       ? 'border-accent-ring bg-accent-soft text-accent-text'
                       : 'border-line text-txt-mid hover:bg-panel-2'
@@ -913,7 +916,8 @@ export default function MatrixPage() {
                       setCaptionX(0.5);
                       setCaptionY(p.y);
                     }}
-                    className={`rounded-control border px-2 py-1 text-xs transition ${
+                    aria-pressed={active}
+                    className={`focus-ring rounded-control border px-2 py-1 text-xs transition ${
                       active
                         ? 'border-accent-ring bg-accent-soft text-accent-text'
                         : 'border-line text-txt-mid hover:border-line-strong hover:text-txt-hi'
@@ -1108,7 +1112,8 @@ export default function MatrixPage() {
                   <button
                     type="button"
                     onClick={() => setOpenScript(open ? null : i)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    aria-expanded={open}
+                    className="focus-ring flex min-w-0 flex-1 items-center gap-2 rounded text-left"
                   >
                     <span className="shrink-0 text-xs text-txt-low font-mono tabular">{i + 1}.</span>
                     <span className="truncate text-xs text-txt-mid">{s.angle}</span>
@@ -1120,7 +1125,7 @@ export default function MatrixPage() {
                   <button
                     type="button"
                     onClick={() => removeScript(i)}
-                    className="shrink-0 text-xs text-err-text hover:text-err-text opacity-80"
+                    className="focus-ring shrink-0 rounded p-1 -m-1 text-xs text-err-text hover:underline"
                   >
                     Ukloni
                   </button>

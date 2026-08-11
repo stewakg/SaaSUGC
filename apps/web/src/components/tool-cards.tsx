@@ -30,11 +30,11 @@ export function MainToolCard({
   className,
 }: ToolCardProps & { benefits?: string[]; className?: string }) {
   const card = (
-    <div className={cn('card h-full', href && 'card--lift', soon && 'opacity-60')}>
+    <div className={cn('card h-full', href && 'card--lift', soon && 'opacity-80')}>
       <div className="flex items-start justify-between gap-3">
         <ToolIcon icon={icon} />
         {soon ? (
-          <span className="badge shrink-0">USKORO</span>
+          <span className="badge badge--muted shrink-0">USKORO</span>
         ) : (
           <span className="badge shrink-0">{creditsLabel(cost)}</span>
         )}
@@ -56,7 +56,7 @@ export function MainToolCard({
 
   if (href) {
     return (
-      <Link href={href} className={cn('block', className)}>
+      <Link href={href} className={cn('block rounded-card focus-ring', className)}>
         {card}
       </Link>
     );
@@ -70,14 +70,14 @@ export function MainToolCard({
  */
 export function UtilityToolCard({ icon, label, description, cost, href, soon }: ToolCardProps) {
   const card = (
-    <div className={cn('card flex items-center gap-4', href && 'card--lift', soon && 'opacity-60')}>
+    <div className={cn('card flex items-center gap-4', href && 'card--lift', soon && 'opacity-80')}>
       <ToolIcon icon={icon} />
       <div className="min-w-0 flex-1">
         <h4 className="font-medium text-txt-hi">{label}</h4>
         <p className="mt-0.5 text-xs text-txt-mid">{description}</p>
       </div>
       {soon ? (
-        <span className="badge shrink-0">USKORO</span>
+        <span className="badge badge--muted shrink-0">USKORO</span>
       ) : (
         <span className="badge shrink-0">{creditsLabel(cost)}</span>
       )}
@@ -85,7 +85,11 @@ export function UtilityToolCard({ icon, label, description, cost, href, soon }: 
   );
 
   if (href) {
-    return <Link href={href}>{card}</Link>;
+    return (
+      <Link href={href} className="block rounded-card focus-ring">
+        {card}
+      </Link>
+    );
   }
   return card;
 }

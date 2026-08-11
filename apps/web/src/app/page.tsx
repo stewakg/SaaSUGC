@@ -105,15 +105,15 @@ export default function LandingPage() {
           the same links before launch.
         */}
         <p className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-          <Link href="/uslovi" className="hover:text-txt-mid">
+          <Link href="/uslovi" className="focus-ring rounded hover:text-txt-mid">
             Uslovi korišćenja
           </Link>
           <span aria-hidden>·</span>
-          <Link href="/privatnost" className="hover:text-txt-mid">
+          <Link href="/privatnost" className="focus-ring rounded hover:text-txt-mid">
             Privatnost
           </Link>
           <span aria-hidden>·</span>
-          <Link href="/impressum" className="hover:text-txt-mid">
+          <Link href="/impressum" className="focus-ring rounded hover:text-txt-mid">
             Impressum
           </Link>
         </p>

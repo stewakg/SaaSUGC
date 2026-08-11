@@ -19,23 +19,23 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <nav className="mb-8 flex flex-wrap items-center gap-4 text-sm">
-        <Link href="/" className="text-accent-text hover:underline">
+        <Link href="/" className="focus-ring rounded text-accent-text hover:underline">
           ← Početna
         </Link>
-        <Link href="/uslovi" className="text-txt-mid hover:text-txt-hi">
+        <Link href="/uslovi" className="focus-ring rounded text-txt-mid hover:text-txt-hi">
           Uslovi korišćenja
         </Link>
-        <Link href="/privatnost" className="text-txt-mid hover:text-txt-hi">
+        <Link href="/privatnost" className="focus-ring rounded text-txt-mid hover:text-txt-hi">
           Privatnost
         </Link>
-        <Link href="/impressum" className="text-txt-mid hover:text-txt-hi">
+        <Link href="/impressum" className="focus-ring rounded text-txt-mid hover:text-txt-hi">
           Impressum
         </Link>
       </nav>
 
       <div className="mb-8 rounded-xl border border-warn/40 bg-warn/10 p-4 text-sm text-warn-text">
         <p className="font-semibold">Nacrt — nije pravno pregledan.</p>
-        <p className="mt-1 text-warn-text opacity-80">
+        <p className="mt-1 text-warn-text">
           Ovaj tekst opisuje šta aplikacija stvarno radi sa podacima, ali ga nije pregledao advokat niti poreski
           savetnik. Sva mesta označena sa <code className="rounded bg-panel-2 px-1">[[POPUNITI: …]]</code> moraju se
           popuniti stvarnim podacima pre nego što sajt primi ijednog pravog korisnika.
