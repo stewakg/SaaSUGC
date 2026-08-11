@@ -195,3 +195,32 @@ function createRendererProvider(env: ReturnType<typeof loadEnv>): Renderer {
 export function getAI(): AIProvider {
   return createProviders().ai;
 }
+
+/**
+ * Which provider slots resolved to a MOCK. Returns slot names, e.g.
+ * `['script', 'voice']`, or an empty array when everything is real.
+ *
+ * This exists because of a specific incident, not as hygiene. On 2026-08-10 the
+ * production worker on the VPS was found running with `script: mock-script` and
+ * `voice: mock-voice` — no keys in its env — while listening to the same Redis
+ * queue as the real one. It would have picked up a paying customer's job and
+ * answered it with canned text that looks exactly like success: a job marked
+ * done, credits charged, and a video containing a script nobody wrote. The
+ * factory is deliberately forgiving about missing keys (that is what makes
+ * mock-first development work), so the safety has to live at the boundary where
+ * a process decides to start serving traffic.
+ *
+ * `mediaEdit` is intentionally not reported: it has no mock counterpart at all
+ * and is null when unconfigured, which the job handler already fails on.
+ */
+export function mockProviderSlots(providers: Providers): string[] {
+  const mocks: [string, boolean][] = [
+    ['ai', providers.ai instanceof MockAIProvider],
+    ['script', providers.script instanceof MockScriptProvider],
+    ['voice', providers.voice instanceof MockVoiceProvider],
+    ['renderer', providers.renderer instanceof MockRenderer],
+    ['storage', providers.storage instanceof MockStorage],
+    ['scraper', providers.scraper instanceof MockScraper],
+  ];
+  return mocks.filter(([, isMock]) => isMock).map(([slot]) => slot);
+}

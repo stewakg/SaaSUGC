@@ -14,6 +14,7 @@ import { Worker, type Job } from 'bullmq';
 import { pathToFileURL } from 'node:url';
 import {
   createProviders,
+  mockProviderSlots,
   mockWordTimestamps,
   consoleLogger,
   MATRIX_ASPECTS,
@@ -563,8 +564,13 @@ function makeProcessor(db: ReturnType<typeof createServiceClient>) {
 }
 
 async function main() {
+  // `mediaEdit` is the one slot that can be null — it has no mock counterpart,
+  // so an absent FAL_API_KEY leaves it unset rather than mocked. Reading .name
+  // off it crashed the worker on startup for any config without that key, which
+  // is the default mock-first config: since the slot was added, a fresh clone
+  // could not boot the worker at all.
   const providerModes = Object.fromEntries(
-    Object.entries(providers).map(([k, v]) => [k, v.name]),
+    Object.entries(providers).map(([k, v]) => [k, v?.name ?? 'not configured']),
   );
   consoleLogger.info('provider modes', providerModes);
 
@@ -576,6 +582,26 @@ async function main() {
     process.exit(1);
   }
   const db = createServiceClient(SUPABASE_URL, SERVICE_KEY);
+
+  // A worker on mocks is worse than a worker that is down. A down worker leaves
+  // the job queued; a mocked one marks it DONE, charges the credits, and hands
+  // back canned text that looks like success. That exact thing was found
+  // running on the VPS on 2026-08-10 against the shared queue. In production,
+  // refuse to serve rather than lie.
+  const mocked = mockProviderSlots(providers);
+  if (mocked.length > 0) {
+    const inProduction = process.env.NODE_ENV === 'production';
+    const message = `provider slots resolved to MOCKS: ${mocked.join(', ')}`;
+    if (inProduction && process.env.ALLOW_MOCK_PROVIDERS !== '1') {
+      consoleLogger.error(
+        `${message}. Refusing to start in production — a mocked worker answers paid jobs ` +
+          'with canned output and still charges for it. Set the missing keys in the ' +
+          "worker's .env, or set ALLOW_MOCK_PROVIDERS=1 if this really is a staging box.",
+      );
+      process.exit(1);
+    }
+    consoleLogger.warn(`${message} — fine for local development, never for production.`);
+  }
 
   const connection = createRedisConnection();
   const worker = new Worker<JobQueueData>(JOB_QUEUE_NAME, makeProcessor(db), {
