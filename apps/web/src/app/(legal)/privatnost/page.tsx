@@ -126,10 +126,15 @@ export default function PrivatnostPage() {
 
       <h2 className="text-lg font-semibold text-txt-hi">4. Koliko dugo čuvamo</h2>
       <p>
-        Nalog i evidenciju kredita čuvamo dok postoji nalog, a zatim onoliko koliko nalažu propisi o čuvanju
-        poslovne dokumentacije ([[POPUNITI: rok po važećem propisu]]). Otpremljene fajlove i gotove reklame čuvamo
-        [[POPUNITI: rok — politika automatskog brisanja još nije podešena]]. Kad se nalog obriše, brišu se i vezani
-        fajlovi.
+        <strong className="text-txt-hi">Fajlove čuvamo 30 dana.</strong> To važi i za materijal koji otpremiš i za
+        gotove reklame — posle 30 dana brišu se automatski i ne mogu se povratiti. Zvučni zapisi koji nastanu usput
+        (izgovorena skripta pre nego što se ugradi u video) brišu se ranije, jer posle ugradnje nemaju svrhu.
+      </p>
+      <p>
+        Nalog i evidenciju kredita čuvamo dok postoji nalog, a zatim onoliko koliko nalažu propisi o čuvanju poslovne
+        dokumentacije ([[POPUNITI: rok po važećem propisu — u Nemačkoj po pravilu 6 ili 10 godina za knjigovodstvene
+        isprave; potvrditi sa poreskim savetnikom]]). Kad se nalog obriše, brišu se i svi vezani fajlovi, bez čekanja
+        na rok od 30 dana.
       </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">5. Tvoja prava</h2>
@@ -142,9 +147,43 @@ export default function PrivatnostPage() {
 
       <h2 className="text-lg font-semibold text-txt-hi">6. Kolačići</h2>
       <p>
-        Koristimo isključivo kolačić neophodan za prijavu — bez njega ne bismo znali da si ulogovan. Nema kolačića za
-        analitiku, praćenje ni reklame, pa nema ni banera za pristanak. Ako se analitika ikada uvede, ovaj odeljak i
-        način pristanka moraju se izmeniti pre nego što se uvede.
+        Postoje tačno dva, oba su naša (nema kolačića trećih strana) i nijedan ne prati tvoje ponašanje:
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="text-txt-low">
+            <tr>
+              <th className="py-2 pr-4 font-medium">Kolačić</th>
+              <th className="py-2 pr-4 font-medium">Čemu služi</th>
+              <th className="py-2 font-medium">Koliko traje</th>
+            </tr>
+          </thead>
+          <tbody className="align-top">
+            <tr className="border-t border-line">
+              <td className="py-2 pr-4 font-mono text-xs">sb-…-auth-token</td>
+              <td className="py-2 pr-4">
+                Drži te prijavljenim. Bez njega bi te svaka stranica ponovo tražila da se uloguješ.
+              </td>
+              <td className="py-2">do odjave</td>
+            </tr>
+            <tr className="border-t border-line">
+              <td className="py-2 pr-4 font-mono text-xs">adgen-theme</td>
+              <td className="py-2 pr-4">
+                Pamti temu koju si izabrao. Postavlja se tek kad je sam izabereš — ako je ne diraš, ne postoji.
+              </td>
+              <td className="py-2">godinu dana</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Oba su neophodna za funkciju koju si sam zatražio, pa za njih po propisu nije potreban pristanak i
+        <strong className="text-txt-hi"> nema banera za kolačiće</strong>. Nema analitike, nema piksela za reklame, nema
+        praćenja između sajtova.
+      </p>
+      <p className="text-txt-mid">
+        Ako se analitika ikada uvede, ovaj odeljak i pristanak moraju se urediti <em>pre</em> nego što se uvede, ne
+        posle.
       </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">7. Sadržaj koji generiše veštačka inteligencija</h2>

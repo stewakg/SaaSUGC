@@ -39,14 +39,24 @@ export default function UsloviPage() {
           <strong className="text-txt-hi">Naplaćuje se samo uspešan posao.</strong> Ako posao ne uspe, krediti se ne
           skidaju. Ako se skinu greškom, vraćaju se.
         </li>
-        <li>Neiskorišćeni krediti se prenose i ne ističu [[POPUNITI: potvrditi da ovo ostaje pravilo]].</li>
+        <li>Neiskorišćeni krediti se prenose u naredni period i ne ističu dok nalog postoji.</li>
         <li>Krediti nisu novac, ne mogu se preneti drugom nalogu niti zameniti za gotovinu.</li>
         <li>
-          Pravo na odustanak: kupovinom kredita i njihovim trošenjem pre isteka zakonskog roka za odustanak,
-          saglasan si da usluga počinje odmah. [[POPUNITI: tačna formulacija po propisu o zaštiti potrošača —
-          obavezno pravno pregledati.]]
+          <strong className="text-txt-hi">Kupovina kredita je konačna.</strong> Kupljeni krediti se ne vraćaju i ne
+          zamenjuju za novac. To se ne odnosi na tačku iznad: posao koji ne uspe se ne naplaćuje, a krediti skinuti
+          greškom se vraćaju — to nije povraćaj novca nego ispravka pogrešnog zaduženja.
+        </li>
+        <li>
+          <strong className="text-txt-hi">Pravo na odustanak i zašto ga gubiš.</strong> Krediti su digitalni sadržaj
+          koji se isporučuje odmah. Pri kupovini izričito tražiš da isporuka počne pre isteka zakonskog roka za
+          odustanak od 14 dana i potvrđuješ da time gubiš pravo na odustanak. Ako ta potvrda nije data pri kupovini,
+          zakonski rok od 14 dana važi i pored prethodne rečenice.
         </li>
       </ul>
+      <p className="text-txt-mid">
+        Poslednja stavka nije formalnost: bez izričite potvrde na koraku plaćanja, pravilo „kupovina je konačna” ne
+        proizvodi dejstvo prema potrošaču u EU.
+      </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">5. Materijal koji otpremaš</h2>
       <p>
@@ -80,7 +90,17 @@ export default function UsloviPage() {
         da će reklama biti tačna, prikladna ni uspešna. Pregled pre objave je tvoja obaveza.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">8. Šta nije dozvoljeno</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">8. Koliko dugo čuvamo rezultat</h2>
+      <p className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-warn-text">
+        <strong className="text-txt-hi">Sve što napraviš na platformi dostupno je za preuzimanje 30 dana.</strong> Posle
+        toga se fajlovi brišu automatski — i gotove reklame i materijal koji si otpremio. Zapis o poslu ostaje u
+        istoriji, ali fajl više ne postoji i ne može se povratiti.
+      </p>
+      <p>
+        Preuzmi reklamu čim je gotova. Čuvanje rezultata nije usluga arhiviranja i ne zamenjuje tvoju sopstvenu kopiju.
+      </p>
+
+      <h2 className="text-lg font-semibold text-txt-hi">9. Šta nije dozvoljeno</h2>
       <ul className="list-disc space-y-1 pl-5">
         <li>Sadržaj koji je protivzakonit, obmanjujući ili predstavlja lažnu reklamu.</li>
         <li>Lik ili glas stvarne osobe bez njenog pristanka.</li>
@@ -90,26 +110,46 @@ export default function UsloviPage() {
       </ul>
       <p>Nalog koji krši ova pravila možemo ograničiti ili ukinuti.</p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">9. Dostupnost</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">10. Dostupnost</h2>
       <p>
         Usluga zavisi od spoljnih servisa i može biti privremeno nedostupna. Ne garantujemo neprekidan rad. Ako posao
         ne može da se izvrši, krediti se ne troše.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">10. Odgovornost</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">11. Odgovornost</h2>
+      <p>Odgovaramo bez ograničenja:</p>
+      <ul className="list-disc space-y-1 pl-5">
+        <li>za štetu prouzrokovanu namerno ili grubom nepažnjom;</li>
+        <li>za povredu života, tela ili zdravlja;</li>
+        <li>u meri u kojoj odgovornost propisuju prinudni propisi o odgovornosti za proizvod.</li>
+      </ul>
       <p>
-        [[POPUNITI: ograničenje odgovornosti — formulacija zavisi od propisa i mora je napisati advokat. Ne
-        objavljivati sa izmišljenim tekstom.]]
+        Za običnu nepažnju odgovaramo samo ako je povređena obaveza čije ispunjenje uopšte omogućava izvršenje ugovora
+        i u čije se ispunjenje korisnik opravdano pouzda. U tom slučaju odgovornost je ograničena na štetu koja je za
+        ovakav ugovor tipična i predvidiva. Svaka dalja odgovornost je isključena.
+      </p>
+      <p>
+        Posebno ne odgovaramo za sadržaj reklame koju objaviš ni za posledice njenog objavljivanja, za prava na
+        materijalu koji si otpremio ili uvezao (tačke 5 i 6), niti za gubitak fajlova posle isteka roka iz tačke 8.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">11. Izmene uslova</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">12. Izmene uslova</h2>
       <p>
-        Uslove možemo menjati. O bitnim izmenama obaveštavamo emailom najmanje [[POPUNITI: rok]] dana unapred.
-        Nastavak korišćenja posle izmene znači prihvatanje.
+        Uslove možemo menjati. O bitnim izmenama obaveštavamo emailom najmanje 15 dana unapred. Ako se sa izmenom ne
+        slažeš, možeš prestati da koristiš uslugu pre nego što stupi na snagu; nastavak korišćenja posle tog roka znači
+        prihvatanje.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">12. Merodavno pravo</h2>
-      <p>[[POPUNITI: merodavno pravo i nadležni sud — zavisi od sedišta i od toga da li je kupac potrošač.]]</p>
+      <h2 className="text-lg font-semibold text-txt-hi">13. Merodavno pravo i nadležnost</h2>
+      <p>
+        Na ovaj ugovor primenjuje se pravo države sedišta pružaoca usluge navedenog u tački 1, uz isključenje kolizionih
+        normi i Bečke konvencije o ugovorima o međunarodnoj prodaji robe.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Ako si potrošač</strong>, ovo te ne lišava zaštite koju ti daju prinudni propisi
+        države tvog uobičajenog boravišta, i možeš tužiti i biti tužen pred sudom te države. Ako ugovor zaključuješ kao
+        privredni subjekt, isključivo je nadležan sud sedišta pružaoca usluge.
+      </p>
     </>
   );
 }

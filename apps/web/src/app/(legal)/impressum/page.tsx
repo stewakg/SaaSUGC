@@ -61,20 +61,16 @@ export default function ImpressumPage() {
 
       <h2 className="text-lg font-semibold text-txt-hi">Rešavanje sporova</h2>
       <p>
-        Evropska komisija vodi platformu za onlajn rešavanje sporova:{' '}
-        <a
-          href="https://ec.europa.eu/consumers/odr/"
-          className="text-accent-text hover:underline"
-          rel="noreferrer noopener"
-          target="_blank"
-        >
-          ec.europa.eu/consumers/odr
-        </a>
-        .
+        Nismo obavezni niti spremni da učestvujemo u postupku za mirno rešavanje sporova pred telom za rešavanje
+        potrošačkih sporova.
       </p>
-      <p>
-        [[POPUNITI: izjava o spremnosti ili nespremnosti za učešće u postupku pred telom za mirno rešavanje
-        potrošačkih sporova — obavezna izjava, obe varijante su dozvoljene ali jedna mora stajati.]]
+      <p className="text-txt-mid">
+        [[PROVERITI: ovo je uobičajena izjava za malog preduzetnika i obe varijante su dozvoljene — ali izjava mora
+        odgovarati stvarnoj nameri. Ako se opredeliš za učešće, mora se navesti i konkretno nadležno telo.]]
+      </p>
+      <p className="text-txt-mid">
+        [[PROVERITI: raniji tekst je upućivao na ODR platformu Evropske komisije. Ta platforma je ugašena tokom 2025.
+        godine, pa je upućivanje uklonjeno — potvrditi pre objave da obaveza upućivanja više ne postoji.]]
       </p>
     </>
   );
