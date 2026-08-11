@@ -24,3 +24,11 @@ overrides:
   "@adgen/web>@types/react-dom": "npm:types-react-dom@rc"
   "@types/react": "18.3.12"
   "@types/react-dom": "18.3.1"
+  # @aws-sdk/client-s3 and @aws-sdk/s3-request-presigner resolved DIFFERENT
+  # copies of @smithy/core. Both work at runtime, but the `Client` class carries
+  # a private `handers` field, and TypeScript compares private members
+  # nominally — so passing an S3Client to getSignedUrl failed to typecheck with
+  # "Types have separate declarations of a private property 'handlers'".
+  # One copy each, and the two packages agree again.
+  "@smithy/core": "3.31.1"
+  "@smithy/signature-v4": "5.6.12"

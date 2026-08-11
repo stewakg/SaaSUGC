@@ -6,9 +6,20 @@
  * Written now so it's ready to wire in once R2_BUCKET or AWS_S3_BUCKET
  * exists (see ACCOUNTS.md) — never instantiated until then. NOT live-tested.
  */
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Readable } from 'node:stream';
 import type { Storage } from '../interfaces.ts';
+
+/**
+ * How long a signed link stays usable. Long enough that a customer can start a
+ * download, open it in another tab, or come back from a phone notification —
+ * short enough that a link pasted into a group chat stops working the same day.
+ */
+export const SIGNED_URL_TTL_SECONDS = 60 * 60; // 1 hour
+
+/** Upload links are handed out at the start of one upload and used immediately. */
+export const SIGNED_UPLOAD_TTL_SECONDS = 15 * 60; // 15 minutes
 
 export class S3CompatibleStorage implements Storage {
   readonly name = 's3-storage';
@@ -44,7 +55,59 @@ export class S3CompatibleStorage implements Storage {
     return { url: this.getUrl(key) };
   }
 
+  /**
+   * The PUBLIC, permanent url for a key.
+   *
+   * Only correct for a bucket that is meant to be world-readable. Keys in this
+   * app are not uniformly unguessable — `uploads/<userId>/<timestamp>.mp4` is
+   * quite guessable to anyone who knows a user id — so a customer's own footage
+   * should be handed out through `signedDownloadUrl` instead. Keeping both, and
+   * saying which is which here, is the point: the choice is per-prefix, not
+   * global.
+   */
   getUrl(key: string): string {
     return `${this.config.publicBaseUrl.replace(/\/$/, '')}/${key}`;
+  }
+
+  /**
+   * A time-limited download link for one object.
+   *
+   * The signature is computed locally from the credentials — no network call,
+   * so this is cheap enough to do per request and does not need caching.
+   */
+  async signedDownloadUrl(key: string, ttlSeconds = SIGNED_URL_TTL_SECONDS): Promise<string> {
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({ Bucket: this.config.bucket, Key: key }),
+      { expiresIn: ttlSeconds },
+    );
+  }
+
+  /**
+   * A time-limited link the BROWSER can PUT straight to, so a 200 MB video
+   * never travels through the app server.
+   *
+   * This is what removes the upload ceiling from the hosting decision: today
+   * `POST /api/upload` buffers the whole file in the Node process, which is why
+   * a serverless host with a ~4.5 MB body cap cannot serve this app as written.
+   *
+   * `signableHeaders` is load-bearing and was NOT obvious: passing ContentType
+   * to PutObjectCommand alone does not bind it — the SDK signs only `host` by
+   * default, which a test caught. Without the explicit set, one signed link
+   * would accept ANY content type, so a link issued for an mp4 could be used to
+   * store `text/html` that then serves from our own domain. With it, the
+   * browser MUST send the same Content-Type on the PUT or the upload is
+   * rejected.
+   */
+  async signedUploadUrl(
+    key: string,
+    contentType: string,
+    ttlSeconds = SIGNED_UPLOAD_TTL_SECONDS,
+  ): Promise<string> {
+    return getSignedUrl(
+      this.client,
+      new PutObjectCommand({ Bucket: this.config.bucket, Key: key, ContentType: contentType }),
+      { expiresIn: ttlSeconds, signableHeaders: new Set(['content-type']) },
+    );
   }
 }
