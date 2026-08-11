@@ -194,7 +194,7 @@ N processes on N machines pulling from one Redis is the pattern BullMQ exists fo
 changes to do it. Copy the container, point `REDIS_URL` at the same instance, done. What you
 must NOT do is leave `WORKER_CONCURRENCY` at its default on a render box — see below.
 
-**Stage 3 is now a config switch, as of `9a2f...` in this session, and it genuinely was not
+**Stage 3 is now a config switch, as of `8c2ac09`, and it genuinely was not
 before.** `matrixRenderer` was a hardcoded `new LocalRemotionRenderer(...)`, so the factory
 would happily build a Lambda renderer from `REMOTION_*` and matrix would ignore it and render
 locally anyway. The documented "scale out to Lambda" path did not exist — it was a code change
