@@ -16,6 +16,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: post-redesign bug hunt + worker mock guard (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + apps/web/src/components/{app-shell,tool-cards}.tsx + ~18 web files for focus/ARIA + apps/worker/src/index.ts + packages/core/src/{index.ts,providers/factory.ts} + NEW packages/core/src/pricing.{cost,integrity,grammar}.test.ts) — CLEAN @ 26b1f96, 77594e9 (2026-08-11). Three UI defects found by MEASURING every text node against its composited background per page per theme, not by looking: `--txt-low` failed contrast in obsidian (3.24:1) and poluton (3.16:1) while carrying job dates, costs and step labels; the `opacity-80` added during the P7 warn/err migration pulled those sub-lines back to 3.53:1; and /app/matrix overflowed to 544px inside a 375px viewport in all three themes (flex `min-width:auto` + a nowrap `truncate` label whose min-content is the full string). ✅ RUNTIME-VERIFIED: the sweep now returns EMPTY for /, /app, /app/matrix, /app/reklame in all three themes at 1280px AND 375px; only disabled buttons remain flagged, which WCAG 1.4.3 exempts. Keyboard focus added across ~18 files (subagent, diff checked for text-node changes — none). Worker: `mockProviderSlots()` + a production refusal, ✅ VERIFIED by running the worker three ways (production+mocks → exit 1 naming all six slots; +ALLOW_MOCK_PROVIDERS=1 → warns and listens; dev → warns and listens). **That verification found a live crash**: `mediaEdit` is null without FAL_API_KEY and the startup log read `.name` off it, so since 123d0de a fresh clone could not boot the worker at all. Money-path tests 67 → 105. Gates green (dev server must be STOPPED for the web build — it shares `.next`).
 REVIEWED: three-theme redesign, Prompt 7 closing sweep (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + apps/web/src/app/(legal)/{layout,uslovi,privatnost,impressum} + 20 files whose `text-ok|warn|err` call sites moved to the `-text` variants) — CLEAN @ feb7dab (2026-08-11), **with two defects found and fixed, not waved through**. (a) The whole `(legal)` group was still hardcoded light-on-dark and rendered white-on-near-white in poluton; 63 className attributes migrated, diff verified className-only (63 insertions / 63 deletions, every changed line contains `className`, so the frozen legal TEXT is provably untouched). (b) **`--warn` as TEXT measured 1.65:1 on poluton's ground** — unreadable, and it was carrying the legal disclaimer notices. Fixed at the token layer with `--ok-text`/`--warn-text`/`--err-text` (each hue pulled 55% toward the per-theme `--txt-hi`), so borders and fills keep the canonical hues while text stays legible; measured after on /uslovi in all three themes: warn 13.80 / 5.56 / 14.21, err 10.17 / 8.41 / 10.45, ok 12.41 / 6.44 / 12.82. Gates green: `pnpm -r typecheck` (5 projects), `pnpm -r test` (67), `pnpm --filter @adgen/web build`. ✅ RUNTIME-VERIFIED, full matrix this time: `/`, `/app`, `/app/matrix`, `/app/reklame` × 3 themes, plus `/login` and `/signup` × 3 themes, plus `/uslovi`, `/privatnost`, `/impressum` × 3 themes — 21 page-loads, each a real navigation. **This supersedes the "auth pages are CODE-COMPLETE" caveat in the verdict below**: they were rendered for real. Still probe-based, not screenshots — see the block below. `#FFE000` deliberately NOT migrated; all 7 callers listed there.
 REVIEWED: three-theme redesign, Prompts 1–6 (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + NEW src/lib/theme.ts + NEW src/components/theme-switcher.tsx + src/app/layout.tsx + src/app/page.tsx + src/app/(auth)/**/page.tsx + src/app/app/{page,matrix,edit,mix,translate,enhance,remove-text,ai-slike,quick-test,reklame}/page.tsx + src/components/{app-shell,tool-cards,tool-icon,job-wizard,password-rules}.tsx + DELETED src/lib/tool-theme.ts) — CLEAN @ b903276 (2026-08-10). Prompts 1–3 written directly by Claude Code; 4, 5 and 6 delegated to subagents and every diff read line by line before committing. Gates green at each of the six commits: `pnpm -r typecheck` (5 projects), `pnpm -r test` (67 tests), `pnpm --filter @adgen/web build`. ✅ RUNTIME-VERIFIED through the browser with a REAL PAGE LOAD PER THEME (cookie + reload, never a live `data-theme` flip — see the gotcha in the block below): `/` and `/app/quick-test` in all three themes, `/app` obsidian+poluton at desktop and neon at 375px, `/app/matrix` obsidian+poluton, `/app/reklame` neon. Verification was by computed-style and DOM probes, NOT by screenshot — the Browser pane never displayed, so no human eye has seen these screens. **Auth pages are CODE-COMPLETE, not runtime-verified** (reaching them needs a logged-out session; SSR markup checked instead). **Prompt 7 is NOT done** — see the open items in the block below.
 REVIEWED: matrix wizard cost display (apps/web/src/app/app/matrix/page.tsx: new `effectiveCount`) — CLEAN @ cb3bcfb (2026-08-10). Written directly by Claude Code during a click-test, not delegated — 4 call sites, one expression. ✅ RUNTIME-VERIFIED through the browser over HMR: with one kept script the footer went "Cena: 75 kredita (5 × 15)" → "Cena: 15 kredita (1 × 15)", directly under the existing "Napraviće se 1 video" line. **Billing itself was never wrong** — `/api/jobs` was already sent the kept-script count (12d27d4); only the number quoted to the user before the click was. `pnpm -r typecheck` green on all 5 projects. **Closes the "NOT click-tested" caveat in the sound-panel verdict @ e04f865** for the caption controls and both audio pickers (see the block below); the *rendered* effect of music/SFX still rests on the 08-05 dB measurements, not on this test.
@@ -42,6 +43,75 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-08-11 (seventh session) — the project gets a release plan, and the worker stops being able to lie
+**Account:** _(unrecorded)_ · **Machine:** primary. **Commits:** `26b1f96` UI bug fixes ·
+`676bbcc` RELEASE_PLAN.md · `77594e9` worker mock guard + crash fix + money-path tests · this
+block. **Deliberately left uncommitted: nothing.**
+
+**The project now has a release plan, `RELEASE_PLAN.md`.** It never had one. `INFRASTRUCTURE.md`
+tracks BUILD phases F0–F7; nothing tracked the path to a paying customer, so "what is left" has
+been a feeling. The plan is built from an evidence pass over the code rather than from what the
+docs claim, and its headline finding is that **the product loop already works** — the missing
+things are hosting, durable storage, a way to take money, and a legal surface. Five milestones
+L1–L5 ordered by dependency, each row marked owner-gated or code. A visual version was
+published as an artifact for at-a-glance use; the markdown file is the source of truth.
+
+**A worker on mocks can no longer serve production.** `mockProviderSlots()` in core reports
+which slots resolved to a mock; the worker refuses to boot in production if any did, with
+`ALLOW_MOCK_PROVIDERS=1` as the deliberate staging escape hatch. This closes the 2026-08-10
+incident *in code* rather than in a doc — a worker that is DOWN leaves the job queued, a mocked
+one marks it done, charges the credits and returns a script nobody wrote.
+
+**Verifying that guard found a live crash, which is the better find.** The startup log did
+`Object.entries(providers).map(([k, v]) => [k, v.name])`, and `mediaEdit` is the one slot that
+can be `null` — it has no mock counterpart, so an absent `FAL_API_KEY` leaves it unset. The
+worker died with `Cannot read properties of null (reading 'name')` before reaching anything
+else. That is the DEFAULT mock-first configuration: **since 123d0de a fresh clone could not
+start the worker at all.** Nothing caught it because nobody had run the worker without a fal
+key since the slot was added.
+
+**Three UI defects, all found by measuring rather than looking.** With the Browser pane still
+refusing to composite a frame, the method was to walk every text node in an iframe and compare
+its computed colour against its properly composited background, per page, per theme, at two
+viewport widths. It found: `--txt-low` failing contrast in two of three themes (3.24:1 and
+3.16:1) while carrying every job date and cost on `/app/reklame`; the `opacity-80` that
+yesterday's warn/err migration introduced dragging those sub-lines back under the bar; and
+`/app/matrix` scrolling sideways on a phone — 544px of content in a 375px viewport, in every
+theme. The last one is the classic flex trap twice over: a flex item's `min-width` defaults to
+`min-content`, and a `truncate`d label is `nowrap` so its min-content is the whole untruncated
+string. `min-w-0` in two places fixed it.
+
+**Two traps in the measuring instrument itself, worth not repeating.** The first contrast
+helper composited translucent layers with an `over()` that forced alpha to 1, so stacked
+obsidian panels produced confident nonsense (a badge reported at 2.23:1 that is actually fine).
+The second, from yesterday, is that Chrome returns `color-mix()` results as
+`color(srgb 0.94 …)` floats. **Both times the tool was wrong before the code was.** Re-derive a
+suspicious measurement before changing anything on the strength of it.
+
+**Money-path tests: 67 → 105.** It had zero. The new tests assert exact costs for all ten job
+types, the matrix `count` multiplier at its boundaries, credit-pack and descriptor integrity,
+and the Serbian 1/11/21 grammar at the numbers that break. One documents a real asymmetry:
+`computeJobCost` does NOT cap at `MAX_JOB_COUNT` — that ceiling exists only in `/api/jobs`.
+
+**The seam that blocked more testing, recorded not fixed:** `matrixRenderer` is a hardcoded
+module-level `new LocalRemotionRenderer(providers.storage)` (`apps/worker/src/index.ts:43`)
+instead of coming from `createProviders()` like every other provider, so `runMatrixPipeline`
+cannot be driven in a unit test without a real Chromium and ffmpeg. `MockRenderer` already
+exists and is unused for matrix. That is a design change, not a test.
+
+**Operational note that has now cost three separate debugging detours:** `next build` and
+`next dev` share `apps/web/.next`. Running the build gate with the dev server up 404s
+`main-app.js`, kills hydration, and serves pages with NO stylesheet — which made an audit
+report every element as unstyled black-on-black. **Stop the dev server before the build gate,
+every time.**
+
+**Still open:** nobody has LOOKED at the redesign. Every visual claim across three sessions
+rests on DOM and computed-style probes. Also open: the `alt=""` on generated result images —
+those are the artefact the customer paid for, and a screen reader is told they are decorative;
+fixing it needs Serbian copy, which is the owner's call.
 
 ---
 
