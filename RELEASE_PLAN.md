@@ -171,6 +171,63 @@ Only after that does the site get shared.
 
 ---
 
+## Scaling: what happens when more people show up
+
+Written 2026-08-11 because "what if we get users" deserves an answer that is not a shrug.
+
+**The website is not the problem and will not become the problem.** Next.js at this shape uses
+~400 MB and almost no CPU; a few hundred visitors a day would not register. **Rendering is the
+whole bottleneck**, and it is the good kind: every job is independent, so throughput scales by
+adding capacity rather than by rewriting anything.
+
+Three stages, each with the trigger that ends it. Do not skip ahead — stage 2 costs almost
+nothing and stage 3 has a one-time setup that is easy to get wrong under pressure.
+
+| Stage | What you run | Costs | Move on when |
+|---|---|---|---|
+| **1. One box** | web + worker + Redis on the new VPS | one fixed bill | the queue is regularly not empty, or a customer waits noticeably longer than the same job takes locally |
+| **2. More worker boxes** | the SAME worker container on 2–N VPSes, all pointed at the one Redis | one fixed bill per box | renders are spiky — long idle stretches broken by bursts — so you are paying 24/7 for peak capacity you use for minutes |
+| **3. Remotion Lambda** | web + Redis stay on the VPS; rendering goes serverless | per render second, ~zero idle | you outgrow Lambda's limits, which is a nice problem and a long way off |
+
+**Stage 2 is nearly free, and that is not an accident.** The worker is a plain BullMQ consumer:
+N processes on N machines pulling from one Redis is the pattern BullMQ exists for, and no code
+changes to do it. Copy the container, point `REDIS_URL` at the same instance, done. What you
+must NOT do is leave `WORKER_CONCURRENCY` at its default on a render box — see below.
+
+**Stage 3 is now a config switch, as of `9a2f...` in this session, and it genuinely was not
+before.** `matrixRenderer` was a hardcoded `new LocalRemotionRenderer(...)`, so the factory
+would happily build a Lambda renderer from `REMOTION_*` and matrix would ignore it and render
+locally anyway. The documented "scale out to Lambda" path did not exist — it was a code change
+wearing a config change's clothes. Now: set `REMOTION_LAMBDA_FUNCTION_NAME` and
+`REMOTION_SERVE_URL` and matrix renders on Lambda; leave them unset and it renders locally,
+exactly as before. Verified both ways from the startup log, which now prints the EFFECTIVE
+renderer rather than the factory's unused choice.
+
+Worth knowing: the competitor this product is measured against renders on Remotion Lambda
+(`ecomalati` teardown). That is not a reason to copy them, but it is evidence the path works
+for this exact workload.
+
+**The concurrency trap, fixed but only half-fixed.** The worker ran 4 jobs at once, hardcoded.
+Fine for the cheap tools; wrong for the expensive one, because ONE Remotion render already
+drives Chromium and ffmpeg to near-100% across every core and wants ~2 GB. Four of those on a
+4-vCPU / 8 GB box do not go four times faster — they thrash, and the likely ending is an
+out-of-memory kill that surfaces as jobs failing *under load*, which is the worst time to
+discover it. It is now `WORKER_CONCURRENCY`, default unchanged at 4. **Set it to 1 or 2 on the
+render box.** The proper fix is per-job-type concurrency — cheap tools 4, matrix 1 — which
+BullMQ supports through separate queues and is a real change, not a config line.
+
+**What breaks first, in order**, so nobody is surprised:
+
+1. **Render throughput** — the whole reason for the table above.
+2. **Redis is a single point.** One instance on one box. If that box dies, the queue dies with
+   it, and in-flight jobs are lost. Fine at launch; a managed Redis or a persisted+backed-up
+   one is the answer before it matters.
+3. **Provider rate limits and spend.** ElevenLabs bills per character and a `count=15` job makes
+   15 TTS calls. Volume hits the wallet before it hits the servers — see L2.5, which is still
+   unmeasured.
+4. **Postgres.** Supabase is managed and will not be the constraint for a long time.
+5. **Storage.** R2 does not run out. That is the point of it.
+
 ## Explicitly NOT in v1
 
 Cutting these is what makes the rest reachable.

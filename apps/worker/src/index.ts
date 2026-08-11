@@ -41,7 +41,26 @@ const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const providers = createProviders();
-const matrixRenderer = new LocalRemotionRenderer(providers.storage);
+
+/**
+ * Which renderer draws a matrix/revoice video.
+ *
+ * This used to be a hardcoded `new LocalRemotionRenderer(...)`, which quietly
+ * made Remotion Lambda unreachable: the factory would build a Lambda renderer
+ * from REMOTION_* env and matrix would ignore it and render locally anyway. So
+ * the documented "scale out to Lambda" path did not actually exist — it was a
+ * code change pretending to be a config change.
+ *
+ * The rule is: use whatever the factory resolved, UNLESS it resolved to the
+ * mock. A mock renderer would hand back a placeholder URL and mark the job
+ * done, which for the one tool that renders real video is worse than useless —
+ * so with no Lambda configured we still render locally, for real, exactly as
+ * before. Nothing changes for anyone until REMOTION_* is set.
+ */
+const matrixRenderer =
+  providers.renderer.name === 'mock-renderer'
+    ? new LocalRemotionRenderer(providers.storage)
+    : providers.renderer;
 
 /**
  * Copy a provider's result into OUR storage and return our own url + key.
@@ -590,6 +609,11 @@ async function main() {
   const providerModes = Object.fromEntries(
     Object.entries(providers).map(([k, v]) => [k, v?.name ?? 'not configured']),
   );
+  // The factory's `renderer` is NOT what draws a matrix video — see the
+  // matrixRenderer comment. Logging only the factory's choice would report
+  // "mock-renderer" on a box that is in fact rendering for real locally, which
+  // is precisely the kind of startup line someone would later trust.
+  providerModes.matrixRenderer = matrixRenderer.name;
   consoleLogger.info('provider modes', providerModes);
 
   if (!SERVICE_KEY) {
@@ -622,9 +646,25 @@ async function main() {
   }
 
   const connection = createRedisConnection();
+  /**
+   * How many jobs this process runs at once.
+   *
+   * 4 is fine for the cheap tools, and wrong for the expensive one: a single
+   * Remotion render drives a Chromium and an ffmpeg to near-100% across every
+   * core and wants roughly 2 GB. Four of those on a 4-vCPU / 8 GB box do not
+   * run four times faster — they thrash, and the likeliest outcome is an
+   * out-of-memory kill that shows up as jobs failing under load, i.e. exactly
+   * when it hurts. Set WORKER_CONCURRENCY=1 or 2 on the render box.
+   *
+   * Left at 4 by default so nothing changes for anyone who does not set it.
+   */
+  const parsedConcurrency = Number(process.env.WORKER_CONCURRENCY);
+  const concurrency =
+    Number.isInteger(parsedConcurrency) && parsedConcurrency > 0 ? parsedConcurrency : 4;
+
   const worker = new Worker<JobQueueData>(JOB_QUEUE_NAME, makeProcessor(db), {
     connection,
-    concurrency: 4,
+    concurrency,
   });
 
   worker.on('completed', (bullJob) => consoleLogger.info('job done', { jobId: bullJob.data.jobId }));
@@ -633,7 +673,7 @@ async function main() {
   );
   worker.on('error', (err) => consoleLogger.error('connection error', { error: err.message }));
 
-  consoleLogger.info('listening', { queue: JOB_QUEUE_NAME });
+  consoleLogger.info('listening', { queue: JOB_QUEUE_NAME, concurrency });
 
   process.on('SIGINT', async () => {
     consoleLogger.info('shutting down');
