@@ -70,7 +70,22 @@ deliver.
 | L3.2 | Implement checkout + webhook | Claude | The old implementation is in git history and is worth reading before rewriting — including its idempotency fix. |
 | L3.3 | Idempotent credit granting | Claude | Non-negotiable. Webhooks are at-least-once; the previous implementation granted credits twice per purchase until migration `0004` added `credits_ledger.external_ref` + `add_credits_idempotent`. That migration still exists — reuse it, do not reinvent it. |
 | L3.4 | Remove or hard-gate the dev credit button | Claude | `AddCreditsButton` navigates to `GET /api/dev/credits/add`, which 404s in production. It fails safe, but it ships a button that is visibly broken to a paying user. |
-| L3.5 | Tests on the money path | Claude | Today: **zero** automated coverage of credit charging, the job state machine, or any real provider client. This is the one area where a regression is invisible until it costs money. |
+| L3.5 | Tests on the money path | Claude | ✅ done @ `77594e9` — 67 → 105 tests. Still no coverage of the job state machine; see the seam note under L2. |
+| L3.6 | **Reversals: refund, chargeback, failed capture** | Claude, once L3.1 is chosen | Owner's requirement, 2026-08-11: if a payment is reversed, the credits must not be granted — or must be taken back if they already were. Mirror image of L3.3: the same `credits_ledger` + `external_ref` that stops double-granting is what lets a reversal find the exact grant to undo. Three cases, and they are not the same: (a) reversal arrives before the grant → never grant; (b) after the grant, credits unspent → debit them back; (c) after the grant, credits already SPENT → the balance would go negative. Case (c) needs a decision, not code: allow a negative balance, clamp at zero and eat the loss, or freeze the account. **Do not let the balance silently clamp by accident.** |
+
+**Owner's policy decision, recorded 2026-08-11: all credit purchases are final, no refunds.** Two
+things that must not be confused with each other:
+
+- A no-refund POLICY does not prevent a REVERSAL. A customer can dispute the charge with their
+  bank and win regardless of what the terms say, and the money leaves the account either way.
+  L3.6 exists because the system has to survive that, policy or no policy.
+- Whether a blanket no-refund clause is enforceable is a question for L4.1, not for me. EU
+  consumer law gives a 14-day withdrawal right on digital goods **unless** the customer
+  expressly consents to immediate performance and acknowledges losing that right — which is
+  exactly what the existing `uslovi` page already gestures at. Selling to EU customers on a
+  flat "no refunds" line, without that consent step at checkout, is the kind of thing that
+  looks fine until it is not. Have the lawyer answer it, then the checkout may need a
+  tick-box, which is code.
 
 ---
 
@@ -82,7 +97,7 @@ deliver.
 | L4.1 | Have Uslovi / Privatnost / Impressum reviewed | **Owner** | The pages exist and are now styled, but every `[[POPUNITI: …]]` marker is still unfilled and no lawyer has read them. An Impressum with invented data is worse than none. |
 | L4.2 | GDPR / cookie consent | Claude, after L4.1 | Not started. |
 | L4.3 | Third-party watermarks in imported clips | Claude | A creator's handle or a TikTok watermark can currently end up inside a paying customer's ad. The decision is already recorded — exclude dirty shots, never erase them — but none of it is built. |
-| L4.4 | Refund and failure policy in writing | **Owner** | The code already refunds on failure ("Naplaćuje se samo uspešan posao"), so the policy exists in behaviour and needs to exist in text. |
+| L4.4 | Refund and failure policy in writing | **Owner** | Two different promises, and the terms must not blur them. (1) A FAILED JOB is never charged — the code already refunds, so this exists in behaviour and needs to exist in text. (2) A SUCCESSFUL PURCHASE of credits is final and not refundable — owner's decision, 2026-08-11. See the note under L3 about whether (2) is enforceable in the EU without a consent step at checkout. |
 
 ---
 

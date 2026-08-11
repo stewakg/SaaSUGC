@@ -33,8 +33,16 @@ export function AddCreditsButton({
     window.location.href = `/api/dev/credits/add?pack=${encodeURIComponent(packId)}`;
   }
 
+  // Carries its own button styling rather than trusting the caller to pass a
+  // class. It used to look right only because its single caller happened to
+  // pass `btn-ghost`; the next caller that forgot would have got an unstyled
+  // button with no focus ring. `className` still wins for layout.
   return (
-    <button onClick={handleClick} disabled={loading} className={cn(className, 'disabled:opacity-50')}>
+    <button
+      onClick={handleClick}
+      disabled={loading}
+      className={cn('btn-ghost disabled:opacity-50', className)}
+    >
       {loading ? '…' : 'Dodaj kredit'}
     </button>
   );

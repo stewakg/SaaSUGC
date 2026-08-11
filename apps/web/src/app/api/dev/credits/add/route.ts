@@ -7,18 +7,26 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { CREDIT_PACKS } from '@adgen/core/pricing';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { isAdminEmail } from '@/lib/admin';
 
 export async function GET(request: NextRequest) {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json({ error: 'not_available' }, { status: 404 });
-  }
-
+  // Order matters: identify the caller FIRST, then decide. The previous
+  // version returned 404 in production before looking at who was asking, which
+  // was safe but also made the route untestable on the deployed site.
   const supabase = await createServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  }
+
+  // In production this route mints credits out of nothing, so it is for listed
+  // admins only. The check lives HERE and not only in the UI — hiding the
+  // button hides nothing from anyone who knows the URL. Outside production it
+  // stays open, because that is what makes local testing painless.
+  if (process.env.NODE_ENV === 'production' && !isAdminEmail(user.email)) {
+    return NextResponse.json({ error: 'not_available' }, { status: 404 });
   }
 
   const packId = request.nextUrl.searchParams.get('pack');

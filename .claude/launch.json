@@ -15,6 +15,13 @@
       "autoPort": true
     },
     {
+      "name": "web-prod",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "apps/web", "exec", "next", "start"],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
       "name": "reseller",
       "runtimeExecutable": "C:\\Sa starog\\D1tb\\Projekti\\4. Market-reseller\\run-web.cmd",
       "runtimeArgs": [],

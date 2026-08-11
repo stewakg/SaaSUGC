@@ -3,6 +3,8 @@ import { creditsWord } from '@adgen/core/pricing';
 import type { JobType } from '@adgen/db';
 import { AddCreditsButton } from '@/components/add-credits-button';
 import { MainToolCard, UtilityToolCard } from '@/components/tool-cards';
+import { createServerClient } from '@/lib/supabase/server';
+import { isAdminEmail } from '@/lib/admin';
 
 /** Job types with a working wizard so far. */
 const LIVE_TOOL_LINKS: Partial<Record<JobType, string>> = {
@@ -30,6 +32,17 @@ export default async function DashboardPage({
   const { credited } = await searchParams;
   const mainTools = JOB_DESCRIPTORS.filter((t) => t.tier === 'main');
   const utilityTools = JOB_DESCRIPTORS.filter((t) => t.tier !== 'main');
+
+  // The instant-credit button mints credits out of nothing. Outside production
+  // anyone signed in may use it (that is what makes local testing painless);
+  // in production it is admins only. This only decides whether to RENDER it —
+  // the route enforces the same rule for itself, because a hidden button is
+  // not a protected one.
+  const supabase = await createServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const canGrantCredits = process.env.NODE_ENV !== 'production' || isAdminEmail(user?.email);
 
   return (
     <div className="space-y-10">
@@ -94,7 +107,7 @@ export default async function DashboardPage({
               </p>
               <p className="text-xs text-txt-mid">{creditsWord(p.credits)}</p>
               <p className="mt-2 text-sm font-mono tabular text-txt-mid">{p.priceEUR} €</p>
-              <AddCreditsButton packId={p.id} className="btn-ghost mt-4 w-full" />
+              {canGrantCredits && <AddCreditsButton packId={p.id} className="mt-4 w-full" />}
             </div>
           ))}
         </div>
