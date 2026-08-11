@@ -546,7 +546,7 @@ export default function MatrixPage() {
             />
           </label>
           {uploading && <p className="text-sm text-txt-mid">Otpremam…</p>}
-          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{uploadError}</p>}
+          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
           <div className="border-t border-line pt-4">
             <span className="mb-1 block text-sm text-txt-mid">…ili nalepi link (TikTok / YouTube / Instagram)</span>
             <div className="flex gap-2">
@@ -566,7 +566,7 @@ export default function MatrixPage() {
                 {importingLink ? 'Uvozim…' : 'Uvezi'}
               </button>
             </div>
-            {linkError && <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{linkError}</p>}
+            {linkError && <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{linkError}</p>}
           </div>
 
           <div className="border-t border-line pt-4">
@@ -596,7 +596,7 @@ export default function MatrixPage() {
               </button>
             </div>
             {searchError && (
-              <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{searchError}</p>
+              <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{searchError}</p>
             )}
             {!searching && !searchError && searchResults.length === 0 && searchQuery.trim() !== '' && (
               <p className="mt-2 text-sm text-txt-low">Nema rezultata za taj upit.</p>
@@ -665,7 +665,7 @@ export default function MatrixPage() {
                   <button
                     type="button"
                     onClick={() => removeClip(i)}
-                    className="shrink-0 text-xs text-err hover:text-err/80"
+                    className="shrink-0 text-xs text-err-text hover:text-err-text opacity-80"
                   >
                     Ukloni
                   </button>
@@ -705,7 +705,7 @@ export default function MatrixPage() {
             </span>
           </label>
 
-          {scrapeError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{scrapeError}</p>}
+          {scrapeError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{scrapeError}</p>}
 
           {images.length > 0 && (
             <div className="flex gap-2 overflow-x-auto">
@@ -835,7 +835,7 @@ export default function MatrixPage() {
               trećine širine.
             </span>
             {mismatchedClips.length > 0 && (
-              <p className="mt-2 rounded-control border border-warn/40 bg-warn/10 p-2 text-xs text-warn">
+              <p className="mt-2 rounded-control border border-warn/40 bg-warn/10 p-2 text-xs text-warn-text">
                 {mismatchedClips.length === 1
                   ? `Klip „${mismatchedClips[0].name}” je ${mismatchedClips[0].shape}, a biraš ${aspect}.`
                   : `${mismatchedClips.length} klipa nisu ${aspect}: ${mismatchedClips.map((c) => c.name).join(', ')}.`}{' '}
@@ -843,7 +843,7 @@ export default function MatrixPage() {
               </p>
             )}
             {lowResClips.length > 0 && (
-              <p className="mt-2 rounded-control border border-warn/40 bg-warn/10 p-2 text-xs text-warn">
+              <p className="mt-2 rounded-control border border-warn/40 bg-warn/10 p-2 text-xs text-warn-text">
                 Slaba rezolucija:{' '}
                 {lowResClips.map((c) => `${c.name} (${c.width}×${c.height})`).join(', ')}. Razvlačenje na{' '}
                 {MATRIX_ASPECTS[aspect].width}×{MATRIX_ASPECTS[aspect].height} će izgledati mutno.
@@ -971,7 +971,7 @@ export default function MatrixPage() {
             </label>
 
             {captionY > 0.72 ? (
-              <p className="mt-2 text-xs text-warn">
+              <p className="mt-2 text-xs text-warn-text">
                 ⚠ Titl je nisko — TikTok i Reels tu crtaju svoj interfejs (ime naloga, opis, muzika),
                 pa se može preklopiti. Preporuka: ostani iznad 70%.
               </p>
@@ -1008,7 +1008,7 @@ export default function MatrixPage() {
                   className="w-full accent-accent"
                 />
                 {musicVolume > 0.45 ? (
-                  <span className="mt-1 block text-xs text-warn">
+                  <span className="mt-1 block text-xs text-warn-text">
                     ⚠ Na ovoj jačini muzika lako nadjača glas. Preporuka: ispod 40%.
                   </span>
                 ) : null}
@@ -1028,7 +1028,7 @@ export default function MatrixPage() {
             </label>
 
             {audioUploading && <p className="mt-2 text-xs text-txt-mid">Otpremam…</p>}
-            {audioError && <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-2 text-xs text-err">{audioError}</p>}
+            {audioError && <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-2 text-xs text-err-text">{audioError}</p>}
             <p className="mt-2 text-xs text-txt-low">
               Koristi samo muziku na koju imaš prava — otpremljeni zapis ide direktno u gotov oglas.
             </p>
@@ -1083,12 +1083,12 @@ export default function MatrixPage() {
             )}
           </div>
 
-          {scriptError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{scriptError}</p>}
+          {scriptError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{scriptError}</p>}
 
           {/* Silence here means the copy may not match the voice — worth saying,
               because in Serbian that is a broken ad, not a stylistic quibble. */}
           {scripts.length > 0 && !speakerGender && (
-            <p className="rounded-control border border-warn/40 bg-warn/10 p-3 text-xs text-warn">
+            <p className="rounded-control border border-warn/40 bg-warn/10 p-3 text-xs text-warn-text">
               Pol glasa nije prepoznat, pa skripte nisu pisane ni u muškom ni u ženskom rodu. Proveri da
               se slažu sa glasom koji si izabrao.
             </p>
@@ -1120,7 +1120,7 @@ export default function MatrixPage() {
                   <button
                     type="button"
                     onClick={() => removeScript(i)}
-                    className="shrink-0 text-xs text-err hover:text-err/80"
+                    className="shrink-0 text-xs text-err-text hover:text-err-text opacity-80"
                   >
                     Ukloni
                   </button>
@@ -1266,7 +1266,7 @@ function GenerateStep({
     );
   }
   if (phase === 'error') {
-    return <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{errorMsg}</p>;
+    return <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (

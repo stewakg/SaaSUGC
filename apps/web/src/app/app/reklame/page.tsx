@@ -12,8 +12,8 @@ const STATUS_LABEL: Record<JobStatus, string> = {
 const STATUS_CLASS: Record<JobStatus, string> = {
   queued: 'border-line bg-panel-2 text-txt-mid',
   running: 'border-live/30 bg-live/10 text-live',
-  done: 'border-ok/30 bg-ok/10 text-ok',
-  error: 'border-err/30 bg-err/10 text-err',
+  done: 'border-ok/30 bg-ok/10 text-ok-text',
+  error: 'border-err/30 bg-err/10 text-err-text',
 };
 
 interface JobRow {

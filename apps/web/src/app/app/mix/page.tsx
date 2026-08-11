@@ -99,7 +99,7 @@ export default function MixPage() {
             />
           </label>
           {uploading && <p className="text-sm text-txt-mid">Otpremam…</p>}
-          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err">{uploadError}</p>}
+          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
           {clips.length > 0 && (
             <ul className="space-y-2">
               {clips.map((c, i) => (
@@ -113,7 +113,7 @@ export default function MixPage() {
                   <button
                     type="button"
                     onClick={() => removeClip(i)}
-                    className="shrink-0 text-xs text-err hover:text-err/80"
+                    className="shrink-0 text-xs text-err-text hover:text-err-text opacity-80"
                   >
                     Ukloni
                   </button>
@@ -219,7 +219,7 @@ function GenerateStep({
     return <p className="text-sm text-txt-mid">Spajam klipove… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-err">{errorMsg}</p>;
+    return <p className="text-sm text-err-text">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (

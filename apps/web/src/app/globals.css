@@ -180,6 +180,19 @@
   --accent-ring: color-mix(in srgb, var(--accent) 45%, transparent);
   --accent-text: color-mix(in srgb, var(--accent), var(--txt-hi) 35%);
 
+  /* Readable-on-ground variants of the state colours. --ok/--warn/--err stay
+     the canonical hues and are what borders and 10% fills use, in every theme.
+     But those hues were picked to sit on a DARK ground: #F5B83D as TEXT on
+     poluton's #F6F6F9 measures 1.65:1, which is not readable — that is a real
+     defect the closing sweep caught on the legal notices. Pulling each hue 55%
+     toward --txt-hi keeps it recognisably amber/red/green while landing at
+     5.5:1 or better in poluton and 13:1 in obsidian, and it stays one
+     declaration because --txt-hi is already per-theme. Use these for TEXT;
+     use the plain token for fills and borders. */
+  --ok-text: color-mix(in srgb, var(--ok), var(--txt-hi) 55%);
+  --warn-text: color-mix(in srgb, var(--warn), var(--txt-hi) 55%);
+  --err-text: color-mix(in srgb, var(--err), var(--txt-hi) 55%);
+
   --radius-panel: 24px;
   --radius-card: 16px;
   --radius-control: 10px;

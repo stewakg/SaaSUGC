@@ -113,7 +113,7 @@ function RunStep({
     return <p className="text-sm text-txt-mid">Generišem probni video… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-err">{errorMsg}</p>;
+    return <p className="text-sm text-err-text">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (

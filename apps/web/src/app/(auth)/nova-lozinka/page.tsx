@@ -71,7 +71,7 @@ export default function NewPasswordPage() {
           <p className="mt-4 text-sm text-txt-mid">Proveravam link…</p>
         ) : !hasSession ? (
           <>
-            <p className="mt-4 rounded-lg bg-err/10 p-3 text-sm text-err">
+            <p className="mt-4 rounded-lg bg-err/10 p-3 text-sm text-err-text">
               Link je istekao ili je već iskorišćen.
             </p>
             <p className="mt-6 text-center text-sm text-txt-mid">
@@ -101,7 +101,7 @@ export default function NewPasswordPage() {
                 placeholder="isto još jednom"
               />
 
-              {error && <p className="rounded-lg bg-err/10 p-3 text-sm text-err">{error}</p>}
+              {error && <p className="rounded-lg bg-err/10 p-3 text-sm text-err-text">{error}</p>}
 
               <button
                 type="submit"

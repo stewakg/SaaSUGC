@@ -48,9 +48,11 @@ const config: Config = {
           text: 'var(--accent-text)',
         },
         live: 'rgb(var(--live-c) / <alpha-value>)',
-        ok: 'rgb(var(--ok-c) / <alpha-value>)',
-        warn: 'rgb(var(--warn-c) / <alpha-value>)',
-        err: 'rgb(var(--err-c) / <alpha-value>)',
+        // The plain hue is for fills and borders; `-text` is the variant that
+        // stays readable as TEXT on a light ground. See globals.css.
+        ok: { DEFAULT: 'rgb(var(--ok-c) / <alpha-value>)', text: 'var(--ok-text)' },
+        warn: { DEFAULT: 'rgb(var(--warn-c) / <alpha-value>)', text: 'var(--warn-text)' },
+        err: { DEFAULT: 'rgb(var(--err-c) / <alpha-value>)', text: 'var(--err-text)' },
 
         // --- legacy names, now token-backed (migrated away in Prompts 3–6) ---
         ink: {

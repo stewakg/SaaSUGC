@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
               />
             </label>
 
-            {error && <p className="rounded-lg bg-err/10 p-3 text-sm text-err">{error}</p>}
+            {error && <p className="rounded-lg bg-err/10 p-3 text-sm text-err-text">{error}</p>}
 
             <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
               {loading ? 'Šaljem…' : 'Pošalji link'}

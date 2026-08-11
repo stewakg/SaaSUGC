@@ -19,30 +19,30 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <nav className="mb-8 flex flex-wrap items-center gap-4 text-sm">
-        <Link href="/" className="text-brand-200 hover:underline">
+        <Link href="/" className="text-accent-text hover:underline">
           ← Početna
         </Link>
-        <Link href="/uslovi" className="text-zinc-400 hover:text-zinc-200">
+        <Link href="/uslovi" className="text-txt-mid hover:text-txt-hi">
           Uslovi korišćenja
         </Link>
-        <Link href="/privatnost" className="text-zinc-400 hover:text-zinc-200">
+        <Link href="/privatnost" className="text-txt-mid hover:text-txt-hi">
           Privatnost
         </Link>
-        <Link href="/impressum" className="text-zinc-400 hover:text-zinc-200">
+        <Link href="/impressum" className="text-txt-mid hover:text-txt-hi">
           Impressum
         </Link>
       </nav>
 
-      <div className="mb-8 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+      <div className="mb-8 rounded-xl border border-warn/40 bg-warn/10 p-4 text-sm text-warn-text">
         <p className="font-semibold">Nacrt — nije pravno pregledan.</p>
-        <p className="mt-1 text-amber-100/80">
+        <p className="mt-1 text-warn-text opacity-80">
           Ovaj tekst opisuje šta aplikacija stvarno radi sa podacima, ali ga nije pregledao advokat niti poreski
-          savetnik. Sva mesta označena sa <code className="rounded bg-black/30 px-1">[[POPUNITI: …]]</code> moraju se
+          savetnik. Sva mesta označena sa <code className="rounded bg-panel-2 px-1">[[POPUNITI: …]]</code> moraju se
           popuniti stvarnim podacima pre nego što sajt primi ijednog pravog korisnika.
         </p>
       </div>
 
-      <article className="prose-legal space-y-6 text-sm leading-relaxed text-zinc-300">{children}</article>
+      <article className="prose-legal space-y-6 text-sm leading-relaxed text-txt-mid">{children}</article>
     </div>
   );
 }

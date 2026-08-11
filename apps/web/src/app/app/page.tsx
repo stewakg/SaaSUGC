@@ -75,7 +75,7 @@ export default async function DashboardPage({
 
       {/* Pricing placeholder + dev add-credits (mock billing) */}
       {credited && (
-        <p className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok">Krediti dodati!</p>
+        <p className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok-text">Krediti dodati!</p>
       )}
       <section className="border-t border-line pt-8">
         <div className="mb-4 flex items-end justify-between">

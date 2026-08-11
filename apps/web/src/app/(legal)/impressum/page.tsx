@@ -15,18 +15,18 @@ export const metadata = { title: 'Impressum — AdGen' };
 export default function ImpressumPage() {
   return (
     <>
-      <h1 className="text-2xl font-semibold text-white">Impressum</h1>
-      <p className="text-zinc-400">Podaci u skladu sa § 5 DDG.</p>
+      <h1 className="text-2xl font-semibold text-txt-hi">Impressum</h1>
+      <p className="text-txt-mid">Podaci u skladu sa § 5 DDG.</p>
 
-      <div className="rounded-xl border border-red-400/30 bg-red-400/10 p-4 text-sm text-red-100">
+      <div className="rounded-xl border border-err/40 bg-err/10 p-4 text-sm text-err-text">
         <p className="font-semibold">Ništa na ovoj stranici nije popunjeno izmišljenim podacima — namerno.</p>
-        <p className="mt-1 text-red-100/80">
+        <p className="mt-1 text-err-text opacity-80">
           Impressum je zvanična izjava, ne marketinški tekst. Pogrešan ili izmišljen podatak je prekršaj i osnov za
           opomenu (Abmahnung). Svaka vrednost mora doći iz stvarnih dokumenata o registraciji delatnosti.
         </p>
       </div>
 
-      <h2 className="text-lg font-semibold text-white">Nosilac delatnosti</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">Nosilac delatnosti</h2>
       <p>
         [[POPUNITI: ime i prezime nosioca Gewerbe-a ili pun naziv firme]]
         <br />
@@ -37,34 +37,34 @@ export default function ImpressumPage() {
         [[POPUNITI: država]]
       </p>
 
-      <h2 className="text-lg font-semibold text-white">Kontakt</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">Kontakt</h2>
       <p>
         Email: [[POPUNITI: email adresa]]
         <br />
         Telefon: [[POPUNITI: broj telefona — obavezan podatak]]
       </p>
 
-      <h2 className="text-lg font-semibold text-white">Poreski podaci</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">Poreski podaci</h2>
       <p>
         Poreski identifikacioni broj (USt-IdNr) po § 27a UStG: [[POPUNITI: USt-IdNr ili napomena da mali preduzetnik
         po § 19 UStG ne iskazuje PDV]]
       </p>
 
-      <h2 className="text-lg font-semibold text-white">Registracija</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">Registracija</h2>
       <p>
         [[POPUNITI: registar i broj upisa, ako postoji. Za Gewerbe bez upisa u registar — izostaviti ovaj odeljak, ne
         izmišljati broj.]]
       </p>
 
-      <h2 className="text-lg font-semibold text-white">Odgovoran za sadržaj</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">Odgovoran za sadržaj</h2>
       <p>[[POPUNITI: ime i adresa odgovornog lica — po pravilu isto lice kao nosilac delatnosti]]</p>
 
-      <h2 className="text-lg font-semibold text-white">Rešavanje sporova</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">Rešavanje sporova</h2>
       <p>
         Evropska komisija vodi platformu za onlajn rešavanje sporova:{' '}
         <a
           href="https://ec.europa.eu/consumers/odr/"
-          className="text-brand-200 hover:underline"
+          className="text-accent-text hover:underline"
           rel="noreferrer noopener"
           target="_blank"
         >

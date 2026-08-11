@@ -107,7 +107,7 @@ export default function SignupPage() {
             autoComplete="new-password"
           />
 
-          {error && <p className="rounded-lg bg-err/10 p-3 text-sm text-err">{error}</p>}
+          {error && <p className="rounded-lg bg-err/10 p-3 text-sm text-err-text">{error}</p>}
           {notice && <p className="rounded-lg bg-accent-soft p-3 text-sm text-accent-text">{notice}</p>}
 
           <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">

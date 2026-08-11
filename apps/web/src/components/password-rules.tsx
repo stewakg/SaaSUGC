@@ -15,7 +15,7 @@ export function PasswordRules({ value }: { value: string }) {
       {PASSWORD_RULES.map((rule) => {
         const ok = rule.ok(value);
         return (
-          <li key={rule.label} className={ok ? 'text-ok' : 'text-txt-low'}>
+          <li key={rule.label} className={ok ? 'text-ok-text' : 'text-txt-low'}>
             <span aria-hidden="true">{ok ? '✓' : '○'}</span>{' '}
             <span>{rule.label}</span>
           </li>
