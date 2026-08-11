@@ -103,10 +103,16 @@ on 2026-08-05 (an absolutize fix vanished, and the symptom looked like a Remotio
 Wait for the completion notification, then edit.
 
 ## Baseline gates
-`pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core` + `@adgen/worker` — 41 tests
-as of 2026-08-10, covering the montage chain, caption/cost logic, approved scripts and the
-OpenRouter provider), and `pnpm --filter @adgen/web build` must pass before calling
-anything done. Provider reality as of 2026-08-10: **kie.ai, fal.ai, ElevenLabs and
+`pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core`, `@adgen/worker` and now
+`@adgen/web` — **185 tests as of 2026-08-11**, covering the montage chain, caption/cost
+logic, approved scripts, the OpenRouter provider, the matrix pipeline end to end with a fake
+renderer, R2 signed-URL generation, the SSRF guard and admin identification), and
+`pnpm --filter @adgen/web build` must pass before calling anything done.
+
+**Stop the dev server before running the web build.** `next build` and `next dev` share
+`apps/web/.next`; building while dev is up 404s `main-app.js`, kills hydration, and serves
+pages with NO stylesheet — which has now cost three separate debugging detours, once producing
+an audit that reported every element as unstyled. Provider reality as of 2026-08-10: **kie.ai, fal.ai, ElevenLabs and
 OpenRouter have all been called live** (see `INFRASTRUCTURE.md` F5); **R2 and Remotion
 Lambda are still CODE-COMPLETE and have never been called with a real key** — treat those
 two as unverified until a real call happens. Billing no longer exists at all: Lemon Squeezy
