@@ -16,6 +16,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: admin gate, matrix-pipeline tests, signed R2 links, mobile-menu keyboard (apps/web/src/lib/admin.ts + api/dev/credits/add/route.ts + app/app/page.tsx + components/{add-credits-button,app-shell}.tsx + apps/worker/src/{index.ts,matrix-pipeline.test.ts} + packages/core/src/providers/{storage.r2.ts,storage.r2.test.ts} + pnpm-workspace.yaml) — CLEAN @ 0a064b5, 54712b5, ac117d1, 8a655cf (2026-08-11). ✅ RUNTIME-VERIFIED, admin gate: against a real `next start` production server in BOTH directions — listed admin gets the button and the route passes the gate (400 unknown_pack, nothing granted); ADMIN_EMAILS emptied gives 0 buttons and 404 for a VALID pack id, so nobody can mint credits by knowing the URL. ✅ Mobile menu verified at 375px: open sets aria-expanded=true and focuses "Početna", Escape closes and returns focus to the hamburger (the slide itself NOT observed — non-compositing pane). Tests 105 → 130: 16 on `runMatrixPipeline` (count ceiling, storageKey never fabricated, montage:false really skips scene detection, all three aspects + fallback, captions matching the TTS script, absolutized voice url) and 9 on R2 signing, which verify REAL SigV4 signatures offline. **The R2 tests caught a wrong claim in my own code comment**: ContentType on PutObjectCommand does NOT bind it — only `host` is signed by default — so a link issued for an mp4 would have accepted text/html; fixed with an explicit `signableHeaders`. Still NOT live: no signature has been shown to a real Cloudflare bucket, and nothing calls the signed methods yet.
 REVIEWED: post-redesign bug hunt + worker mock guard (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + apps/web/src/components/{app-shell,tool-cards}.tsx + ~18 web files for focus/ARIA + apps/worker/src/index.ts + packages/core/src/{index.ts,providers/factory.ts} + NEW packages/core/src/pricing.{cost,integrity,grammar}.test.ts) — CLEAN @ 26b1f96, 77594e9 (2026-08-11). Three UI defects found by MEASURING every text node against its composited background per page per theme, not by looking: `--txt-low` failed contrast in obsidian (3.24:1) and poluton (3.16:1) while carrying job dates, costs and step labels; the `opacity-80` added during the P7 warn/err migration pulled those sub-lines back to 3.53:1; and /app/matrix overflowed to 544px inside a 375px viewport in all three themes (flex `min-width:auto` + a nowrap `truncate` label whose min-content is the full string). ✅ RUNTIME-VERIFIED: the sweep now returns EMPTY for /, /app, /app/matrix, /app/reklame in all three themes at 1280px AND 375px; only disabled buttons remain flagged, which WCAG 1.4.3 exempts. Keyboard focus added across ~18 files (subagent, diff checked for text-node changes — none). Worker: `mockProviderSlots()` + a production refusal, ✅ VERIFIED by running the worker three ways (production+mocks → exit 1 naming all six slots; +ALLOW_MOCK_PROVIDERS=1 → warns and listens; dev → warns and listens). **That verification found a live crash**: `mediaEdit` is null without FAL_API_KEY and the startup log read `.name` off it, so since 123d0de a fresh clone could not boot the worker at all. Money-path tests 67 → 105. Gates green (dev server must be STOPPED for the web build — it shares `.next`).
 REVIEWED: three-theme redesign, Prompt 7 closing sweep (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + apps/web/src/app/(legal)/{layout,uslovi,privatnost,impressum} + 20 files whose `text-ok|warn|err` call sites moved to the `-text` variants) — CLEAN @ feb7dab (2026-08-11), **with two defects found and fixed, not waved through**. (a) The whole `(legal)` group was still hardcoded light-on-dark and rendered white-on-near-white in poluton; 63 className attributes migrated, diff verified className-only (63 insertions / 63 deletions, every changed line contains `className`, so the frozen legal TEXT is provably untouched). (b) **`--warn` as TEXT measured 1.65:1 on poluton's ground** — unreadable, and it was carrying the legal disclaimer notices. Fixed at the token layer with `--ok-text`/`--warn-text`/`--err-text` (each hue pulled 55% toward the per-theme `--txt-hi`), so borders and fills keep the canonical hues while text stays legible; measured after on /uslovi in all three themes: warn 13.80 / 5.56 / 14.21, err 10.17 / 8.41 / 10.45, ok 12.41 / 6.44 / 12.82. Gates green: `pnpm -r typecheck` (5 projects), `pnpm -r test` (67), `pnpm --filter @adgen/web build`. ✅ RUNTIME-VERIFIED, full matrix this time: `/`, `/app`, `/app/matrix`, `/app/reklame` × 3 themes, plus `/login` and `/signup` × 3 themes, plus `/uslovi`, `/privatnost`, `/impressum` × 3 themes — 21 page-loads, each a real navigation. **This supersedes the "auth pages are CODE-COMPLETE" caveat in the verdict below**: they were rendered for real. Still probe-based, not screenshots — see the block below. `#FFE000` deliberately NOT migrated; all 7 callers listed there.
 REVIEWED: three-theme redesign, Prompts 1–6 (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + NEW src/lib/theme.ts + NEW src/components/theme-switcher.tsx + src/app/layout.tsx + src/app/page.tsx + src/app/(auth)/**/page.tsx + src/app/app/{page,matrix,edit,mix,translate,enhance,remove-text,ai-slike,quick-test,reklame}/page.tsx + src/components/{app-shell,tool-cards,tool-icon,job-wizard,password-rules}.tsx + DELETED src/lib/tool-theme.ts) — CLEAN @ b903276 (2026-08-10). Prompts 1–3 written directly by Claude Code; 4, 5 and 6 delegated to subagents and every diff read line by line before committing. Gates green at each of the six commits: `pnpm -r typecheck` (5 projects), `pnpm -r test` (67 tests), `pnpm --filter @adgen/web build`. ✅ RUNTIME-VERIFIED through the browser with a REAL PAGE LOAD PER THEME (cookie + reload, never a live `data-theme` flip — see the gotcha in the block below): `/` and `/app/quick-test` in all three themes, `/app` obsidian+poluton at desktop and neon at 375px, `/app/matrix` obsidian+poluton, `/app/reklame` neon. Verification was by computed-style and DOM probes, NOT by screenshot — the Browser pane never displayed, so no human eye has seen these screens. **Auth pages are CODE-COMPLETE, not runtime-verified** (reaching them needs a logged-out session; SSR markup checked instead). **Prompt 7 is NOT done** — see the open items in the block below.
@@ -43,6 +44,68 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-08-11 (eighth session) — admin gate, the money path gets tested, and R2 links get signed
+**Account:** _(unrecorded)_ · **Machine:** primary. **Commits:** `0a064b5` admin-gated credits ·
+`af45a98`, `c431d8c` retention decisions · `66bf74a` renderer seam · `54712b5` matrix pipeline
+tests · `ac117d1`, `f59cb8c` signed R2 links · `8a655cf` mobile-menu keyboard · this block.
+**Deliberately left uncommitted: nothing.**
+
+**Owner decisions recorded today**, all in `RELEASE_PLAN.md`: payment goes through a bank
+(negotiation in progress, so no provider work until it lands); credit prices stay undecided
+until the end; all purchases final, no refunds; **30-day retention for everything, sources
+included**; and a possible paid "keep it forever" tier.
+
+**I over-warned once and corrected it.** I had said expiring source uploads would break
+re-running a job. Checked: there is no re-run, retry or regenerate path anywhere in the app —
+a job consumes its sources once, at creation. The warning only becomes real if that feature is
+built. The check did turn up something useful: **storage key prefixes are already separated**
+(`uploads/`, `renders/`, `voice/`, `image-ads/`, `enhance/`, `remove-text/`), so per-prefix
+lifecycle rules need no code, and `voice/` should expire in a day or two rather than thirty —
+a `count=15` job writes 15 mp3s that exist only to be muxed into the render.
+
+**The "copy provider output into our own storage" idea the owner proposed already exists** —
+`persistRemoteAsset()`, built 2026-08-10 because kie.ai hands back `tempfile.aiquickdraw.com`
+URLs. Switching it to R2 is zero code change. Its one real limit: it buffers whole files in
+memory, fine for images, a spike for an upscaled video.
+
+**Admin gate.** The dashboard shipped a "Dodaj kredit" button that 404s in production. It is
+now gated on `ADMIN_EMAILS` (env, deliberately NOT a constant — this repo is public and a
+committed email is a published one), enforced **in the route** and not merely by hiding the
+button. Verified against a real production server in both directions; the negative case
+returns 404 for a *valid* pack id, which is the case that actually matters.
+
+**The money path has tests for the first time: 67 → 130 across two sessions.** Yesterday's
+`opts.renderer` seam paid off — 16 tests now drive `runMatrixPipeline` end to end with a fake
+renderer, covering the count ceiling, `storageKey` never being fabricated, `montage: false`
+really skipping scene detection, aspect fallback, and the caption track spelling out the same
+string that went to TTS. Two more mocks were needed (the provider set, scene-detect's ffmpeg
+shell-outs) and both sat on module boundaries, so no production code changed to enable them.
+
+**Signed R2 links, and a lesson about writing the comment before the test.** `signedDownloadUrl`
+(1 h) and `signedUploadUrl` (15 min) landed with 9 tests that verify REAL SigV4 signatures
+offline — signing is local cryptography, so this is the first part of the never-live-tested R2
+client with genuine coverage. **A test caught my own comment being false:** passing
+`ContentType` to `PutObjectCommand` does not bind it — the SDK signs only `host` — so one
+signed link would have accepted ANY content type, and a link issued for an mp4 could have
+stored `text/html` served from our own domain. Fixed with an explicit `signableHeaders`; the
+implementation moved to match the test, not the reverse. The tests also pin that the SDK signs
+**virtual-hosted style**, bucket in the host and not the path, which a CORS or custom-domain
+rule written the other way would silently miss.
+
+**Dependency trap, half an hour lost:** `@aws-sdk/client-s3` and the presigner resolved
+different copies of `@smithy/core`, and TypeScript compares private class members nominally, so
+`getSignedUrl(this.client, …)` failed with *"separate declarations of a private property
+'handlers'"* while working perfectly at runtime. Pinned both smithy packages — **and note this
+pnpm no longer reads a `pnpm.overrides` block from `package.json`; overrides live in
+`pnpm-workspace.yaml`.** That detail cost a full wrong attempt.
+
+**Still open and unchanged:** nobody has LOOKED at the redesign; every visual claim rests on
+DOM probes because the Browser pane has never composited a frame in four sessions. Nothing
+calls the signed-URL methods yet — wiring them changes what `assets` stores and how "Preuzmi"
+behaves, which is a UX decision. And no signature has been shown to a real Cloudflare bucket.
 
 ---
 
