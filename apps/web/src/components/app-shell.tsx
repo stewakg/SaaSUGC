@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { creditsWord } from '@adgen/core/pricing';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { ThemeSwitcher } from '@/components/theme-switcher';
@@ -24,6 +24,31 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  /**
+   * Escape closes the mobile menu, and focus moves in and back out with it.
+   *
+   * Without this the menu was a one-way door for anyone not using a mouse: the
+   * hamburger opened it, but the ONLY way to dismiss it was tapping the
+   * backdrop — a plain div — so a keyboard user could leave only by activating
+   * a nav link, which navigates away as a side effect. Closing also returns
+   * focus to the button that opened it, or the caret is left on an element
+   * that just slid off-screen.
+   */
+  useEffect(() => {
+    if (!mobileOpen) return;
+    sidebarRef.current?.querySelector<HTMLElement>('a, button')?.focus();
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      setMobileOpen(false);
+      menuButtonRef.current?.focus();
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [mobileOpen]);
 
   async function handleLogout() {
     const supabase = createBrowserClient();
@@ -41,6 +66,7 @@ export function AppShell({
     <div className="flex min-h-screen bg-ground">
       {/* Sidebar */}
       <aside
+        ref={sidebarRef}
         className={cn(
           'fixed inset-y-0 left-0 z-40 w-64 border-r border-line bg-panel transition-transform lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
@@ -116,6 +142,8 @@ export function AppShell({
         {/* Topbar */}
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-ground/80 px-4 backdrop-blur sm:px-6">
           <button
+            ref={menuButtonRef}
+            aria-expanded={mobileOpen}
             className="focus-ring rounded-lg border border-line p-2 lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Meni"
