@@ -27,7 +27,7 @@ import {
   DEFAULT_MATRIX_OUTRO_TEXT,
   DEFAULT_VOICE_MODEL,
 } from '@adgen/core';
-import type { MatrixAdProps, MatrixTransition } from '@adgen/core';
+import type { MatrixAdProps, MatrixTransition, Renderer } from '@adgen/core';
 import { JOB_COST } from '@adgen/core/pricing';
 import { createRedisConnection, JOB_QUEUE_NAME, type JobQueueData } from '@adgen/core/queue';
 import { LocalRemotionRenderer } from '@adgen/core/providers/renderer.local';
@@ -167,8 +167,22 @@ function buildImageAdsPrompt(params: Record<string, unknown>, index: number): st
  */
 export async function runMatrixPipeline(
   params: Record<string, unknown>,
-  opts: { montage?: boolean } = {},
+  opts: {
+    montage?: boolean;
+    /**
+     * The seam that makes this function testable. It defaults to the real
+     * `matrixRenderer`, so every production caller is unchanged — but a test
+     * can pass a fake and drive the whole script → TTS → captions → render
+     * chain without a Chromium bundle, ffmpeg, or a real file on disk.
+     *
+     * Without this, the module-level `new LocalRemotionRenderer(...)` made the
+     * money path — the one place a bug costs credits — the only part of the
+     * worker with no automated coverage at all.
+     */
+    renderer?: Renderer;
+  } = {},
 ): Promise<PipelineAsset[]> {
+  const renderer = opts.renderer ?? matrixRenderer;
   /**
    * `revoice` (migration 0006) is this same pipeline with scene detection off:
    * one clip, kept whole, re-voiced N times. Skipping the pool is the entire
@@ -317,8 +331,12 @@ export async function runMatrixPipeline(
       height: MATRIX_ASPECTS[toMatrixAspect(params.aspect)].height,
     };
 
-    const { videoUrl, storageKey } = await matrixRenderer.render({ composition: 'matrix-ad', props: matrixProps });
-    assets.push({ kind: 'video', url: videoUrl, storageKey });
+    const { videoUrl, storageKey } = await renderer.render({ composition: 'matrix-ad', props: matrixProps });
+    // `Renderer.storageKey` is optional by interface — a renderer that hands
+    // back someone else's URL has no key of ours. `?? null` keeps the "never
+    // fabricated" promise on PipelineAsset.storageKey; it used to be implicit
+    // because the concrete LocalRemotionRenderer always returns one.
+    assets.push({ kind: 'video', url: videoUrl, storageKey: storageKey ?? null });
   }
 
   await Promise.all(
