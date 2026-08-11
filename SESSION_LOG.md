@@ -16,6 +16,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: three-theme redesign, Prompt 7 closing sweep (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + apps/web/src/app/(legal)/{layout,uslovi,privatnost,impressum} + 20 files whose `text-ok|warn|err` call sites moved to the `-text` variants) — CLEAN @ feb7dab (2026-08-11), **with two defects found and fixed, not waved through**. (a) The whole `(legal)` group was still hardcoded light-on-dark and rendered white-on-near-white in poluton; 63 className attributes migrated, diff verified className-only (63 insertions / 63 deletions, every changed line contains `className`, so the frozen legal TEXT is provably untouched). (b) **`--warn` as TEXT measured 1.65:1 on poluton's ground** — unreadable, and it was carrying the legal disclaimer notices. Fixed at the token layer with `--ok-text`/`--warn-text`/`--err-text` (each hue pulled 55% toward the per-theme `--txt-hi`), so borders and fills keep the canonical hues while text stays legible; measured after on /uslovi in all three themes: warn 13.80 / 5.56 / 14.21, err 10.17 / 8.41 / 10.45, ok 12.41 / 6.44 / 12.82. Gates green: `pnpm -r typecheck` (5 projects), `pnpm -r test` (67), `pnpm --filter @adgen/web build`. ✅ RUNTIME-VERIFIED, full matrix this time: `/`, `/app`, `/app/matrix`, `/app/reklame` × 3 themes, plus `/login` and `/signup` × 3 themes, plus `/uslovi`, `/privatnost`, `/impressum` × 3 themes — 21 page-loads, each a real navigation. **This supersedes the "auth pages are CODE-COMPLETE" caveat in the verdict below**: they were rendered for real. Still probe-based, not screenshots — see the block below. `#FFE000` deliberately NOT migrated; all 7 callers listed there.
 REVIEWED: three-theme redesign, Prompts 1–6 (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + NEW src/lib/theme.ts + NEW src/components/theme-switcher.tsx + src/app/layout.tsx + src/app/page.tsx + src/app/(auth)/**/page.tsx + src/app/app/{page,matrix,edit,mix,translate,enhance,remove-text,ai-slike,quick-test,reklame}/page.tsx + src/components/{app-shell,tool-cards,tool-icon,job-wizard,password-rules}.tsx + DELETED src/lib/tool-theme.ts) — CLEAN @ b903276 (2026-08-10). Prompts 1–3 written directly by Claude Code; 4, 5 and 6 delegated to subagents and every diff read line by line before committing. Gates green at each of the six commits: `pnpm -r typecheck` (5 projects), `pnpm -r test` (67 tests), `pnpm --filter @adgen/web build`. ✅ RUNTIME-VERIFIED through the browser with a REAL PAGE LOAD PER THEME (cookie + reload, never a live `data-theme` flip — see the gotcha in the block below): `/` and `/app/quick-test` in all three themes, `/app` obsidian+poluton at desktop and neon at 375px, `/app/matrix` obsidian+poluton, `/app/reklame` neon. Verification was by computed-style and DOM probes, NOT by screenshot — the Browser pane never displayed, so no human eye has seen these screens. **Auth pages are CODE-COMPLETE, not runtime-verified** (reaching them needs a logged-out session; SSR markup checked instead). **Prompt 7 is NOT done** — see the open items in the block below.
 REVIEWED: matrix wizard cost display (apps/web/src/app/app/matrix/page.tsx: new `effectiveCount`) — CLEAN @ cb3bcfb (2026-08-10). Written directly by Claude Code during a click-test, not delegated — 4 call sites, one expression. ✅ RUNTIME-VERIFIED through the browser over HMR: with one kept script the footer went "Cena: 75 kredita (5 × 15)" → "Cena: 15 kredita (1 × 15)", directly under the existing "Napraviće se 1 video" line. **Billing itself was never wrong** — `/api/jobs` was already sent the kept-script count (12d27d4); only the number quoted to the user before the click was. `pnpm -r typecheck` green on all 5 projects. **Closes the "NOT click-tested" caveat in the sound-panel verdict @ e04f865** for the caption controls and both audio pickers (see the block below); the *rendered* effect of music/SFX still rests on the 08-05 dB measurements, not on this test.
 REVIEWED: yt-dlp shell escape + rate-limiter fail-open (packages/core/src/queue.ts + apps/web/src/lib/rate-limit.ts + NEW apps/web/src/lib/yt-dlp.ts + NEW apps/web/src/types/youtube-dl-exec-constants.d.ts + apps/web/next.config.mjs + api/{search-clips,import-clip}/route.ts) — CLEAN @ 4683cb3 (2026-08-10). Written directly by Claude Code while click-testing, not delegated — each fix was the thing blocking the next observation. ✅ RUNTIME-VERIFIED end-to-end through the browser: search "masazer za vrat" → 8 Serbian results → "Uzmi" → POST /api/import-clip 200 in 13.5s → card leaves the grid, clip enters the list. Measured before/after on the rate limiter: 223011ms → 740ms. **Supersedes the fail-open claim in the F5/F6-infra verdict @ 4500e0e**, which was CLEAN on a path that could not execute.
@@ -41,6 +42,85 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-08-11 (sixth session) — the sweep that found the redesign's one real bug
+**Account:** _(unrecorded)_ · **Machine:** primary. **Commits:** `feb7dab` Prompt 7 sweep +
+fixes · this block. **Deliberately left uncommitted: nothing.**
+
+**The redesign is now complete: all seven prompts of `design/redesign-prompts.md` have run.**
+Prompt 7 was the closing sweep, and it earned its place — it found a bug the previous six
+stages had shipped clean past.
+
+**The bug: `--warn` as TEXT measures 1.65:1 on poluton's ground.** The brief said the
+semantic ok/warn/err hues stay identical across all three themes, and they were faithfully
+identical — but those hues were chosen against a DARK ground. `#F5B83D` on poluton's
+`#F6F6F9` is not a style preference, it is text nobody can read, and it was carrying the
+legal disclaimer notices on `/uslovi`, `/privatnost` and `/impressum`. The two earlier
+stages that introduced `text-warn`/`text-err` both "passed" because everything was checked
+in obsidian first and the light theme was only ever checked on chrome, never on a state
+colour.
+
+**The fix stays inside the architecture rather than working around it.** `--ok`/`--warn`/
+`--err` keep the canonical hues and remain what borders and 10% fills use, in every theme.
+What was missing was a text variant, so `--ok-text`/`--warn-text`/`--err-text` pull each hue
+55% toward `--txt-hi`. Because `--txt-hi` is already per-theme, that single declaration
+lightens the hue on a dark ground and darkens it on a light one — no conditional, no second
+palette. Measured after, on `/uslovi`, all three themes: warn 13.80 / 5.56 / 14.21, err
+10.17 / 8.41 / 10.45, ok 12.41 / 6.44 / 12.82. Every `text-ok|warn|err` call site across 20
+files moved to the variant; `border-warn/40` and `bg-warn/10` were left alone on purpose.
+
+**The `(legal)` group is migrated** — the open decision left hanging yesterday. It was still
+hardcoded light-on-dark (`text-white`, `border-white/10`, `bg-white/5`, amber, red) and
+rendered white-on-near-white in poluton. 63 className attributes changed. The legal TEXT is
+frozen and that is now provable, not merely asserted: the diff is 63 insertions and 63
+deletions and **every changed line contains `className`**, checked with
+`git diff -U0 | grep -v className` returning empty. Worth reusing that check any time this
+group is touched.
+
+**Two verification techniques worth keeping, both invented because screenshots still do not
+work** (the Browser pane has never composited a frame across two sessions — `screenshot`
+fails with *"the Browser pane is not displayed"*):
+1. **Same-origin iframes turn a 21-page verification into three tool calls.** Set the
+   `adgen-theme` cookie, then load each page into a hidden iframe and read
+   `contentWindow.getComputedStyle` inside it. Real navigations, real SSR, real cascade —
+   and it sidesteps the stale-recalc trap from yesterday's block, because every page is a
+   fresh document rather than a live attribute flip.
+2. **The auth pages CAN be verified without destroying the session.** They were logged as
+   CODE-COMPLETE yesterday because `/login` redirects an authenticated user to `/app`.
+   The Supabase cookie is not HttpOnly, so it can be read out of `document.cookie`, deleted,
+   the logged-out pages rendered, and the cookie written back byte-for-byte — all inside one
+   JS call so there is no window where the session is half-gone. Restoration was confirmed
+   by `fetch('/app')` returning 200 afterwards. `/login` and `/signup` are now VERIFIED in
+   all three themes, which **supersedes the CODE-COMPLETE claim in commit `b903276`'s
+   message**.
+
+**A caution about the measuring instrument itself.** The first contrast helper parsed colours
+with `/[\d.]+/g` and assumed 0–255. Modern Chrome returns `color-mix()` results as
+`color(srgb 0.94 0.83 0.62)` — floats in 0–1 — so the helper silently reported 1.05:1 and
+19.4:1 for the same colour depending on which notation came back. Both numbers were garbage.
+Any future contrast check has to handle `color(srgb …)` explicitly; the corrected helper
+agreed with hand-computed values to within 0.1.
+
+**`#FFE000` is deliberately NOT migrated, and here is the full caller list** (the brief asked
+for the list rather than a blind migration). Every one is render DATA, not web styling:
+`apps/web/src/app/app/edit/page.tsx:34` and `apps/web/src/app/app/matrix/page.tsx:248` (the
+default `captionColor` sent as job params), `packages/core/src/constants.ts:30`
+(`DEFAULT_MATRIX_CAPTION_STYLE`), `packages/core/src/providers/mocks.ts:23` (mock placeholder
+URL), `packages/core/src/types.ts:155` (doc-comment example), and
+`remotion/src/compositions/MatrixAd.tsx:36` (caption colour fallback) and `:162` (the CTA
+card gradient). Changing any of them changes what the finished VIDEO looks like. If the brand
+yellow is ever retired, that is a render-side decision with its own before/after check, not a
+CSS sweep.
+
+**Still open, and unchanged from yesterday:** nobody has LOOKED at any of this. Every claim
+in both blocks rests on DOM and computed-style probes. The first thing worth doing with a
+working Browser pane is a plain visual pass over all three themes — a probe cannot see
+spacing that collapsed, text that wrapped badly, or a layout that is merely ugly. Also still
+open: the brief asked for "one variable grotesk" and the app uses a system stack
+(`Segoe UI Variable Text/Display` first) because `next/font/google` would put a build-time
+network fetch on the critical path. That deserves a deliberate yes or no.
 
 ---
 
