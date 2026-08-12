@@ -90,14 +90,31 @@ export class RemotionLambdaRenderer implements Renderer {
       });
 
       if (progress.fatalErrorEncountered) {
-        throw new Error(
-          `Remotion Lambda render failed: ${progress.errors.map((e: { message: string }) => e.message).join('; ')}`,
-        );
+        // Best-effort: drop the Lambda-side artifacts before we bail, so a
+        // fatally-failed render does not leave partial output in the bucket
+        // forever. cleanupLambdaRender swallows its own errors, so this can
+        // never become the failure the caller sees — the real message is the
+        // one thing an operator debugging a paid job actually needs.
+        await this.cleanupLambdaRender(renderId, bucketName, `render ${renderId} failed fatally`);
+        // This code has never run against the live SDK, so progress.errors'
+        // shape is an assumption. Guard it: a fatal with no errors array must
+        // surface a clear message, not a TypeError that hides the failure.
+        const detail = (progress.errors ?? [])
+          .map((e: { message: string }) => e.message)
+          .join('; ');
+        if (detail) {
+          throw new Error(`Remotion Lambda render failed: ${detail}`);
+        }
+        throw new Error(`Remotion Lambda render failed with no error details (renderId=${renderId})`);
       }
       if (progress.done && progress.outputFile) {
         return this.takeOwnership(progress.outputFile, renderId, bucketName);
       }
       if (Date.now() - start > MAX_WAIT_MS) {
+        // Best-effort: cancel/clean up the still-running render so it does not
+        // keep running on AWS and later deposit an output nobody fetches or
+        // deletes. Swallowed internally — the timeout error is what surfaces.
+        await this.cleanupLambdaRender(renderId, bucketName, `render ${renderId} timed out`);
         throw new Error(`Remotion Lambda render timed out after ${MAX_WAIT_MS / 1000}s (renderId=${renderId})`);
       }
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
@@ -125,15 +142,25 @@ export class RemotionLambdaRenderer implements Renderer {
     // Best-effort: the video is already safe in our storage, so a failure to
     // clean up AWS must not fail a job the customer already paid for. It costs
     // storage, not correctness — and it is visible as a growing Lambda bucket.
+    // The context keeps the success-path meaning (the video IS already stored)
+    // so an operator knows the customer already has their file.
+    await this.cleanupLambdaRender(renderId, bucketName, `render ${renderId} is stored`);
+
+    return { videoUrl: url, storageKey };
+  }
+
+  /** Drop the Lambda-side render. Best-effort everywhere: cleanup must never
+   *  turn into the error the caller sees — it is wrapped so a failing delete
+   *  only warns and never replaces the real render failure. `context` says WHY
+   *  we are cleaning up, so the warning is actionable per call site. */
+  private async cleanupLambdaRender(renderId: string, bucketName: string, context: string): Promise<void> {
     try {
       await deleteRender({ region: this.config.region, bucketName, renderId });
     } catch (err) {
       console.warn(
-        `[renderer.lambda] render ${renderId} is stored, but deleting the Lambda copy failed:`,
+        `[renderer.lambda] ${context} (renderId=${renderId}), deleting the Lambda copy failed:`,
         err instanceof Error ? err.message : err,
       );
     }
-
-    return { videoUrl: url, storageKey };
   }
 }

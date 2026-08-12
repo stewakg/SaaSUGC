@@ -260,9 +260,10 @@ describe('C. Failure paths', () => {
     await expect(renderer.render({ composition: 'comp', props: {} })).rejects.toThrow(
       /boom one; boom two/,
     );
-    // The render failed before ownership: nothing stored, nothing cleaned up.
+    // The render failed before ownership: nothing stored. The Lambda-side
+    // artifacts ARE cleaned up on the way out (asserted in full in section E).
     expect(storage.upload).not.toHaveBeenCalled();
-    expect(deleteRender).not.toHaveBeenCalled();
+    expect(deleteRender).toHaveBeenCalledTimes(1);
   });
 
   it('9. fetch(outputFile) returns ok:false → rejects mentioning the status and renderId; never uploads (no S3 fallback)', async () => {
@@ -295,9 +296,10 @@ describe('C. Failure paths', () => {
     await vi.advanceTimersByTimeAsync(MAX_WAIT_MS + POLL_INTERVAL_MS);
 
     await expect(p).rejects.toThrow(/timed out.*renderId=r10/);
-    // Timed out before ownership: nothing stored, nothing deleted.
+    // Timed out before ownership: nothing stored. The still-running render IS
+    // cancelled/cleaned up on the way out (asserted in full in section E).
     expect(storage.upload).not.toHaveBeenCalled();
-    expect(deleteRender).not.toHaveBeenCalled();
+    expect(deleteRender).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -339,6 +341,98 @@ describe('D. Polling', () => {
       videoUrl: STORAGE_URL,
       storageKey: 'renders/lambda-r11.mp4',
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E. Failure-path cleanup — best-effort deleteRender on the way OUT, too
+// ---------------------------------------------------------------------------
+// A render that fails fatally or times out used to leave its Lambda-side
+// artifacts behind forever (billed to us). It now gets a best-effort
+// deleteRender — exactly the posture takeOwnership has: wrapped, warned, and
+// NEVER allowed to replace the real failure the caller sees. The invariant
+// under test in every case below is that the ORIGINAL rejection survives the
+// cleanup; an un-awaited or catch-less cleanup would surface the wrong error.
+// ---------------------------------------------------------------------------
+
+describe('E. Failure-path cleanup', () => {
+  it('12. on fatalErrorEncountered, deleteRender is called with the right renderId/bucketName and render() still rejects with the original error', async () => {
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r12', bucketName: 'b12' });
+    getRenderProgress.mockResolvedValueOnce({
+      fatalErrorEncountered: true,
+      errors: [{ message: 'boom one' }, { message: 'boom two' }],
+    });
+
+    await expect(renderer.render({ composition: 'comp', props: {} })).rejects.toThrow(
+      /boom one; boom two/,
+    );
+    // Failed before ownership: nothing stored, but the Lambda copy IS dropped.
+    expect(storage.upload).not.toHaveBeenCalled();
+    expect(deleteRender).toHaveBeenCalledTimes(1);
+    expect(deleteRender).toHaveBeenCalledWith({
+      region: CONFIG.region,
+      bucketName: 'b12',
+      renderId: 'r12',
+    });
+  });
+
+  it('13. on timeout, deleteRender is called and render() still rejects with the timeout message naming the renderId', async () => {
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r13', bucketName: 'b13' });
+    // Never done, never fatal — the loop polls until the wall-clock ceiling.
+    getRenderProgress.mockResolvedValue({ done: false });
+
+    const p = renderer.render({ composition: 'comp', props: {} });
+    // Attach up front so the (expected) rejection is not flagged unhandled.
+    p.catch(() => {});
+
+    await vi.advanceTimersByTimeAsync(MAX_WAIT_MS + POLL_INTERVAL_MS);
+
+    await expect(p).rejects.toThrow(/timed out.*renderId=r13/);
+    expect(storage.upload).not.toHaveBeenCalled();
+    // The still-running render IS cancelled/cleaned up on the way out.
+    expect(deleteRender).toHaveBeenCalledTimes(1);
+    expect(deleteRender).toHaveBeenCalledWith({
+      region: CONFIG.region,
+      bucketName: 'b13',
+      renderId: 'r13',
+    });
+  });
+
+  it('14. a deleteRender that ITSELF rejects on the fatal path must not change the error the caller sees', async () => {
+    // The trap: awaiting a rejecting cleanup with no try/catch would make the
+    // caller see "delete failed" instead of "render failed". cleanupLambdaRender
+    // swallows cleanup errors, so the ORIGINAL render failure is what surfaces.
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r14', bucketName: 'b14' });
+    getRenderProgress.mockResolvedValueOnce({
+      fatalErrorEncountered: true,
+      errors: [{ message: 'the real failure' }],
+    });
+    deleteRender.mockRejectedValue(new Error('cleanup itself blew up'));
+
+    await expect(renderer.render({ composition: 'comp', props: {} })).rejects.toThrow(
+      /the real failure/,
+    );
+    // Cleanup was attempted (and failed); that failure only warned — the caller
+    // never sees "cleanup itself blew up".
+    expect(deleteRender).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalled();
+  });
+
+  it('15. fatalErrorEncountered:true with errors:undefined rejects with "no error details" and does NOT throw a TypeError', async () => {
+    // This code has never run against the live SDK, so its shape is an
+    // assumption. If the SDK ever reports a fatal with no errors array, the
+    // unguarded progress.errors.map(...) was a TypeError that HID the failure.
+    // A TypeError's message ("Cannot read properties of undefined...") does NOT
+    // match the regex below — so matching it proves the guard worked.
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r15', bucketName: 'b15' });
+    getRenderProgress.mockResolvedValueOnce({
+      fatalErrorEncountered: true,
+      errors: undefined,
+    });
+
+    await expect(renderer.render({ composition: 'comp', props: {} })).rejects.toThrow(
+      /failed with no error details.*renderId=r15/,
+    );
   });
 });
 
