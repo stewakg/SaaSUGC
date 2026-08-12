@@ -36,7 +36,8 @@ cline --json -P openai-compatible --thinking medium -c "<repo>" "Read scratchpad
 | 5 | **Code change:** `FORCE_MOCK` spellings + narrow `hasKey` | `packages/core/src/env.{ts,test.ts}` | Type probe confirmed `hasKey(env,'FORCE_MOCK')` and `'NODE_ENV'` are now TS2345 errors while `'OPENROUTER_API_KEY'` still compiles; runtime probe confirmed 6 true-spellings, 6 false-spellings, and that the flag still vetoes a set key. Both probes deleted. | ✅ accepted | `936cf9a` |
 | 6 | Tests for `rateLimit` | `apps/web/src/lib/rate-limit.test.ts` | Three mutations: `<=`→`<`, and `EXPIRE` made conditional on `count === 1` → exactly the boundary test and the NX test failed; dropping `withTimeout` around `incr` → the hanging-Redis test failed with "Test timed out in 5000ms" instead of passing in 13ms. Implementation restored byte-identical (`git diff --stat` empty). | ✅ accepted | `8420316` |
 | 7 | Tests for the provider factory | `packages/core/src/providers/factory.test.ts` | Three mutations at once: dropped the `R2_PUBLIC_URL` check, deleted the missing-`REMOTION_SERVE_URL` fallback, and changed `overrides.mediaEdit !== undefined` to a truthiness check → exactly three tests failed, one per mutated branch, and nothing else. `factory.ts` restored from a backup copy (`git diff --stat` empty). Two fixes by hand: section D was missing its closing brace so E–H nested inside it and the run reported `D. Script > E. Storage`, and a stray `});` at EOF. | ✅ accepted, after a correction round | `7b83fcd` |
-| 8 | **Code change:** one shared 1s budget for all three Redis commands | `apps/web/src/lib/rate-limit.{ts,test.ts}` | Reverted the change by hand (timeout back around `incr` only) and re-ran: all three new tests hung to vitest's 5000ms ceiling, the other 11 stayed green. Restored, 180 web tests pass. | ✅ accepted | `<pending>` |
+| 8 | **Code change:** one shared 1s budget for all three Redis commands | `apps/web/src/lib/rate-limit.{ts,test.ts}` | Reverted the change by hand (timeout back around `incr` only) and re-ran: all three new tests hung to vitest's 5000ms ceiling, the other 11 stayed green. Restored, 180 web tests pass. | ✅ accepted | `64f2685` |
+| 9 | Tests for the Lambda renderer (never executed code) | `packages/core/src/providers/renderer.lambda.test.ts` | Two mutations: returning the S3 `outputFile` as `videoUrl` and keying the upload by bucket name, plus removing the `try/catch` around `deleteRender` → 5 tests failed, exactly the ownership, key, url, best-effort-cleanup and polling ones. Restored from a backup copy (`git diff --stat` clean). | ✅ accepted | `<pending>` |
 
 ## When the spec is wrong, not the code (run 7)
 
@@ -52,6 +53,27 @@ The correction round fixed the two test expectations and added a third test pinn
 between "no key" (`real-scraper`) and the kill switch (`mock-scraper`, and the slot does appear
 in the guard). Nothing in `factory.ts` changed. Lesson for future specs: state the expected
 behaviour of a slot only after checking whether that slot needs a key at all.
+
+## Open findings on `renderer.lambda.ts` — code that has still never run
+
+Raised by run 9 and worth fixing, but deliberately not folded into a test commit:
+
+- **`deleteRender` runs only on the success path.** On the fatal-error and timeout branches the
+  code throws without it, so a timed-out render keeps going on AWS and later deposits an output
+  nobody fetches or deletes — an orphaned render plus an orphaned object, both billed.
+- **`MAX_WAIT_MS` is a flat wall-clock ceiling**, not progress-aware. A slow but advancing render
+  fails a job the customer paid for. "No progress for N ms" would be the honest rule.
+- **The public-S3 window widens if the worker dies** between `done` and the delete: the
+  world-readable link then stays up indefinitely. `privacy: 'private'` plus a presigned fetch is
+  the real fix, and it needs a live AWS run to get right.
+- **No retry on the ownership `fetch`.** One transient 5xx fails a paid render. Failing hard
+  rather than falling back to S3 is correct, but 2–3 attempts with backoff would salvage blips.
+- **`progress.errors` is read without a guard** — `fatalErrorEncountered: true` with no `errors`
+  array would throw a TypeError and mask the real message.
+
+None of this is compiler-checked either: `RenderProgress` comes from `@remotion/serverless-client`,
+which is not installed here, so `skipLibCheck` is carrying those field names. The tests pin the
+code's internal consistency; only the first real deploy validates the SDK fit.
 
 ## Findings Cline surfaced that I did NOT act on
 

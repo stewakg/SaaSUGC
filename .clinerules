@@ -1,0 +1,73 @@
+# Rules for Cline in this repo
+
+These apply to EVERY task, on top of whatever the task file says. If a task file contradicts a
+rule here, follow this file and say so in your report.
+
+## 1. Git is not yours
+
+- NEVER run `git add`, `git commit`, `git push`, `git checkout`, `git reset`, `git stash`,
+  `git clean`, or anything else that moves HEAD or discards work. A human reviews and commits.
+- Never create or delete branches, tags, or remotes.
+- Never edit `.git/` or any git config.
+
+## 2. Stay inside the file list you were given
+
+- The task names the files you may create or modify. That list is exhaustive. If the work seems
+  to need a file that is not on the list, STOP and report it — do not touch it "just this once".
+- When a task says "add tests", the module under test is READ-ONLY. A test that fails is a
+  finding, not a defect in the test — see rule 4.
+- Never touch: `SESSION_LOG.md`, `CLINE_LOG.md`, `INFRASTRUCTURE.md`, `RELEASE_PLAN.md`,
+  `BUSINESS.md`, `CLAUDE.md`, `.clinerules`, `ACCOUNTS.md`, `howto.md`, anything in `.github/`,
+  any migration under `packages/db/`, or any lockfile. These are owned by the humans and by
+  Claude, and a rewrite of them destroys the project's memory.
+- Never write a report file. Reports go in your final message only. `CLINE_REPORT.md` is
+  obsolete — do not create it.
+
+## 3. Never widen the blast radius
+
+- No new dependencies. Do not edit `package.json`, `pnpm-workspace.yaml`, `tsconfig*.json`,
+  `vitest.config.*`, `next.config.*` or `tailwind.config.ts` unless the task names that exact
+  file.
+- No reformatting of code you were not asked to change. No import reordering, no prettier sweep,
+  no renaming for style. A diff full of noise cannot be reviewed and will be rejected whole.
+- Serbian UI copy is product text, not strings to improve. Copy it VERBATIM when a test needs it;
+  never retype from memory, never "fix" the wording, never translate it.
+- Do not delete or weaken an existing test to make something pass. Ever.
+
+## 4. When the code looks wrong, report — do not fix
+
+If a task's expectation and the implementation disagree, you have found either a bug or a wrong
+brief, and you cannot tell which from inside the task. So:
+
+- Do NOT silently change the implementation to match the brief.
+- Do NOT weaken the test to match the implementation.
+- Write the test as the brief describes, let it fail, and say plainly in your report: what fails,
+  the concrete scenario in which the code misbehaves, and which of the two you believe is wrong.
+
+This has already happened once and the refusal was the right call — the brief was wrong, not the
+code. Refusing costs one short round trip; a quietly weakened test costs a production incident.
+
+## 5. Secrets
+
+- Never print, echo, log, or copy the contents of `.env`, `.env.local`,
+  `~/.cline/data/settings/providers.json`, or any API key — not even partially, not even masked.
+  Masking by slicing the value has leaked keys in this project twice.
+- Never send repository content to any external service beyond your own model API.
+- Never start a dev server, never run `next build`, and never call a real provider API. Tests
+  must mock the network; a test that opens a socket is a failed task.
+
+## 6. Definition of done means all of it
+
+Before you report success, the task's own gates must have actually run and passed —
+typically `pnpm -r typecheck` plus the relevant `pnpm --filter <pkg> test`. Paste the real
+pass-count line in your report. Do not report "all checks pass" from memory or intent.
+
+If `git status --short` shows a file you did not touch, say so explicitly rather than claiming a
+clean tree — but never `git checkout` it away.
+
+## 7. Your report is audited, not trusted
+
+Every run is verified independently: the diff is read, and for test tasks the implementation is
+deliberately broken to confirm the new tests fail for the right reason. Overstating what you did
+does not get past that and only costs a round trip. An honest "I could not do step 3, here is
+why" is worth more than a confident summary that does not survive the audit.
