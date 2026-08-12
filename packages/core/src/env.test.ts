@@ -19,7 +19,7 @@
  * touch or mutate `process.env`.
  */
 import { describe, it, expect } from 'vitest';
-import { loadEnv, hasKey } from './env.ts';
+import { loadEnv, hasKey, type EnvKeyName } from './env.ts';
 
 describe('optionalUrl — empty string is treated as absent (the deploy bug)', () => {
   // These three are the keys that were `KEY=` in the container .env that
@@ -111,6 +111,54 @@ describe('FORCE_MOCK parsing — explicit per-value', () => {
   });
 });
 
+describe('FORCE_MOCK parsing — case-insensitive, trimmed, common aliases', () => {
+  // Real .env files and shells spell "on" several ways; before the allow-list
+  // these were silently read as false, leaving the flag off by accident.
+  it('"TRUE" -> true', () => {
+    expect(loadEnv({ FORCE_MOCK: 'TRUE' }).FORCE_MOCK).toBe(true);
+  });
+
+  it('"True" -> true', () => {
+    expect(loadEnv({ FORCE_MOCK: 'True' }).FORCE_MOCK).toBe(true);
+  });
+
+  it('"yes" -> true', () => {
+    expect(loadEnv({ FORCE_MOCK: 'yes' }).FORCE_MOCK).toBe(true);
+  });
+
+  it('"on" -> true', () => {
+    expect(loadEnv({ FORCE_MOCK: 'on' }).FORCE_MOCK).toBe(true);
+  });
+
+  it('" true " (surrounding whitespace) -> true', () => {
+    expect(loadEnv({ FORCE_MOCK: ' true ' }).FORCE_MOCK).toBe(true);
+  });
+
+  it('"no" -> false', () => {
+    expect(loadEnv({ FORCE_MOCK: 'no' }).FORCE_MOCK).toBe(false);
+  });
+
+  it('"off" -> false', () => {
+    expect(loadEnv({ FORCE_MOCK: 'off' }).FORCE_MOCK).toBe(false);
+  });
+
+  it('"0" -> false', () => {
+    expect(loadEnv({ FORCE_MOCK: '0' }).FORCE_MOCK).toBe(false);
+  });
+
+  it('"false" -> false (the truthy-string footgun)', () => {
+    expect(loadEnv({ FORCE_MOCK: 'false' }).FORCE_MOCK).toBe(false);
+  });
+
+  it('"FALSE" -> false', () => {
+    expect(loadEnv({ FORCE_MOCK: 'FALSE' }).FORCE_MOCK).toBe(false);
+  });
+
+  it('"" -> false', () => {
+    expect(loadEnv({ FORCE_MOCK: '' }).FORCE_MOCK).toBe(false);
+  });
+});
+
 describe('hasKey — basics', () => {
   it('a non-empty string value is present', () => {
     const env = loadEnv({ OPENROUTER_API_KEY: 'sk-real-key' });
@@ -134,6 +182,34 @@ describe('hasKey — respects FORCE_MOCK', () => {
     // dev/test run never accidentally hits a paid provider.
     const env = loadEnv({ FORCE_MOCK: '1', OPENROUTER_API_KEY: 'sk-real-key' });
     expect(hasKey(env, 'OPENROUTER_API_KEY')).toBe(false);
+  });
+
+  it('returns false for EVERY optional string key when FORCE_MOCK is on', () => {
+    // Pinning more than one key because FORCE_MOCK's override is the single
+    // gate for real-vs-mock across all providers; a per-key regression would
+    // be invisible if only OPENROUTER_API_KEY were checked.
+    const env = loadEnv({
+      FORCE_MOCK: '1',
+      OPENROUTER_API_KEY: 'sk-real-key',
+      KIE_API_KEY: 'kie-key',
+      FAL_API_KEY: 'fal-key',
+      ELEVENLABS_API_KEY: 'eleven-key',
+      R2_BUCKET: 'bucket',
+      AWS_S3_BUCKET: 's3bucket',
+      REMOTION_LAMBDA_FUNCTION_NAME: 'fn',
+    });
+    const keys: EnvKeyName[] = [
+      'OPENROUTER_API_KEY',
+      'KIE_API_KEY',
+      'FAL_API_KEY',
+      'ELEVENLABS_API_KEY',
+      'R2_BUCKET',
+      'AWS_S3_BUCKET',
+      'REMOTION_LAMBDA_FUNCTION_NAME',
+    ];
+    for (const k of keys) {
+      expect(hasKey(env, k)).toBe(false);
+    }
   });
 });
 

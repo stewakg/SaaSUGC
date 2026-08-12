@@ -25,8 +25,17 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 
   /** When true, force mocks even if real keys are present (local dev / tests). */
+  // WHY an explicit allow-list instead of Boolean(v): an env var set to the
+  // literal string 'false' is truthy in JS, so Boolean('false') === true would
+  // invert this flag's meaning. Only these exact spellings (after lowercasing
+  // and trimming) are treated as true; everything else — including '', '0',
+  // 'false', 'no', 'off' and any non-string — is false.
   FORCE_MOCK: z
-    .preprocess((v) => v === '1' || v === 'true', z.boolean())
+    .preprocess((v) => {
+      if (typeof v !== 'string') return false;
+      const s = v.trim().toLowerCase();
+      return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+    }, z.boolean())
     .default(false),
 
   // --- Supabase (DB + Auth) ---
@@ -100,8 +109,13 @@ export function loadEnv(input: Record<string, string | undefined> = process.env)
   return cached;
 }
 
+/** Keys `hasKey` can meaningfully answer for: the optional string ones. */
+export type EnvKeyName = {
+  [K in keyof Env]-?: string | undefined extends Env[K] ? K : never;
+}[keyof Env];
+
 /** True when a key is present AND mocks aren't forced. */
-export function hasKey(env: Env, key: keyof Env): boolean {
+export function hasKey(env: Env, key: EnvKeyName): boolean {
   if (env.FORCE_MOCK) return false;
   const v = env[key];
   return typeof v === 'string' && v.length > 0;
