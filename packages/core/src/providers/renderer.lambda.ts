@@ -35,7 +35,14 @@ const POLL_INTERVAL_MS = 2000;
 // it makes no FORWARD progress for this long. A slow-but-advancing render is a
 // paid job finishing late, not a stuck one — killing it on a fixed timer throws
 // away work the customer paid for. "No progress for N ms" is the honest rule.
-const NO_PROGRESS_TIMEOUT_MS = 2 * 60 * 1000;
+//
+// Kept at the OLD flat cap's value on purpose: this code has never run against
+// the live SDK, so `overallProgress` being populated is still an assumption. If
+// it is ever absent, the stall clock never resets and this degrades to a flat
+// cap — identical to the previous behaviour, never stricter. When the field IS
+// present (the expected case) an advancing render is never failed. So the worst
+// case is "no worse than before", and the common case is strictly better.
+const NO_PROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
 // Ownership fetch: one transient network blip or 5xx must not fail a paid
 // render, so the fetch is retried a few times with linear backoff. A 4xx is
 // permanent and fails at once — retrying it only delays the inevitable.

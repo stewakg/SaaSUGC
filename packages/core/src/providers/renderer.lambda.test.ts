@@ -447,27 +447,28 @@ describe('E. Failure-path cleanup', () => {
 // ---------------------------------------------------------------------------
 
 // Mirrors the private constant in renderer.lambda.ts (NO_PROGRESS_TIMEOUT_MS =
-// 2 * 60 * 1000). Not exported; duplicated here and must move in lockstep.
-const NO_PROGRESS_TIMEOUT_MS = 2 * 60 * 1000;
+// 5 * 60 * 1000). Not exported; duplicated here and must move in lockstep.
+const NO_PROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
 
 describe('F. Progress-aware timeout', () => {
   it('16. a render that keeps advancing does NOT time out, even past the old flat ceiling', async () => {
     renderMediaOnLambda.mockResolvedValue({ renderId: 'r16', bucketName: 'b16' });
-    // 80 polls of forward progress before done. 80 * POLL_INTERVAL_MS = 160s of
-    // wall clock — well past the old 5-min... no: past NO_PROGRESS_TIMEOUT_MS
-    // (120s). Because progress advances every poll, the stall clock keeps
-    // resetting and the render is allowed to finish.
+    // 170 polls of forward progress before done. 170 * POLL_INTERVAL_MS = 340s of
+    // wall clock — PAST the whole NO_PROGRESS_TIMEOUT_MS window (300s). Because
+    // progress advances every poll, the stall clock keeps resetting and the
+    // render is allowed to finish anyway. Had the ceiling stayed a flat wall
+    // clock, this render would have been failed at the 300s mark despite
+    // advancing the entire time — which is exactly the bug this fix removes.
     let calls = 0;
     getRenderProgress.mockImplementation(async () => {
       calls += 1;
-      if (calls >= 80) return { done: true, outputFile: S3_OUTPUT };
-      return { done: false, overallProgress: calls / 100 };
+      if (calls >= 170) return { done: true, outputFile: S3_OUTPUT };
+      return { done: false, overallProgress: calls / 200 };
     });
 
     const p = renderer.render({ composition: 'comp', props: {} });
-    // Drive the clock across all 80 polls (with headroom). Had the ceiling
-    // stayed flat, this would have rejected around the 120s mark.
-    await vi.advanceTimersByTimeAsync(80 * POLL_INTERVAL_MS + POLL_INTERVAL_MS);
+    // Drive the clock across all 170 polls (with headroom), i.e. well past 300s.
+    await vi.advanceTimersByTimeAsync(170 * POLL_INTERVAL_MS + POLL_INTERVAL_MS);
 
     const result = await p;
     expect(result).toEqual({ videoUrl: STORAGE_URL, storageKey: 'renders/lambda-r16.mp4' });
