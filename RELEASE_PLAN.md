@@ -207,6 +207,52 @@ Worth knowing: the competitor this product is measured against renders on Remoti
 (`ecomalati` teardown). That is not a reason to copy them, but it is evidence the path works
 for this exact workload.
 
+### What a render actually costs — measured, 2026-08-11
+
+Every sizing claim above used to rest on a guess. `apps/worker/src/bench-render.ts` now measures
+it; run it first on any new machine. On a 13th-gen i7-13620H (16 logical cores):
+
+| video | frames | render | ms/frame |
+|---|---|---|---|
+| 18s | 540 | **44.0s** | 81.5 ← first run in a fresh process |
+| 8s | 240 | 8.5s | 35.6 |
+| 30s | 900 | 21.2s | 23.5 |
+
+Two things fall out, and neither was obvious:
+
+- **A cold start costs ~30 seconds.** Fitting the warm runs gives ~3.9s fixed + ~19ms/frame, so
+  the first row is the webpack bundle and a cold font fetch, not the render. A long-lived worker
+  pays it once; Lambda avoids it because the site is deployed ahead of time. Anyone measuring
+  "one render" and taking the first number will overstate by 3×.
+- **Fonts are fetched from Google on every render.** The run logs 45–90 network requests per
+  browser tab for Montserrat alone. That is latency on every job and a dependency on Google
+  being reachable from the render box — on Lambda it is paid per invocation. Bundling the font
+  locally is a small change with an outsized effect. **Not done; worth doing before launch.**
+
+**Extrapolating to a 4-vCPU box** (the recommended CPX31): Remotion parallelises frames across
+cores, so expect roughly 3–4× the per-frame time, i.e. **~1 minute for an 18-second video, warm**.
+A `count=15` matrix job is fifteen renders in sequence — **~15 minutes of waiting** for that
+customer. That, not cost, is the number to watch.
+
+**Lambda cost, order of magnitude.** Billing is GB-seconds, and parallel chunks lower the wall
+clock without lowering the bill. One 18s video is roughly 40s of single-vCPU compute; at 2 GB
+that is ~80 GB-s, i.e. **well under one euro-cent per video** — call it €0.01 with a generous
+margin for error. **Verify against a real invoice after the first deploy; this is arithmetic on
+a measurement, not a quote.**
+
+**So: is Lambda worth it?** Not for the money. Against a ~€14/month box you would need well over
+a thousand renders a month before Lambda's per-render cost matters, and you are paying for that
+box anyway to run the web app, Redis and yt-dlp — its render capacity is already bought.
+
+The real case for Lambda is **burst latency**. Ten customers clicking at once on one VPS means
+the tenth waits for the other nine; on Lambda they all render at the same time. Buy it when
+queue waiting becomes the complaint, not to save money.
+
+**And the cost that actually matters is not the render at all.** A `count=15` job makes 15
+ElevenLabs calls billed per character plus the script generation. Against a matrix job priced at
+15 credits, the render is noise and the providers are the margin. `L2.5` — measuring real
+per-job provider spend — is worth more than any hosting decision on this page.
+
 **The concurrency trap, fixed but only half-fixed.** The worker ran 4 jobs at once, hardcoded.
 Fine for the cheap tools; wrong for the expensive one, because ONE Remotion render already
 drives Chromium and ffmpeg to near-100% across every core and wants ~2 GB. Four of those on a
