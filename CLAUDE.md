@@ -75,6 +75,17 @@ Verdict format (one line):
 - `SESSION_LOG_ARCHIVE.md` — session blocks older than the current file. History only.
 
 ## Code changes go through Cline (CLI-automated, since 2026-07-21)
+
+> ⛔ **BLOCKED as of 2026-08-12: the z.ai account has no balance.** Every run fails on the
+> first iteration with `Insufficient balance or no resource package. Please recharge.` —
+> verified against BOTH configured entries (`-P zai` and the `openai-compatible` coding
+> endpoint), so it is the account, not the config or the endpoint. The CLI itself is fine
+> (v3.0.50 on PATH, key present, model `glm-5.2`). **Until the owner recharges, delegating to
+> Cline is not an option and Claude does the work directly.** A queued, ready-to-fire spec sits
+> at `scratchpad/cline-prompt-storage-path-tests.md`.
+>
+> The failure is loud and costs nothing — one iteration, zero tokens — so re-testing after a
+> recharge is a single cheap run.
 Claude launches Cline **itself** via the `cline` CLI — the owner no longer copy-pastes
 prompts. Invocation: `cline --json -c "<repo>" "<self-contained task>"` (act mode,
 `--auto-approve` default true; add `--thinking medium|high` for multi-step tasks and
