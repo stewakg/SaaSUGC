@@ -357,14 +357,12 @@ export async function runMatrixPipeline(
     // Clamped so a long TTS result cannot turn into an unbounded render. Render
     // time is roughly linear in frames, so without this one job could occupy the
     // renderer for as long as the model felt like talking.
-    // Speech is never cut mid-sentence, so a slight overrun is allowed rather
-    // than truncating audio the customer paid for; the user's choice plus the
-    // outro is the intent, MAX_AD_SECONDS is the hard backstop.
-    const targetSec = Math.min(
-      lastEnd + MATRIX_OUTRO_SECONDS,
-      targetSeconds + MATRIX_OUTRO_SECONDS,
-      MAX_AD_SECONDS,
-    );
+    // The user's chosen length shapes the SCRIPT (via charBudget above); it must
+    // not also clamp the render, or speech that runs a little long gets cut off
+    // mid-sentence — the video would end while the voice is still talking. The
+    // budget already keeps a 10s ad near 10s; MAX_AD_SECONDS is the only hard
+    // stop, and it exists for a runaway, not for normal variation.
+    const targetSec = Math.min(lastEnd + MATRIX_OUTRO_SECONDS, MAX_AD_SECONDS);
     const durationInFrames = Math.round(targetSec * MATRIX_FPS);
     const shots =
       pool.length > 0

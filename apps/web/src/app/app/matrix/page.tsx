@@ -307,7 +307,12 @@ export default function MatrixPage() {
    * footer has to quote the same number: quoting `count` put "75 kredita
    * (5 × 15)" directly under a line reading "Napraviće se 1 video".
    */
-  const effectiveCount = scripts.length > 0 ? scripts.length : count;
+  // ...but ONLY when the scripts are actually sent, which Simple does not do.
+  // Without the mode check, approving 3 scripts in Advanced and then switching
+  // to Simple and asking for 10 videos quoted 3, sent 3, and delivered 3 — the
+  // picker the user had just used did nothing.
+  const usingApprovedScripts = mode === 'advanced' && scripts.length > 0;
+  const effectiveCount = usingApprovedScripts ? scripts.length : count;
   const cost = computeJobCost('matrix', effectiveCount);
   const captionStyle = `cap:${captionFont}:${captionAnim}:${captionColor}`;
 
@@ -540,7 +545,7 @@ export default function MatrixPage() {
             // the key lets it generate normally, which is the old behaviour.
             // Simple never reviews scripts, so it must not send them — omitting
             // the key is what tells the worker to generate normally.
-            scripts: mode === 'advanced' && scripts.length > 0 ? scripts : undefined,
+            scripts: usingApprovedScripts ? scripts : undefined,
             speakerGender,
           },
         }),

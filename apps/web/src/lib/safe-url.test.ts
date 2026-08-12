@@ -191,3 +191,17 @@ describe('assertPublicHost — the check the routes actually use', () => {
     ).resolves.toBe(false);
   });
 });
+
+describe('assertPublicHost — a name made of digits and dots is still a NAME', () => {
+  it('does not skip the DNS lookup for 1.2.3.4.5', async () => {
+    // Digits and dots, but not an address. A looser `[\d.]+` test treated it as
+    // an IP literal and skipped resolution entirely, so a name like this could
+    // point anywhere. It must fail to resolve and therefore fail closed.
+    await expect(assertPublicHost('http://1.2.3.4.5/')).resolves.toBe(false);
+  });
+
+  it('still short-circuits a genuine dotted quad', async () => {
+    await expect(assertPublicHost('https://8.8.8.8/')).resolves.toBe(true);
+    await expect(assertPublicHost('http://10.0.0.1/')).resolves.toBe(false);
+  });
+});

@@ -89,8 +89,12 @@ export async function assertPublicHost(raw: string): Promise<boolean> {
 
   const host = new URL(raw).hostname.replace(/^\[|\]$/g, '');
 
-  // An IP literal never reaches DNS; the string check above already judged it.
-  if (/^[\d.]+$/.test(host) || host.includes(':')) return !isPrivateAddress(host);
+  // A real IP literal never reaches DNS, so judge it directly. `\d+\.\d+\.\d+\.\d+`
+  // and not `[\d.]+`: a name like `1.2.3.4.5` is digits and dots but is NOT an
+  // address, and the looser test skipped the DNS lookup for it entirely.
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host) || host.includes(':')) {
+    return !isPrivateAddress(host);
+  }
 
   try {
     const addresses = await lookup(host, { all: true });
