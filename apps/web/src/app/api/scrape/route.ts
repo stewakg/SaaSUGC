@@ -8,7 +8,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createProviders } from '@adgen/core';
 import { createServerClient } from '@/lib/supabase/server';
-import { isSafeTargetUrl } from '@/lib/safe-url';
+import { assertPublicHost } from '@/lib/safe-url';
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
@@ -20,7 +20,10 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json().catch(() => ({}))) as { url?: unknown };
-  if (typeof body.url !== 'string' || !isSafeTargetUrl(body.url)) {
+  // assertPublicHost, not the string check alone: a perfectly public-looking
+  // hostname can have a DNS record pointing at 127.0.0.1 or the cloud metadata
+  // address, and this server is about to fetch whatever it is given.
+  if (typeof body.url !== 'string' || !(await assertPublicHost(body.url))) {
     return NextResponse.json({ error: 'invalid_url' }, { status: 400 });
   }
 

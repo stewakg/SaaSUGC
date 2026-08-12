@@ -12,7 +12,7 @@
  * so a future "simplification" of the pattern has to survive them.
  */
 import { describe, expect, it } from 'vitest';
-import { isSafeTargetUrl } from './safe-url.ts';
+import { assertPublicHost, isPrivateAddress, isSafeTargetUrl } from './safe-url.ts';
 
 describe('isSafeTargetUrl — what must be allowed', () => {
   it.each([
@@ -99,21 +99,18 @@ describe('isSafeTargetUrl — malformed input', () => {
 });
 
 /**
- * Known gaps, asserted so they are documented rather than assumed handled.
- * Each is a real bypass; none is currently defended, because the guard is a
- * pre-flight string check and cannot see where a name resolves.
+ * The string check alone still cannot see where a name RESOLVES — that is what
+ * assertPublicHost below is for, and both routes now use it. Kept as a test so
+ * nobody "simplifies" a route back to the sync check.
  */
-describe('isSafeTargetUrl — KNOWN GAPS (documented, not defended)', () => {
-  it('cannot catch a hostname that RESOLVES to a private address', () => {
-    // A DNS record the attacker controls, pointing at 127.0.0.1. Defending this
-    // needs resolution + a check on the resolved IP, and re-checking after any
-    // redirect (DNS rebinding). See RELEASE_PLAN.
+describe('isSafeTargetUrl — what the STRING check alone cannot see', () => {
+  it('passes a hostname that may resolve to a private address', () => {
     expect(isSafeTargetUrl('http://internal.attacker.example/')).toBe(true);
   });
 
-  it('cannot catch a redirect from a public URL to a private one', () => {
-    // The guard runs once, on the string. Whatever follows the redirect is the
-    // fetching code's problem, not this function's.
+  it('passes a public URL that may redirect to a private one', () => {
+    // Not a live hole: the scraper fetches with `redirect: 'manual'` and throws
+    // on any 3xx (scraper.real.ts), so nothing follows a redirect unchecked.
     expect(isSafeTargetUrl('https://example.com/redirect-to-localhost')).toBe(true);
   });
 
@@ -132,5 +129,65 @@ describe('isSafeTargetUrl — alternate spellings of 127.0.0.1', () => {
   ])('rejects %s (%s form of loopback)', (url) => {
     expect(new URL(url).hostname).toBe('127.0.0.1');
     expect(isSafeTargetUrl(url)).toBe(false);
+  });
+});
+
+describe('isPrivateAddress', () => {
+  it.each([
+    ['127.0.0.1', 'loopback'],
+    ['127.1.2.3', 'the whole 127/8, not just .0.1'],
+    ['0.0.0.0', 'this network'],
+    ['10.1.2.3', 'private'],
+    ['172.16.0.1', 'private, low end'],
+    ['172.31.255.254', 'private, high end'],
+    ['192.168.1.1', 'private'],
+    ['169.254.169.254', 'cloud metadata'],
+    ['100.64.0.1', 'CGNAT — reaches the provider network'],
+    ['::1', 'IPv6 loopback'],
+    ['::', 'IPv6 unspecified'],
+    ['fc00::1', 'unique-local'],
+    ['fd12:3456::1', 'unique-local'],
+    ['fe80::1', 'link-local'],
+    ['::ffff:127.0.0.1', 'IPv4 loopback written as IPv6'],
+    ['::ffff:10.0.0.1', 'IPv4 private written as IPv6'],
+  ])('blocks %s (%s)', (ip) => {
+    expect(isPrivateAddress(ip)).toBe(true);
+  });
+
+  it.each([
+    ['8.8.8.8', 'public'],
+    ['1.1.1.1', 'public'],
+    ['172.15.0.1', 'just below the private block'],
+    ['172.32.0.1', 'just above the private block'],
+    ['100.63.255.255', 'just below CGNAT'],
+    ['100.128.0.1', 'just above CGNAT'],
+    ['2606:4700::1111', 'public IPv6'],
+    ['::ffff:8.8.8.8', 'public IPv4 written as IPv6'],
+  ])('allows %s (%s)', (ip) => {
+    expect(isPrivateAddress(ip)).toBe(false);
+  });
+});
+
+describe('assertPublicHost — the check the routes actually use', () => {
+  it('resolves a real name and blocks it when it points at loopback', async () => {
+    // A genuine DNS lookup, offline: every machine resolves localhost to
+    // 127.0.0.1. This is the bypass the string check could not see.
+    await expect(assertPublicHost('http://localhost:8080/x')).resolves.toBe(false);
+  });
+
+  it('still rejects everything the string check rejected', async () => {
+    await expect(assertPublicHost('file:///etc/passwd')).resolves.toBe(false);
+    await expect(assertPublicHost('http://169.254.169.254/')).resolves.toBe(false);
+    await expect(assertPublicHost('not a url')).resolves.toBe(false);
+  });
+
+  it('allows a public IP literal without touching DNS', async () => {
+    await expect(assertPublicHost('https://8.8.8.8/')).resolves.toBe(true);
+  });
+
+  it('fails closed when a name does not resolve', async () => {
+    await expect(
+      assertPublicHost('http://nonexistent.invalid-tld-that-cannot-resolve/'),
+    ).resolves.toBe(false);
   });
 });

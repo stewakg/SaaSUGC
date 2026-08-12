@@ -30,7 +30,7 @@ import { join } from 'node:path';
 import { createProviders } from '@adgen/core';
 import { createServerClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
-import { isSafeTargetUrl } from '@/lib/safe-url';
+import { assertPublicHost } from '@/lib/safe-url';
 
 /** Hard cap on an imported clip, matching /api/upload's 200MB limit. */
 const MAX_IMPORT_BYTES = 200 * 1024 * 1024;
@@ -52,7 +52,10 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json().catch(() => ({}))) as { url?: unknown };
-  if (typeof body.url !== 'string' || !isSafeTargetUrl(body.url)) {
+  // assertPublicHost, not the string check alone: a perfectly public-looking
+  // hostname can have a DNS record pointing at 127.0.0.1 or the cloud metadata
+  // address, and this server is about to fetch whatever it is given.
+  if (typeof body.url !== 'string' || !(await assertPublicHost(body.url))) {
     return NextResponse.json({ error: 'invalid_url' }, { status: 400 });
   }
 
