@@ -127,9 +127,9 @@ Wait for the completion notification, then edit.
 
 ## Baseline gates
 `pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core`, `@adgen/worker` and now
-`@adgen/web` — **467 tests as of 2026-08-12**, covering the montage chain, caption/cost
+`@adgen/web` — **528 tests as of 2026-08-12** (core 296, web 186, worker 46), covering the montage chain, caption/cost
 logic, approved scripts, the OpenRouter provider, the matrix pipeline end to end with a fake
-renderer, R2 signed-URL generation, the SSRF guard and admin identification, the ad-length cost ceiling, the yt-dlp search parser, the password checklist, the rate limiter's fail-open behaviour, the provider factory including `mockProviderSlots()`, and the Lambda renderer's ownership transfer), and
+renderer, R2 signed-URL generation, the SSRF guard and admin identification, the ad-length cost ceiling, the yt-dlp search parser + the shell-free `runYtDlp` argv contract, the password checklist, the rate limiter's fail-open behaviour, the provider factory including `mockProviderSlots()`, the Lambda renderer's ownership transfer + its progress-aware timeout and fetch-retry, the ElevenLabs voice provider, the RealScraper heuristics + SSRF redirect guard, the kie.ai/fal.ai router fallback contract, and the worker job state machine's charge/refund/rollback), and
 `pnpm --filter @adgen/web build` must pass before calling anything done.
 
 **Stop the dev server before running the web build.** `next build` and `next dev` share

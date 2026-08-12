@@ -39,6 +39,11 @@ cline --json -P openai-compatible --thinking medium -c "<repo>" "Read scratchpad
 | 8 | **Code change:** one shared 1s budget for all three Redis commands | `apps/web/src/lib/rate-limit.{ts,test.ts}` | Reverted the change by hand (timeout back around `incr` only) and re-ran: all three new tests hung to vitest's 5000ms ceiling, the other 11 stayed green. Restored, 180 web tests pass. | ✅ accepted | `64f2685` |
 | 9 | Tests for the Lambda renderer (never executed code) | `packages/core/src/providers/renderer.lambda.test.ts` | Two mutations: returning the S3 `outputFile` as `videoUrl` and keying the upload by bucket name, plus removing the `try/catch` around `deleteRender` → 5 tests failed, exactly the ownership, key, url, best-effort-cleanup and polling ones. Restored from a backup copy (`git diff --stat` clean). | ✅ accepted | `2e82f29` |
 | 10 | **Code change:** best-effort `deleteRender` on the failure paths + `progress.errors` guard | `packages/core/src/providers/renderer.lambda.{ts,test.ts}` | Mutation: removed both failure-path cleanup calls and reverted `progress.errors ?? []` → 6 tests failed, including test 15 with the exact `Cannot read properties of undefined (reading 'map')` the guard exists to prevent. Restored from a backup copy. | ✅ accepted | `446080e` |
+| 11 | Tests for the ElevenLabs voice provider | `packages/core/src/providers/voice.elevenlabs.test.ts` | Four mutations: unclamping `voice_settings`, shifting the alignment-fold `endSec` index, dropping the array-length guard, neutering the TTS error guard → each failed exactly the named test (3, 1, 6, 7) and nothing else. Restored from a backup copy (`git diff --stat` empty). No findings. | ✅ accepted | `99916f5` |
+| 12 | Tests for `RealScraper` (fetch + cheerio) | `packages/core/src/providers/scraper.real.test.ts` | Five mutations: the `Proizvod` title default, the price unit, the logo/icon/svg image filter, the redirect (SSRF) guard, and the 8-image cap → tests 2, 4, 7, {9,10}, 8 respectively. cheerio left real; the mock placeholder asserted by format so the seedCounter can't flake it. Restored, diff empty. No findings. | ✅ accepted | `eba3ccd` |
+| 13 | Tests for the kie.ai + fal.ai router (never run against a real key) | `packages/core/src/providers/ai.kiefal.test.ts` | Nine mutations covering all 19 tests: aspect-ratio swap and no-match, each result-index shift (kie img, fal img, kie video), disabling the image and video fal fallbacks, and neutering the no-image-URL / no-video-URL / no-FAL_API_KEY / fal-terminal-status guards → each failed exactly its named test(s). Restored, diff empty. No findings. | ✅ accepted | `8eaa75c` |
+| 14 | Tests for `runYtDlp` (shell-free argv) | `apps/web/src/lib/yt-dlp.test.ts` | Four mutations: reordering argv to `[...flags, target]`, a wrong executable, a shrunk `maxBuffer`, and returning `stderr` → tests 2, 1, 4, 5. `child_process` + the constants module mocked via `vi.hoisted`. Restored, diff empty. No findings. | ✅ accepted | `1f46b99` |
+| 15 | Tests for the job state machine (money path) | `apps/worker/src/processor.test.ts` | Seven mutations, one per test: neutering the not-found guard, the `running` update, the empty-assets guard, the per-asset cost scaling, the charge-failure asset-rollback delete, the return-not-throw on charge failure, and the catch's `error` marking → each failed exactly the test(s) named for it. Uses the `makeProcessor` seam added by hand in `dcc9416` (Claude, not Cline). Restored, diff empty. No findings. | ✅ accepted | `9050706` |
 
 ## When the spec is wrong, not the code (run 7)
 
@@ -63,13 +68,17 @@ Raised by run 9 and worth fixing, but deliberately not folded into a test commit
   both failure branches, wrapped so it can never become the error the caller sees.
 - ~~`progress.errors` is read without a guard.~~ **Fixed in run 10** — a fatal with no `errors`
   array now surfaces a clear message naming the renderId instead of a TypeError.
-- **`MAX_WAIT_MS` is a flat wall-clock ceiling**, not progress-aware. A slow but advancing render
-  fails a job the customer paid for. "No progress for N ms" would be the honest rule.
+- ~~**`MAX_WAIT_MS` is a flat wall-clock ceiling**, not progress-aware.~~ **Fixed @ `d28a20f`**
+  (Claude, with tests) — the ceiling is now `NO_PROGRESS_TIMEOUT_MS`: the stall clock resets every
+  time `overallProgress` advances, so only a genuinely stuck render is failed. Tests 16-17 pin
+  both halves (advancing render never fails; frozen render still does). Still unrun against AWS.
 - **The public-S3 window widens if the worker dies** between `done` and the delete: the
   world-readable link then stays up indefinitely. `privacy: 'private'` plus a presigned fetch is
-  the real fix, and it needs a live AWS run to get right.
-- **No retry on the ownership `fetch`.** One transient 5xx fails a paid render. Failing hard
-  rather than falling back to S3 is correct, but 2–3 attempts with backoff would salvage blips.
+  the real fix, and it needs a live AWS run to get right. **STILL OPEN — deliberately left for the
+  owner's AWS run** (RELEASE_PLAN L2.3); blind edits to never-run AWS auth code are the exact trap.
+- ~~**No retry on the ownership `fetch`.**~~ **Fixed @ `d28a20f`** (Claude, with tests) — the fetch
+  retries up to 3× with linear backoff on a 5xx or a network error; a 4xx stays permanent and
+  fails at once; exhausting the retries still fails the job (never falls back to S3). Tests 18-21.
 
 None of this is compiler-checked either: `RenderProgress` comes from `@remotion/serverless-client`,
 which is not installed here, so `skipLibCheck` is carrying those field names. The tests pin the
