@@ -45,6 +45,18 @@ services:
       # THIS compose stack's redis service (by its service name on the
       # compose network), not localhost or a dev instance.
       REDIS_URL: redis://redis:6379
+      # One render at a time on a render box. The code default is 4, which is
+      # right for the cheap tools and wrong for matrix: a single Remotion render
+      # already drives Chromium and ffmpeg to near-100% on every core and wants
+      # ~2 GB, so four in parallel thrash and the likely ending is an OOM kill —
+      # which surfaces as jobs failing under load, the worst moment to find out.
+      # Raise it only after `bench-render.ts` shows the box has headroom.
+      WORKER_CONCURRENCY: '1'
+      # The image sets NODE_ENV=production, so the mock-provider guard is armed:
+      # if any provider resolves to a mock this container REFUSES to start and,
+      # with restart: unless-stopped, will visibly crash-loop. That is deliberate
+      # — a worker on mocks answers paid jobs with canned output. Fix the keys in
+      # apps/worker/.env rather than setting ALLOW_MOCK_PROVIDERS.
     depends_on:
       redis:
         condition: service_healthy

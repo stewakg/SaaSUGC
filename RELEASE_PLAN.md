@@ -172,6 +172,38 @@ Only after that does the site get shared.
 
 ---
 
+## Deploying the web app — what does NOT exist yet (audited 2026-08-12)
+
+`infra/docker-compose.prod.yml` deploys the **worker and Redis only**. That was correct while
+`apps/web` ran on a laptop; it is the gap for L1.7, and it is bigger than "add a service".
+
+**What is missing, precisely:**
+
+- **`apps/web` has no Dockerfile.** The worker's is a good model and the hard parts are already
+  solved there — the Playwright base image for Chromium's system libraries, an explicit Node 22
+  install because Supabase needs a native `WebSocket`, and copying the whole monorepo because
+  `LocalRemotionRenderer` resolves `/remotion` relative to its own file. The web image needs
+  none of Chromium but does need **yt-dlp**, which `/api/search-clips` and `/api/import-clip`
+  shell out to.
+- **`next.config.mjs` has no `output: 'standalone'`.** Without it a web image has to ship the
+  entire monorepo `node_modules`. With it, Next traces only what is reached — but tracing has
+  to cope with pnpm's symlinked store, workspace packages that ship raw `.ts`, and
+  `transpilePackages`. **Do not enable it blind:** the failure mode is a missing file at
+  RUNTIME, not at build time. Turn it on and run the image before trusting it.
+- **No reverse proxy and no TLS.** Caddy is the least-effort answer (certificates are automatic)
+  and needs the domain from L1.1 pointing at the box first.
+- **No web healthcheck**, so compose cannot tell a hung Next process from a healthy one.
+
+**Not written here on purpose.** Docker is not installed on the development machine, so
+anything I wrote would be a deployment artefact that has never been built — precisely the
+CODE-COMPLETE trap `CLAUDE.md` warns about, and the slowest possible thing to debug for the
+first time on a live box. Write it ON the VPS, where `docker build` can answer immediately.
+
+**Already handled, so it does not need rediscovering:** the prod compose now pins
+`WORKER_CONCURRENCY=1` (one Remotion render saturates a box), and the image sets
+`NODE_ENV=production`, which arms the mock-provider guard — so a worker deployed without real
+keys REFUSES to start and crash-loops visibly instead of answering paid jobs with canned text.
+
 ## Scaling: what happens when more people show up
 
 Written 2026-08-11 because "what if we get users" deserves an answer that is not a shrug.
