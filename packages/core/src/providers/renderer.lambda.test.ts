@@ -436,6 +436,136 @@ describe('E. Failure-path cleanup', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// F. Progress-aware timeout — the flat wall-clock ceiling is gone
+// ---------------------------------------------------------------------------
+// The ceiling used to be a fixed 5-minute wall clock: a slow-but-advancing
+// render was failed even though it was finishing a job the customer paid for.
+// It is now "no FORWARD progress for NO_PROGRESS_TIMEOUT_MS". These two tests
+// pin both halves: an advancing render is never failed no matter how long it
+// runs, and a frozen render is still caught.
+// ---------------------------------------------------------------------------
+
+// Mirrors the private constant in renderer.lambda.ts (NO_PROGRESS_TIMEOUT_MS =
+// 2 * 60 * 1000). Not exported; duplicated here and must move in lockstep.
+const NO_PROGRESS_TIMEOUT_MS = 2 * 60 * 1000;
+
+describe('F. Progress-aware timeout', () => {
+  it('16. a render that keeps advancing does NOT time out, even past the old flat ceiling', async () => {
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r16', bucketName: 'b16' });
+    // 80 polls of forward progress before done. 80 * POLL_INTERVAL_MS = 160s of
+    // wall clock — well past the old 5-min... no: past NO_PROGRESS_TIMEOUT_MS
+    // (120s). Because progress advances every poll, the stall clock keeps
+    // resetting and the render is allowed to finish.
+    let calls = 0;
+    getRenderProgress.mockImplementation(async () => {
+      calls += 1;
+      if (calls >= 80) return { done: true, outputFile: S3_OUTPUT };
+      return { done: false, overallProgress: calls / 100 };
+    });
+
+    const p = renderer.render({ composition: 'comp', props: {} });
+    // Drive the clock across all 80 polls (with headroom). Had the ceiling
+    // stayed flat, this would have rejected around the 120s mark.
+    await vi.advanceTimersByTimeAsync(80 * POLL_INTERVAL_MS + POLL_INTERVAL_MS);
+
+    const result = await p;
+    expect(result).toEqual({ videoUrl: STORAGE_URL, storageKey: 'renders/lambda-r16.mp4' });
+    expect(storage.upload).toHaveBeenCalledTimes(1);
+  });
+
+  it('17. a render whose progress is FROZEN still times out (stall detected)', async () => {
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r17', bucketName: 'b17' });
+    // overallProgress is present but never advances — the stall clock is set
+    // once on the first poll and never reset, so the window elapses.
+    getRenderProgress.mockResolvedValue({ done: false, overallProgress: 0.5 });
+
+    const p = renderer.render({ composition: 'comp', props: {} });
+    p.catch(() => {});
+    await vi.advanceTimersByTimeAsync(NO_PROGRESS_TIMEOUT_MS + POLL_INTERVAL_MS);
+
+    await expect(p).rejects.toThrow(/timed out.*no progress.*renderId=r17/);
+    expect(storage.upload).not.toHaveBeenCalled();
+    // Still cleans up the stuck render on the way out.
+    expect(deleteRender).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// G. Ownership fetch retry — a transient blip must not fail a paid render
+// ---------------------------------------------------------------------------
+// The fetch that takes ownership of the finished video is retried a few times
+// with linear backoff on a network error or a 5xx; a 4xx is permanent and
+// fails at once. Exhausting the retries fails the job — falling back to the S3
+// url is never acceptable (see render()'s doc comment).
+// ---------------------------------------------------------------------------
+
+const FETCH_BACKOFF_MS = 500; // mirrors the private constant
+
+describe('G. Ownership fetch retry', () => {
+  it('18. a single 5xx is retried and the render still succeeds', async () => {
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r18', bucketName: 'b18' });
+    getRenderProgress.mockResolvedValueOnce({ done: true, outputFile: S3_OUTPUT });
+    fetchMock.mockReset();
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockResolvedValueOnce(okFetchResponse());
+
+    const p = renderer.render({ composition: 'comp', props: {} });
+    // Let the first fetch fail, the backoff elapse, and the retry run.
+    await vi.advanceTimersByTimeAsync(FETCH_BACKOFF_MS + 1);
+
+    const result = await p;
+    expect(result).toEqual({ videoUrl: STORAGE_URL, storageKey: 'renders/lambda-r18.mp4' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('19. a network error is retried and the render still succeeds', async () => {
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r19', bucketName: 'b19' });
+    getRenderProgress.mockResolvedValueOnce({ done: true, outputFile: S3_OUTPUT });
+    fetchMock.mockReset();
+    fetchMock
+      .mockRejectedValueOnce(new Error('ECONNRESET'))
+      .mockResolvedValueOnce(okFetchResponse());
+
+    const p = renderer.render({ composition: 'comp', props: {} });
+    await vi.advanceTimersByTimeAsync(FETCH_BACKOFF_MS + 1);
+
+    const result = await p;
+    expect(result).toEqual({ videoUrl: STORAGE_URL, storageKey: 'renders/lambda-r19.mp4' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('20. a persistent 5xx exhausts the retries and fails the job (never falls back to S3)', async () => {
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r20', bucketName: 'b20' });
+    getRenderProgress.mockResolvedValueOnce({ done: true, outputFile: S3_OUTPUT });
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({ ok: false, status: 500 });
+
+    const p = renderer.render({ composition: 'comp', props: {} });
+    p.catch(() => {});
+    // Two backoffs between three attempts: 500ms + 1000ms.
+    await vi.advanceTimersByTimeAsync(FETCH_BACKOFF_MS + FETCH_BACKOFF_MS * 2 + 1);
+
+    await expect(p).rejects.toThrow(/after 3 attempts.*renderId=r20/);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(storage.upload).not.toHaveBeenCalled();
+  });
+
+  it('21. a 4xx is permanent — failed at once, never retried', async () => {
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r21', bucketName: 'b21' });
+    getRenderProgress.mockResolvedValueOnce({ done: true, outputFile: S3_OUTPUT });
+    fetchMock.mockReset();
+    fetchMock.mockResolvedValue({ ok: false, status: 404 });
+
+    await expect(renderer.render({ composition: 'comp', props: {} })).rejects.toThrow(
+      /404.*renderId=r21/,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(storage.upload).not.toHaveBeenCalled();
+  });
+});
+
 
 
 

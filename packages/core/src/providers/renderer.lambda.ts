@@ -31,7 +31,16 @@ import {
 import type { Renderer, Storage } from '../interfaces.ts';
 
 const POLL_INTERVAL_MS = 2000;
-const MAX_WAIT_MS = 5 * 60 * 1000; // 5 minutes — matrix renders are short (~15-30s of video)
+// Progress-aware ceiling, NOT a flat wall-clock cap. A render is failed only if
+// it makes no FORWARD progress for this long. A slow-but-advancing render is a
+// paid job finishing late, not a stuck one — killing it on a fixed timer throws
+// away work the customer paid for. "No progress for N ms" is the honest rule.
+const NO_PROGRESS_TIMEOUT_MS = 2 * 60 * 1000;
+// Ownership fetch: one transient network blip or 5xx must not fail a paid
+// render, so the fetch is retried a few times with linear backoff. A 4xx is
+// permanent and fails at once — retrying it only delays the inevitable.
+const FETCH_MAX_ATTEMPTS = 3;
+const FETCH_BACKOFF_MS = 500;
 
 export class RemotionLambdaRenderer implements Renderer {
   readonly name = 'remotion-lambda-renderer';
@@ -80,7 +89,11 @@ export class RemotionLambdaRenderer implements Renderer {
       privacy: 'public',
     });
 
-    const start = Date.now();
+    // The stall clock: reset every time the render advances. `lastProgress`
+    // starts below any real overallProgress (0..1) so the very first forward
+    // step counts as progress.
+    let lastProgress = -1;
+    let lastAdvanceAt = Date.now();
     while (true) {
       const progress = await getRenderProgress({
         renderId,
@@ -110,12 +123,23 @@ export class RemotionLambdaRenderer implements Renderer {
       if (progress.done && progress.outputFile) {
         return this.takeOwnership(progress.outputFile, renderId, bucketName);
       }
-      if (Date.now() - start > MAX_WAIT_MS) {
+      // Progress-aware timeout: advance the stall clock whenever overallProgress
+      // moves forward, and fail only a render that has been stuck for the whole
+      // window. overallProgress is 0..1; done/fatal are handled above.
+      const observed =
+        typeof progress.overallProgress === 'number' ? progress.overallProgress : lastProgress;
+      if (observed > lastProgress) {
+        lastProgress = observed;
+        lastAdvanceAt = Date.now();
+      }
+      if (Date.now() - lastAdvanceAt > NO_PROGRESS_TIMEOUT_MS) {
         // Best-effort: cancel/clean up the still-running render so it does not
         // keep running on AWS and later deposit an output nobody fetches or
         // deletes. Swallowed internally — the timeout error is what surfaces.
         await this.cleanupLambdaRender(renderId, bucketName, `render ${renderId} timed out`);
-        throw new Error(`Remotion Lambda render timed out after ${MAX_WAIT_MS / 1000}s (renderId=${renderId})`);
+        throw new Error(
+          `Remotion Lambda render timed out: no progress for ${NO_PROGRESS_TIMEOUT_MS / 1000}s (renderId=${renderId})`,
+        );
       }
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
@@ -127,13 +151,7 @@ export class RemotionLambdaRenderer implements Renderer {
     renderId: string,
     bucketName: string,
   ): Promise<{ videoUrl: string; storageKey: string }> {
-    const res = await fetch(outputFile);
-    if (!res.ok) {
-      // Failing here fails the job on purpose. Falling back to the S3 url would
-      // "succeed", charge the customer, and hand them a link we do not control
-      // and cannot include in the 30-day promise.
-      throw new Error(`could not fetch the Lambda render output (${res.status}) for renderId=${renderId}`);
-    }
+    const res = await this.fetchOutputWithRetry(outputFile, renderId);
     const buffer = Buffer.from(await res.arrayBuffer());
 
     const storageKey = `renders/lambda-${renderId}.mp4`;
@@ -147,6 +165,42 @@ export class RemotionLambdaRenderer implements Renderer {
     await this.cleanupLambdaRender(renderId, bucketName, `render ${renderId} is stored`);
 
     return { videoUrl: url, storageKey };
+  }
+
+  /**
+   * Fetch the Lambda output, retrying transient failures. A network error or a
+   * 5xx is retried up to FETCH_MAX_ATTEMPTS with linear backoff; a 4xx is
+   * permanent and thrown at once (retrying it only delays the inevitable).
+   * Exhausting the retries throws: falling back to the S3 url would hand the
+   * customer a link we neither control nor can include in the 30-day promise,
+   * so a fetch we cannot complete fails the job on purpose (see render()'s doc).
+   */
+  private async fetchOutputWithRetry(outputFile: string, renderId: string): Promise<Response> {
+    let lastDetail = 'unknown error';
+    for (let attempt = 1; attempt <= FETCH_MAX_ATTEMPTS; attempt++) {
+      let res: Response | undefined;
+      try {
+        res = await fetch(outputFile);
+      } catch (err) {
+        lastDetail = err instanceof Error ? err.message : String(err);
+      }
+      if (res) {
+        if (res.ok) return res;
+        // 4xx is permanent — fail immediately with the status, no retry.
+        if (res.status < 500) {
+          throw new Error(
+            `could not fetch the Lambda render output (${res.status}) for renderId=${renderId}`,
+          );
+        }
+        lastDetail = `status ${res.status}`;
+      }
+      if (attempt < FETCH_MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, FETCH_BACKOFF_MS * attempt));
+      }
+    }
+    throw new Error(
+      `could not fetch the Lambda render output after ${FETCH_MAX_ATTEMPTS} attempts (${lastDetail}) for renderId=${renderId}`,
+    );
   }
 
   /** Drop the Lambda-side render. Best-effort everywhere: cleanup must never
