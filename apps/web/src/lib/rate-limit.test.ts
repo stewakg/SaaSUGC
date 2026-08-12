@@ -170,4 +170,77 @@ describe('rateLimit — fails open', () => {
     const result = await rateLimit('scrape:user-123', 5, 60);
     expect(result).toEqual({ allowed: true, remaining: 5, resetSeconds: 60 });
   });
+
+  it('fails open when `expire` hangs (single shared budget covers the whole sequence)', async () => {
+    // `incr` resolves fine, but a half-open socket then leaves `expire`
+    // pending forever. The original code only armed a timeout around `incr`,
+    // so this would hang the request indefinitely — the exact failure the
+    // "hard ceiling" comment promises to prevent. With the whole sequence
+    // wrapped in one withTimeout, advancing the clock past the single budget
+    // must resolve to the fail-open shape instead.
+    incr.mockResolvedValue(1);
+    expire.mockReturnValue(new Promise<number>(() => {})); // never settles
+    const promise = rateLimit('scrape:user-123', 5, 60);
+    // Absorb the eventual rejection so a stray tick can't surface an
+    // unhandled promise before our assertion attaches.
+    const guard = promise.catch(() => {});
+
+    await vi.advanceTimersByTimeAsync(1500);
+
+    const result = await promise;
+    expect(result).toEqual({ allowed: true, remaining: 5, resetSeconds: 60 });
+    void guard;
+  });
+
+  it('fails open when `ttl` hangs (single shared budget covers the whole sequence)', async () => {
+    // Same shape as the hanging-`expire` case, one command later: `incr` and
+    // `expire` both resolve, but `ttl` never settles. Only the combined
+    // withTimeout can rescue this — under the old per-`incr` wrap the call
+    // would hang here forever.
+    incr.mockResolvedValue(1);
+    expire.mockResolvedValue(1);
+    ttl.mockReturnValue(new Promise<number>(() => {})); // never settles
+    const promise = rateLimit('scrape:user-123', 5, 60);
+    const guard = promise.catch(() => {});
+
+    await vi.advanceTimersByTimeAsync(1500);
+
+    const result = await promise;
+    expect(result).toEqual({ allowed: true, remaining: 5, resetSeconds: 60 });
+    void guard;
+  });
+
+  it('shares the budget across commands rather than granting each a fresh one', async () => {
+    // The point of a "hard ceiling" is that the TOTAL delay is bounded. If
+    // `incr` already burns most of the budget and then `expire` hangs, a
+    // per-command timeout would restart the clock and let the request run up
+    // to ~2s; a single shared budget must reject at ~1s from the START of
+    // the call.
+    //
+    // We express this by resolving `incr` only after ~700ms of fake time and
+    // leaving `expire` hanging, then advancing exactly RATE_LIMIT_TIMEOUT_MS
+    // (1000ms) from the start of the call — which is well under the 700ms +
+    // 1000ms = 1700ms a per-command scheme would allow. The call must already
+    // have resolved to fail-open at that point.
+    incr.mockImplementation(
+      () => new Promise<number>((resolve) => setTimeout(() => resolve(1), 700)),
+    );
+    expire.mockReturnValue(new Promise<number>(() => {})); // never settles
+    const promise = rateLimit('scrape:user-123', 5, 60);
+    const guard = promise.catch(() => {});
+
+    // Advance exactly the single budget from the start of the call. Under
+    // fake timers this both fires the 700ms `incr` resolver and then, with
+    // ~300ms left, the withTimeout rejecter — so the promise is settled.
+    await vi.advanceTimersByTimeAsync(1000);
+
+    const result = await promise;
+    expect(result).toEqual({ allowed: true, remaining: 5, resetSeconds: 60 });
+    // Sanity: incr DID resolve (so we're not just timing out on a never-set
+    // incr) and expire was reached (so the hang is genuinely on expire, not
+    // before it).
+    expect(incr).toHaveBeenCalled();
+    expect(expire).toHaveBeenCalled();
+    void guard;
+  });
 });

@@ -35,7 +35,8 @@ cline --json -P openai-compatible --thinking medium -c "<repo>" "Read scratchpad
 | 4 | Tests for `pollJob` | `apps/web/src/lib/poll-job.test.ts` | Mutation: removed `error` from the terminal-state check → exactly 1 test failed, and took 5s instead of 8ms as it fell through to the timeout path. Checked `globalThis.fetch` is restored in `afterEach`. | ✅ accepted | `bbb2fbe` |
 | 5 | **Code change:** `FORCE_MOCK` spellings + narrow `hasKey` | `packages/core/src/env.{ts,test.ts}` | Type probe confirmed `hasKey(env,'FORCE_MOCK')` and `'NODE_ENV'` are now TS2345 errors while `'OPENROUTER_API_KEY'` still compiles; runtime probe confirmed 6 true-spellings, 6 false-spellings, and that the flag still vetoes a set key. Both probes deleted. | ✅ accepted | `936cf9a` |
 | 6 | Tests for `rateLimit` | `apps/web/src/lib/rate-limit.test.ts` | Three mutations: `<=`→`<`, and `EXPIRE` made conditional on `count === 1` → exactly the boundary test and the NX test failed; dropping `withTimeout` around `incr` → the hanging-Redis test failed with "Test timed out in 5000ms" instead of passing in 13ms. Implementation restored byte-identical (`git diff --stat` empty). | ✅ accepted | `8420316` |
-| 7 | Tests for the provider factory | `packages/core/src/providers/factory.test.ts` | Three mutations at once: dropped the `R2_PUBLIC_URL` check, deleted the missing-`REMOTION_SERVE_URL` fallback, and changed `overrides.mediaEdit !== undefined` to a truthiness check → exactly three tests failed, one per mutated branch, and nothing else. `factory.ts` restored from a backup copy (`git diff --stat` empty). Two fixes by hand: section D was missing its closing brace so E–H nested inside it and the run reported `D. Script > E. Storage`, and a stray `});` at EOF. | ✅ accepted, after a correction round | `<see below>` |
+| 7 | Tests for the provider factory | `packages/core/src/providers/factory.test.ts` | Three mutations at once: dropped the `R2_PUBLIC_URL` check, deleted the missing-`REMOTION_SERVE_URL` fallback, and changed `overrides.mediaEdit !== undefined` to a truthiness check → exactly three tests failed, one per mutated branch, and nothing else. `factory.ts` restored from a backup copy (`git diff --stat` empty). Two fixes by hand: section D was missing its closing brace so E–H nested inside it and the run reported `D. Script > E. Storage`, and a stray `});` at EOF. | ✅ accepted, after a correction round | `7b83fcd` |
+| 8 | **Code change:** one shared 1s budget for all three Redis commands | `apps/web/src/lib/rate-limit.{ts,test.ts}` | Reverted the change by hand (timeout back around `incr` only) and re-ran: all three new tests hung to vitest's 5000ms ceiling, the other 11 stayed green. Restored, 180 web tests pass. | ✅ accepted | `<pending>` |
 
 ## When the spec is wrong, not the code (run 7)
 
@@ -60,8 +61,5 @@ Kept here so they are not rediscovered as if new:
   the cache process-wide. Latent; no caller does it today.
 - That cache is keyed by `input === process.env` reference equality, so the common defensive
   `loadEnv({ ...process.env })` silently re-parses every call. A performance surprise, not a bug.
-- **`rate-limit.ts`: only `incr` is wrapped in `withTimeout`.** `expire` and `ttl` are awaited
-  bare, so a socket that stalls on either one hangs the request past the 1s ceiling the module
-  documents. Real gap, worth fixing; queued as its own task rather than smuggled into a test run.
 - `computeJobCost` floors fractional counts and treats `0`/negative as `1`, so `count: 0` is
   charged as one output. Already documented and tested in `pricing.cost.test.ts`.

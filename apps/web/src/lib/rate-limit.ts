@@ -31,6 +31,13 @@ function getRedis(): IORedis {
  * socket, unresponsive server) would still hang the caller. Rate limiting is
  * never worth making the user wait — if it can't answer fast, let the request
  * through.
+ *
+ * This budget covers the WHOLE sequence (INCR + EXPIRE + TTL), not each
+ * command separately. It is a single shared budget because three per-command
+ * timeouts would let a worst case reach 3s, which is not what "hard ceiling"
+ * means — a socket that accepts INCR and then stalls would still hang the
+ * request one command later, which is the exact failure this ceiling exists
+ * to prevent. Failing open is only useful if it happens promptly.
  */
 const RATE_LIMIT_TIMEOUT_MS = 1000;
 
@@ -56,14 +63,23 @@ export async function rateLimit(key: string, limit: number, windowSeconds: numbe
   try {
     const client = getRedis();
     const redisKey = `ratelimit:${key}`;
-    const count = await withTimeout(client.incr(redisKey), RATE_LIMIT_TIMEOUT_MS);
-    // `NX` (Redis 7+): only sets a TTL if the key doesn't already have one.
-    // Doing this unconditionally, not just when count === 1, closes a race
-    // where a crash between INCR and EXPIRE would otherwise leave the key
-    // with no TTL — permanently rate-limiting that identity instead of the
-    // window ever resetting.
-    await client.expire(redisKey, windowSeconds, 'NX');
-    const ttl = await client.ttl(redisKey);
+    // One shared timeout for all three commands: see RATE_LIMIT_TIMEOUT_MS.
+    // A per-command ceiling would let a worst case reach 3× the budget, which
+    // is not what "hard ceiling" means.
+    const { count, ttl } = await withTimeout(
+      (async () => {
+        const count = await client.incr(redisKey);
+        // `NX` (Redis 7+): only sets a TTL if the key doesn't already have one.
+        // Doing this unconditionally, not just when count === 1, closes a race
+        // where a crash between INCR and EXPIRE would otherwise leave the key
+        // with no TTL — permanently rate-limiting that identity instead of the
+        // window ever resetting.
+        await client.expire(redisKey, windowSeconds, 'NX');
+        const ttl = await client.ttl(redisKey);
+        return { count, ttl };
+      })(),
+      RATE_LIMIT_TIMEOUT_MS,
+    );
     return {
       allowed: count <= limit,
       remaining: Math.max(0, limit - count),
