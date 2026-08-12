@@ -8,7 +8,15 @@
  * writing", multiplied by fifteen.
  */
 import { describe, expect, it } from 'vitest';
-import { MAX_AD_SECONDS, MAX_SCRIPT_CHARS, clampScriptForSpeech } from './constants.ts';
+import {
+  AD_DURATIONS,
+  DEFAULT_AD_SECONDS,
+  MAX_AD_SECONDS,
+  MAX_SCRIPT_CHARS,
+  clampScriptForSpeech,
+  scriptCharBudget,
+  toAdSeconds,
+} from './constants.ts';
 
 describe('the limits themselves', () => {
   it('are ad-shaped, not API-shaped', () => {
@@ -92,5 +100,57 @@ describe('clampScriptForSpeech — honours an explicit limit', () => {
     // Every character kept must be one the source actually contained.
     expect(script.startsWith(out)).toBe(true);
     expect(out).toMatch(/[šđčćž]/);
+  });
+});
+
+describe('toAdSeconds — an untrusted value becomes an offered length', () => {
+  it.each([10, 15, 30])('keeps the offered length %i', (s) => {
+    expect(toAdSeconds(s)).toBe(s);
+  });
+
+  it.each([undefined, null, 0, -5, 7, 23, 45, 999, '15', 'petnaest', {}, NaN])(
+    'falls back to the default for %s',
+    (v) => {
+      // A job enqueued before this setting existed carries no targetSeconds and
+      // must still render exactly as it always did.
+      expect(toAdSeconds(v)).toBe(DEFAULT_AD_SECONDS);
+    },
+  );
+
+  it('defaults to 15 seconds', () => {
+    expect(DEFAULT_AD_SECONDS).toBe(15);
+    expect(AD_DURATIONS).toEqual([10, 15, 30]);
+  });
+});
+
+describe('scriptCharBudget — the choice is a COST choice', () => {
+  it('scales with the chosen length', () => {
+    expect(scriptCharBudget(10)).toBe(195);
+    expect(scriptCharBudget(15)).toBe(293);
+    expect(scriptCharBudget(30)).toBe(585);
+  });
+
+  it('makes a 10s ad roughly a third of a 30s one', () => {
+    const ratio = scriptCharBudget(30) / scriptCharBudget(10);
+    expect(ratio).toBeGreaterThan(2.5);
+    expect(ratio).toBeLessThan(3.5);
+  });
+
+  it('never exceeds the absolute ceiling, whatever it is asked for', () => {
+    expect(scriptCharBudget(600)).toBe(MAX_SCRIPT_CHARS);
+    expect(scriptCharBudget(MAX_AD_SECONDS)).toBeLessThanOrEqual(MAX_SCRIPT_CHARS);
+  });
+
+  it('never returns a budget too small to say anything', () => {
+    // A floor matters: a 1-second budget would produce a script the voice reads
+    // as two words, and the customer still pays for the job.
+    expect(scriptCharBudget(1)).toBeGreaterThanOrEqual(80);
+    expect(scriptCharBudget(0)).toBeGreaterThanOrEqual(80);
+  });
+
+  it('is what bounds a full-size job at each length', () => {
+    const MAX_COUNT = 15;
+    expect(scriptCharBudget(10) * MAX_COUNT).toBe(2_925);
+    expect(scriptCharBudget(30) * MAX_COUNT).toBe(8_775);
   });
 });

@@ -63,6 +63,42 @@ export const DEFAULT_VOICE_MODEL = 'eleven_v3';
 export const MAX_AD_SECONDS = 60;
 
 /**
+ * The lengths a user can actually choose.
+ *
+ * Three, not five and not a slider: these are the shapes that work on TikTok,
+ * Reels and Shorts, and a model writes a noticeably better script for "15
+ * seconds" than for "23 seconds". The choice is also a COST choice — a 10s ad
+ * speaks a third of the characters of a 30s one — which is why the character
+ * budget below is derived from it rather than fixed.
+ */
+export const AD_DURATIONS = [10, 15, 30] as const;
+export type AdSeconds = (typeof AD_DURATIONS)[number];
+export const DEFAULT_AD_SECONDS: AdSeconds = 15;
+
+/** Narrow an untrusted value (job params, query string) to an offered length. */
+export function toAdSeconds(value: unknown): AdSeconds {
+  return AD_DURATIONS.includes(value as AdSeconds) ? (value as AdSeconds) : DEFAULT_AD_SECONDS;
+}
+
+/**
+ * Roughly how many characters of Serbian one second of speech uses.
+ * Measured against the real ElevenLabs output, not assumed — see SESSION_LOG.
+ */
+const CHARS_PER_SPOKEN_SECOND = 15;
+
+/**
+ * How long a script may be for a given target length.
+ *
+ * 30% headroom because a model overshoots its own estimate and TTS speed varies
+ * with the voice; the render clamp catches whatever still runs long. Capped at
+ * MAX_SCRIPT_CHARS so the absolute ceiling still holds however this is called.
+ */
+export function scriptCharBudget(targetSeconds: number): number {
+  const budget = Math.round(targetSeconds * CHARS_PER_SPOKEN_SECOND * 1.3);
+  return Math.min(Math.max(budget, 80), MAX_SCRIPT_CHARS);
+}
+
+/**
  * Longest script that will be sent to text-to-speech, per variant.
  *
  * ElevenLabs bills per character, and a `count=15` job speaks this many

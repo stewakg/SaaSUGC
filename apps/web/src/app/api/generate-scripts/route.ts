@@ -30,6 +30,7 @@ import { createProviders } from '@adgen/core';
 import type { SpeakerGender } from '@adgen/core';
 import { createServerClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
+import { toAdSeconds } from '@adgen/core';
 
 /** Enough candidates that one is usable, few enough to actually read. */
 const MAX_COUNT = 8;
@@ -72,7 +73,10 @@ export async function POST(request: NextRequest) {
       tone: str(body.tone) || 'energičan',
       language: str(body.language) || 'srpski',
       style: str(body.style) || 'UGC',
-      durations: [15],
+      // Written FOR the length the user chose, not a fixed 15s — the wizard
+      // shows these scripts for approval, so a mismatch here would have the
+      // user approving a 15s script and receiving a 10s ad.
+      durations: [toAdSeconds(body.targetSeconds)],
       count,
       speakerGender,
     });

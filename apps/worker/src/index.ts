@@ -28,6 +28,8 @@ import {
   DEFAULT_VOICE_MODEL,
   MAX_AD_SECONDS,
   clampScriptForSpeech,
+  scriptCharBudget,
+  toAdSeconds,
 } from '@adgen/core';
 import type { MatrixAdProps, MatrixTransition, Renderer } from '@adgen/core';
 import { JOB_COST } from '@adgen/core/pricing';
@@ -219,6 +221,18 @@ export async function runMatrixPipeline(
   const count = typeof params.count === 'number' && params.count > 0 ? Math.floor(params.count) : 1;
   const language = typeof params.language === 'string' && params.language ? params.language : 'sr';
 
+  /**
+   * How long the ad should be, chosen by the user (10/15/30s).
+   *
+   * It drives three things that used to be fixed or unbounded: the length the
+   * SCRIPT is written for (previously hardcoded to 15s), how many characters
+   * are sent to text-to-speech, and the render clamp. A 10-second ad therefore
+   * costs about a third of a 30-second one, which is what makes the choice
+   * meaningful rather than cosmetic.
+   */
+  const targetSeconds = toAdSeconds(params.targetSeconds);
+  const charBudget = scriptCharBudget(targetSeconds);
+
   // M2a: the wizard now uploads real source clips; use the first uploaded clip as the
   // background instead of the hardcoded placeholder. (Multi-clip scene-detected montage
   // lands in M2b/M2c.) Falls back to the placeholder when no clip was uploaded.
@@ -257,7 +271,7 @@ export async function runMatrixPipeline(
         tone,
         language,
         style: 'ugc',
-        durations: [15],
+        durations: [targetSeconds],
         count,
         speakerGender: speakerGenderOf(params.speakerGender),
       });
@@ -292,7 +306,7 @@ export async function runMatrixPipeline(
    * to whoever holds the invoices. Without this, per-job margin was a guess —
    * see RELEASE_PLAN L2.5.
    */
-  const spend = { ttsCharacters: 0, variants: 0, renderSeconds: 0, videoSeconds: 0 };
+  const spend = { targetSeconds, ttsCharacters: 0, variants: 0, renderSeconds: 0, videoSeconds: 0 };
 
   // Resolved ONCE per job (listVoices is a network call), not per variant.
   const voiceId = await resolveVoiceId(
@@ -306,7 +320,7 @@ export async function runMatrixPipeline(
     // length limit is enforced. The approved-scripts path had its own 2000-char
     // cap; a script straight from the model had none at all and was billed to
     // ElevenLabs verbatim.
-    const spokenScript = clampScriptForSpeech(variant.script);
+    const spokenScript = clampScriptForSpeech(variant.script, charBudget);
     spend.ttsCharacters += spokenScript.length;
     spend.variants += 1;
 
@@ -330,7 +344,14 @@ export async function runMatrixPipeline(
     // Clamped so a long TTS result cannot turn into an unbounded render. Render
     // time is roughly linear in frames, so without this one job could occupy the
     // renderer for as long as the model felt like talking.
-    const targetSec = Math.min(lastEnd + MATRIX_OUTRO_SECONDS, MAX_AD_SECONDS);
+    // Speech is never cut mid-sentence, so a slight overrun is allowed rather
+    // than truncating audio the customer paid for; the user's choice plus the
+    // outro is the intent, MAX_AD_SECONDS is the hard backstop.
+    const targetSec = Math.min(
+      lastEnd + MATRIX_OUTRO_SECONDS,
+      targetSeconds + MATRIX_OUTRO_SECONDS,
+      MAX_AD_SECONDS,
+    );
     const durationInFrames = Math.round(targetSec * MATRIX_FPS);
     const shots =
       pool.length > 0
