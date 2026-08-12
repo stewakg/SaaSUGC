@@ -4,8 +4,22 @@
 > a competitor to EcomAlati/VideoGen, plus a later "AI influencer UGC" feature
 > (upload an influencer photo → they advertise the product).
 >
-> **This file is the single source of truth.** It is executed by **Cline** and reviewed by the planning agent.
+> **This file is the single source of truth for BUILD phases (F0–F7).** It is executed by
+> **Cline** and reviewed by the planning agent.
 > Cline: keep the checkboxes up to date as you go (`[ ]` todo · `[~]` in progress · `[x]` done).
+>
+> **For the LAUNCH path, read `RELEASE_PLAN.md` instead** (added 2026-08-11). The two are
+> different axes and were being conflated: this file tracks whether a FEATURE exists, that one
+> tracks what has to be true before a stranger can pay money and receive a video. A phase can
+> be 🟢 here and still be nowhere near shippable there — F5 is exactly that, with providers live
+> but no hosting, no storage bucket and no payment provider.
+>
+> Decisions taken 2026-08-11/12 that change what "done" means for later phases, all with
+> reasoning in `RELEASE_PLAN.md`: rendering moves to **Remotion Lambda**; hosting is a
+> **second, dedicated VPS** (the existing box runs the `aikutak` pipelines and shares two
+> cores); storage is **Cloudflare R2** with **30-day retention on everything**; ad length is
+> **user-chosen at 10/15/30s** and is the ceiling on per-job cost; and the Matrix wizard now
+> has **Simple and Advanced modes**.
 
 ---
 

@@ -47,10 +47,10 @@ the history and the caveats live in `INFRASTRUCTURE.md`. If the two ever disagre
 | Status | Tool | Note |
 |---|---|---|
 | 🟡 | **Matrix** | Deepest path. Real script + real voice + real local render. Never yet run start-to-finish in one click-through |
-| 🟡 | **AI slike** | ✅ Runs for real end-to-end (2026-08-10, 4 credits): kie.ai returned a genuine generated image. **But the image is never saved.** `ai.kiefal.ts` contains no storage call at all, so `assets.url` holds kie.ai's own temp CDN link (`tempfile.aiquickdraw.com/...`) with `storageKey: null`. When kie.ai expires it, a paid asset becomes a dead link in "Moje reklame". Voice and Matrix renders *are* persisted through `Storage`; images are the gap |
+| ✅ | **AI slike** | Runs for real end-to-end (2026-08-10, 4 credits): kie.ai returned a genuine generated image. **The persistence gap this row used to describe is CLOSED** (`123d0de`): `persistRemoteAsset()` in `apps/worker/src/index.ts` fetches the provider result and uploads it through `Storage`, so `assets.url` is ours and `storageKey` is set. kie.ai hands back `tempfile.aiquickdraw.com` links — the name says why this mattered |
 | 🟡 | **Brzi test / Edit / Mix / Prevod** | **They used to charge and return Big Buck Bunny** — confirmed live 2026-08-10, Brzi test took 2 credits and returned `w3schools.com/html/mov_bbb.mp4`. **Fixed the same day**: the generic branch now throws `tool_not_implemented`, the job handler marks it `error`, and `charge_credits` never runs. Re-verified live — the job lands as "Greška", balance unchanged. They still do not *work*; they now fail honestly. Cause remains `apps/worker/src/index.ts` rendering every non-matrix, non-image job through `providers.renderer`, which is `MockRenderer` while the Remotion Lambda env is unset |
-| 🟡 | **Enhance** | Not wired yet, but no longer blocked on anything: `FalMediaEditProvider.upscaleImage/upscaleVideo` exists and is tested (`packages/core/src/providers/media-edit.fal.ts`). Decision in `research/provider-decisions.md`: **video → fal** `fal-ai/topaz/upscale/video` ($0.30 for 15s at 1080p, half of kie's $0.60 for the same model), **image → kie** `topaz/image-upscale`. ⚠️ Topaz image defaults `face_enhancement` to **true** — it retouches faces unless told not to, which on a product shot is an edit nobody asked for |
-| 🟡 | **Remove text** | Image path ready to wire: `FalMediaEditProvider.removeTextFromImage` → `fal-ai/image-editing/text-removal`, $0.04. Chosen over kie's $0.02 `nano-banana-edit` because it takes **no prompt at all** — a general editor asked to "remove all text" can regenerate the frame or invent a label, and this tool promises no blur or smearing. **Video path: do not ship.** At 6 credits (≈€1.20–1.80) against $2.10 of erase cost the margin is negative before a frame renders |
+| 🟡 | **Enhance** | **Wired since `123d0de`** — `runMediaEditPipeline` routes it to `FalMediaEditProvider.upscaleImage/upscaleVideo`, refuses when `FAL_API_KEY` is absent, and refuses a `localhost` source because fal cannot fetch it (so it is hard-blocked until R2 exists, RELEASE_PLAN L1.3). **Never executed against real fal.ai** — its 21 tests all mock `fetch`. `faceEnhancement` is explicitly off: Topaz retouches faces by default, which on a product shot is an edit nobody asked for |
+| 🟡 | **Remove text** | **Image path wired since `123d0de`** via `FalMediaEditProvider.removeTextFromImage` (`fal-ai/image-editing/text-removal`, $0.04), chosen over kie's cheaper `nano-banana-edit` because it takes **no prompt** — a general editor told to "remove all text" can regenerate the frame or invent a label. **Never executed against real fal.ai.** **Video path: still do not ship** — negative margin before a frame renders |
 | ❌ | **AI influencer** (`ai_video`) | F7. `generateVideo` has never been called |
 
 ## 3b. Two NEW standalone tools — owner's decision 2026-08-10
@@ -116,10 +116,10 @@ placeholder text is worse than none because it reads as if it were coverage.
 | ✅ | Matrix — caption + sound controls | Click-test 4 passed |
 | ✅ | Matrix — **submit a job and get a finished video** | **DONE 2026-08-10.** Clip search → yt-dlp import → OpenRouter script → ElevenLabs (Charlie) → scene-detect montage → Remotion render → charge → history, all in one click-through. Output: `matrix-ad-1786378804132.mp4`, 10.7 MB, h264 **+ aac**, 18.67s, word-synced Serbian captions. Balance 723 → 708 |
 | ✅ | **Brzi test** | Ran. **Failed the only thing that matters**: charged 2 credits, returned Big Buck Bunny (see §3) |
-| ✅ | **AI slike** | Ran. Real kie.ai image, charged 4 credits — but the result is not persisted (see §3) |
+| ✅ | **AI slike** | Ran. Real kie.ai image, charged 4 credits. Persistence closed `123d0de` (see §3) |
 | ⏭️ | Edit / Mix / Prevod | **Deliberately not run.** All three share `index.ts:331` with Brzi test, which is already proven to return a placeholder. Spending 18 + 12 + 15 credits to re-prove one line is waste; they become testable the moment that line has a real renderer |
 | ❌ | Signup, password recovery | Need your inbox — password recovery sends a real email to your address |
-| ❌ | Enhance, Remove text | Nothing to test until a model is chosen |
+| 🟡 | Enhance, Remove text | Models chosen and wired (`123d0de`); blocked on R2 (fal cannot fetch a `localhost` source) and never run live |
 
 **Current local rig** (temporary, not how production works): SSH tunnel forwards the VPS
 Redis to `127.0.0.1:6379`, the worker runs **here** with real keys, and the VPS worker is
@@ -135,7 +135,7 @@ ssh root@46.225.214.52 "docker start adgen-worker-prod"
 | Item | Where | Note |
 |---|---|---|
 | **Serbian plurals are wrong everywhere** | `kredita` used unconditionally across the app | `1 kredita` should be `1 kredit`; 2–4 take `kredita`, 5+ take `kredita`. Needs one shared pluralisation helper, not a local patch |
-| **AI-generated images are never persisted** | `packages/core/src/providers/ai.kiefal.ts` | No storage call at all — `assets.url` holds kie.ai's temp CDN link with `storageKey: null`, so a paid image becomes a dead link once kie expires it |
+| ~~AI-generated images are never persisted~~ | `apps/worker/src/index.ts` | **FIXED `123d0de`** — `persistRemoteAsset()` copies every provider result into our Storage before the url is recorded. Kept as a row because the same mistake reappeared a third time in the Lambda renderer (`515f90c`) |
 | **Queue poller burns its full timeout on a dead job** | `ai.kiefal.ts` | Any status it does not recognise keeps it looping to the timeout (up to 10 min) instead of failing immediately. `media-edit.fal.ts` already does it correctly — back-port that |
 | **`charge_credits` typed with 3 args** | `packages/db/src/generated/database.types.ts:158` | The live function takes four. Blocks any caller that wants `p_reason` |
 
