@@ -606,7 +606,26 @@ function makeProcessor(db: ReturnType<typeof createServiceClient>) {
       const params = (job.params ?? {}) as Record<string, unknown>;
       const assets = await runPipeline(job.type, params);
 
-      if (assets.length > 0) {
+      /**
+       * A pipeline that returns nothing has FAILED, even without throwing.
+       *
+       * Without this the job fell through to `actualCost = cost * 0`, charged
+       * zero, and was marked `done` — so the customer saw "Gotovo" in Moje
+       * reklame with no video attached and no error to explain it. Reachable
+       * whenever the script provider answers with an empty variant list: the
+       * loop below simply never runs and every later step succeeds.
+       *
+       * Throwing hands it to the catch, which marks the job `error` and returns
+       * BEFORE charge_credits — nothing is charged, which is already the rule
+       * for a failed job.
+       */
+      if (assets.length === 0) {
+        throw new Error(
+          `pipeline produced no assets for job type "${job.type}" — nothing to deliver`,
+        );
+      }
+
+      {
         const { error: assetsError } = await db.from('assets').insert(
           assets.map((a) => ({
             job_id: jobId,

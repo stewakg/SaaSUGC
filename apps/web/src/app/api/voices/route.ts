@@ -13,6 +13,7 @@
 import { NextResponse } from 'next/server';
 import { createProviders } from '@adgen/core';
 import { createServerClient } from '@/lib/supabase/server';
+import { rateLimit } from '@/lib/rate-limit';
 
 export async function GET() {
   const supabase = await createServerClient();
@@ -21,6 +22,15 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  }
+
+  // Every call reaches ElevenLabs, whose quota is billed and finite. Generous,
+  // because the wizard legitimately fetches this on mount — but not unbounded,
+  // or one signed-in user holding a page open in a reload loop can exhaust the
+  // account's provider quota for everyone.
+  const rl = await rateLimit(`voices:${user.id}`, 30, 60);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'rate_limited', retryAfterSeconds: rl.resetSeconds }, { status: 429 });
   }
 
   try {

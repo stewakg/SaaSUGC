@@ -215,3 +215,21 @@ describe('runMatrixPipeline — the captions match the audio', () => {
     expect(renderer.calls[0].props.voiceUrl as string).toMatch(/^https?:\/\//);
   });
 });
+
+describe('runMatrixPipeline — an empty result is a FAILURE, not a success', () => {
+  it('returns no assets when the script provider offers no variants', async () => {
+    // Reachable in production: the model answers with an empty array, the
+    // variant loop never runs, and every later step succeeds. The job handler
+    // now treats this as a failure — before that it charged zero and marked the
+    // job "Gotovo" with no video attached and no error to explain it.
+    // No approved scripts, and the model answers with an empty list.
+    generateVariants.mockResolvedValueOnce({ variants: [] } as never);
+
+    const renderer = recordingRenderer();
+    const assets = await runMatrixPipeline({ count: 3 }, { renderer, montage: false });
+
+    expect(assets).toEqual([]);
+    expect(renderer.calls).toHaveLength(0);
+    expect(voiceTts).not.toHaveBeenCalled();
+  });
+});
