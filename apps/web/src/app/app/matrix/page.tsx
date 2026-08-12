@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { computeJobCost, creditsLabel } from '@adgen/core/pricing';
 import type { CaptionAnim, CaptionFont, MatrixAspect, MatrixTransition, UiLanguage } from '@adgen/core/types';
 import { DEFAULT_MATRIX_ASPECT, MATRIX_ASPECTS } from '@adgen/core/types';
+// From the leaf module, not the package root: this is a 'use client' file and
+// the root barrel pulls in node:async_hooks via the queue, which the browser
+// bundler cannot resolve. Same reason MATRIX_ASPECTS is imported above.
+import { AD_DURATIONS, DEFAULT_AD_SECONDS, type AdSeconds } from '@adgen/core/constants';
 import {
   UI_LANGUAGES as LANGUAGES,
   MATRIX_TRANSITIONS as TRANSITIONS,
@@ -35,6 +39,8 @@ interface ScrapeResult {
  * now calls the real one, which rejects them with 404 voice_not_found. The real
  * list always comes from the active provider — see the fetch in the component.
  */
+const MODE_STORAGE_KEY = 'adgen-matrix-mode';
+
 const VOICES_LOADING: VoiceOption[] = [{ id: '', label: 'Učitavanje glasova…' }];
 
 interface ScriptCandidate {
@@ -135,6 +141,35 @@ type Phase = 'idle' | 'running' | 'done' | 'error';
 export default function MatrixPage() {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
+
+  /**
+   * Simple hides the settings most people never touch; Advanced is the old
+   * wizard, unchanged. Only VISIBILITY differs — every value stays in state, so
+   * switching back and forth never loses an uploaded clip or a scraped product.
+   *
+   * Starts at the default and is read from storage in an effect, so the first
+   * client render matches the server's (same reason as the theme switcher).
+   */
+  const [mode, setMode] = useState<'simple' | 'advanced'>('simple');
+  const [targetSeconds, setTargetSeconds] = useState<AdSeconds>(DEFAULT_AD_SECONDS);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(MODE_STORAGE_KEY);
+      if (saved === 'simple' || saved === 'advanced') setMode(saved);
+    } catch {
+      /* private mode — the default is fine */
+    }
+  }, []);
+
+  function chooseMode(next: 'simple' | 'advanced') {
+    setMode(next);
+    try {
+      window.localStorage.setItem(MODE_STORAGE_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }
 
   // Step 0 — upload source clips (the raw montage material)
   const [clips, setClips] = useState<UploadedFile[]>([]);
@@ -366,6 +401,7 @@ export default function MatrixPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           product: price ? `${productTitle} (${price})` : productTitle,
+          targetSeconds,
           benefits: [description, offerNotes].filter(Boolean).join(' · '),
           tone,
           language,
@@ -487,6 +523,7 @@ export default function MatrixPage() {
             tone,
             voiceId,
             aspect,
+            targetSeconds,
             captionStyle,
             captionX,
             captionY,
@@ -501,7 +538,9 @@ export default function MatrixPage() {
             // Sent only when the user actually reviewed something. An empty
             // array would read as "approved nothing" to the worker; omitting
             // the key lets it generate normally, which is the old behaviour.
-            scripts: scripts.length > 0 ? scripts : undefined,
+            // Simple never reviews scripts, so it must not send them — omitting
+            // the key is what tells the worker to generate normally.
+            scripts: mode === 'advanced' && scripts.length > 0 ? scripts : undefined,
             speakerGender,
           },
         }),
@@ -527,7 +566,7 @@ export default function MatrixPage() {
     }
   }
 
-  const steps: WizardStep[] = [
+  const allSteps: WizardStep[] = [
     {
       id: 'clips',
       label: 'Upload klipova',
@@ -792,6 +831,27 @@ export default function MatrixPage() {
       content: (
         <div className="space-y-4">
           <label className="block">
+            <span className="mb-1 block text-sm text-txt-mid">Dužina</span>
+            <div className="flex flex-wrap gap-2">
+              {AD_DURATIONS.map((sec) => (
+                <button
+                  key={sec}
+                  type="button"
+                  onClick={() => setTargetSeconds(sec)}
+                  aria-pressed={targetSeconds === sec}
+                  className={`focus-ring h-9 rounded-control border px-3 font-mono tabular text-sm transition ${
+                    targetSeconds === sec
+                      ? 'border-accent-ring bg-accent-soft text-accent-text'
+                      : 'border-line text-txt-mid hover:bg-panel-2'
+                  }`}
+                >
+                  {sec}s
+                </button>
+              ))}
+            </div>
+          </label>
+
+          <label className="block">
             <span className="mb-1 block text-sm text-txt-mid">Broj varijanti videa</span>
             <div className="flex gap-2">
               {[5, 10, 15].map((n) => (
@@ -867,6 +927,10 @@ export default function MatrixPage() {
               ))}
             </select>
           </label>
+          {/* Caption look and placement are the definition of a setting most
+              people never touch — Simple keeps the defaults. */}
+          {mode === 'advanced' && (
+            <>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="mb-1 block text-sm text-txt-mid">Font titlova</span>
@@ -981,6 +1045,8 @@ export default function MatrixPage() {
               </p>
             ) : null}
           </div>
+            </>
+          )}
 
           <div className="rounded-card border border-line bg-ground/50 p-3">
             <span className="mb-2 block text-sm text-txt-mid">Zvuk (opciono)</span>
@@ -1193,8 +1259,21 @@ export default function MatrixPage() {
   // (`stepIndex === 4 && …`) silently attaches the wrong rule to the wrong
   // step the moment a step is inserted, and it compiles and builds either way
   // — the failure only shows up in a browser. Ids survive reordering.
+  /**
+   * Simple drops the two steps that exist purely to fine-tune: reviewing and
+   * editing the generated scripts, and choosing transitions/outro text. Not
+   * sending `scripts` is what tells the worker to write them itself, which is
+   * the behaviour it has always had when nothing is approved.
+   */
+  const steps = allSteps.filter((step) =>
+    mode === 'advanced' ? true : step.id !== 'scripts' && step.id !== 'transitions',
+  );
+
   const lastIndex = steps.length - 1;
-  const currentStepId = steps[stepIndex]?.id;
+  // Switching Advanced -> Simple removes steps, so a stepIndex pointing past the
+  // end would render an empty wizard with a dead "Dalje" button.
+  const safeIndex = Math.min(stepIndex, lastIndex);
+  const currentStepId = steps[safeIndex]?.id;
 
   const canNext =
     currentStepId === 'clips'
@@ -1206,7 +1285,7 @@ export default function MatrixPage() {
           : true;
 
   const nextLabel =
-    stepIndex < lastIndex
+    safeIndex < lastIndex
       ? 'Dalje'
       : phase === 'done'
         ? 'Vidi u Moje reklame'
@@ -1216,13 +1295,43 @@ export default function MatrixPage() {
 
   return (
     <div className="py-6">
+      {/* Mode picker. Sits above the wizard rather than inside a step, because
+          it changes which steps exist — putting it in one of them would let the
+          user stand on a step that is about to disappear. */}
+      <div className="mx-auto mb-4 flex max-w-lg items-center gap-2">
+        <span className="text-[11px] uppercase tracking-wide text-txt-low">Režim</span>
+        <div role="radiogroup" aria-label="Režim" className="step-rail flex-1">
+          {([
+            ['simple', 'Jednostavno'],
+            ['advanced', 'Napredno'],
+          ] as const).map(([value, label], index) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={mode === value}
+              tabIndex={mode === value ? 0 : -1}
+              onClick={() => chooseMode(value)}
+              onKeyDown={(event) => {
+                if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+                event.preventDefault();
+                chooseMode(index === 0 ? 'advanced' : 'simple');
+              }}
+              className={`focus-ring step-chip justify-center ${mode === value ? 'step-chip--active' : ''}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <JobWizard
         steps={steps}
-        activeIndex={stepIndex}
-        onBack={() => setStepIndex((i) => Math.max(0, i - 1))}
+        activeIndex={safeIndex}
+        onBack={() => setStepIndex(Math.max(0, safeIndex - 1))}
         onNext={() => {
-          if (stepIndex < lastIndex) {
-            setStepIndex((i) => i + 1);
+          if (safeIndex < lastIndex) {
+            setStepIndex(safeIndex + 1);
             return;
           }
           if (phase === 'done') {
