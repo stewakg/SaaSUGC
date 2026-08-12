@@ -1316,9 +1316,17 @@ export default function MatrixPage() {
       {/* Mode picker. Sits above the wizard rather than inside a step, because
           it changes which steps exist — putting it in one of them would let the
           user stand on a step that is about to disappear. */}
-      <div className="mx-auto mb-4 flex max-w-lg items-center gap-2">
+      {/* Deliberately NOT the .step-chip look: it sat directly above the step
+          rail wearing the same chip styling, so the two read as one row and it
+          was impossible to tell which was interactive. A bordered segmented
+          control with a filled selection is unambiguous. */}
+      <div className="mx-auto mb-4 flex max-w-lg items-center justify-between gap-3">
         <span className="text-[11px] uppercase tracking-wide text-txt-low">Režim</span>
-        <div role="radiogroup" aria-label="Režim" className="step-rail flex-1">
+        <div
+          role="radiogroup"
+          aria-label="Režim"
+          className="inline-flex rounded-control border border-line bg-panel p-0.5"
+        >
           {([
             ['simple', 'Jednostavno'],
             ['advanced', 'Napredno'],
@@ -1335,7 +1343,11 @@ export default function MatrixPage() {
                 event.preventDefault();
                 chooseMode(index === 0 ? 'advanced' : 'simple');
               }}
-              className={`focus-ring step-chip justify-center ${mode === value ? 'step-chip--active' : ''}`}
+              className={`focus-ring rounded-[7px] px-3 py-1.5 text-sm font-medium transition ${
+                mode === value
+                  ? 'bg-accent text-accent-contrast'
+                  : 'text-txt-mid hover:text-txt-hi'
+              }`}
             >
               {label}
             </button>
@@ -1362,6 +1374,7 @@ export default function MatrixPage() {
         }}
         canNext={canNext}
         nextLabel={nextLabel}
+        onStepSelect={(i) => setStepIndex(i)}
         costLabel={
           <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
             Cena: <span className="font-mono tabular font-semibold">{creditsLabel(cost)}</span>{' '}

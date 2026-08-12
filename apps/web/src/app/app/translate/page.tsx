@@ -162,6 +162,7 @@ export default function TranslatePage() {
       <JobWizard
         steps={steps}
         activeIndex={stepIndex}
+        onStepSelect={(i) => setStepIndex(i)}
         onBack={() => setStepIndex((i) => Math.max(0, i - 1))}
         onNext={() => {
           if (stepIndex < 2) {
