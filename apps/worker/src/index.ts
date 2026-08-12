@@ -591,7 +591,18 @@ async function runPipeline(type: string, params: Record<string, unknown>): Promi
   return [{ kind: 'video', url: videoUrl, storageKey: storageKey ?? null }];
 }
 
-function makeProcessor(db: ReturnType<typeof createServiceClient>) {
+/**
+ * The job state machine, isolated from its two impure dependencies so it can be
+ * tested without a database or a real render. `db` is the Supabase client;
+ * `runPipelineFn` defaults to the real `runPipeline` and is only overridden by
+ * tests, which pass a fake so the charge/refund/rollback logic can be exercised
+ * without touching a provider. Behaviour with the default is identical to before
+ * this seam existed — same pattern as `runMatrixPipeline`'s injected deps.
+ */
+export function makeProcessor(
+  db: ReturnType<typeof createServiceClient>,
+  runPipelineFn: (type: string, params: Record<string, unknown>) => Promise<PipelineAsset[]> = runPipeline,
+) {
   return async function processJob(bullJob: Job<JobQueueData>) {
     const { jobId } = bullJob.data;
 
@@ -604,7 +615,7 @@ function makeProcessor(db: ReturnType<typeof createServiceClient>) {
 
     try {
       const params = (job.params ?? {}) as Record<string, unknown>;
-      const assets = await runPipeline(job.type, params);
+      const assets = await runPipelineFn(job.type, params);
 
       /**
        * A pipeline that returns nothing has FAILED, even without throwing.
