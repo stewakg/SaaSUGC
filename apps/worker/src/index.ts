@@ -12,6 +12,7 @@
  */
 import { Worker, type Job } from 'bullmq';
 import { pathToFileURL } from 'node:url';
+import { Readable } from 'node:stream';
 import {
   createProviders,
   mockProviderSlots,
@@ -88,7 +89,6 @@ async function persistRemoteAsset(
     throw new Error(`could not fetch provider result for ${keyPrefix} (${res.status})`);
   }
   const contentType = res.headers.get('content-type') ?? 'application/octet-stream';
-  const buffer = Buffer.from(await res.arrayBuffer());
 
   // Extension from the content type, not from the url — provider urls carry
   // query strings and signed-token suffixes that make path parsing unreliable.
@@ -103,7 +103,20 @@ async function persistRemoteAsset(
           : 'bin';
 
   const storageKey = `${keyPrefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const { url } = await providers.storage.upload(storageKey, buffer, contentType);
+
+  /**
+   * Streamed, not buffered. `Buffer.from(await res.arrayBuffer())` held the
+   * WHOLE file in memory before a byte was written — fine for a 2 MB image, a
+   * multi-hundred-megabyte spike for an upscaled video, and with several jobs
+   * running at once that spike is what gets the worker killed by the kernel
+   * rather than any single job failing.
+   *
+   * Storage already accepts a Node stream (S3CompatibleStorage narrows it for
+   * the AWS SDK), so this needs no change on the storage side.
+   */
+  if (!res.body) throw new Error(`empty response body for ${keyPrefix}`);
+  const body = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]);
+  const { url } = await providers.storage.upload(storageKey, body, contentType);
   return { url, storageKey };
 }
 

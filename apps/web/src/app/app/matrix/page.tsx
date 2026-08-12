@@ -1275,11 +1275,24 @@ export default function MatrixPage() {
   const safeIndex = Math.min(stepIndex, lastIndex);
   const currentStepId = steps[safeIndex]?.id;
 
+  /**
+   * Outside production the clip requirement is lifted, so the wizard can be
+   * walked end to end without uploading anything — which is the only way to
+   * look at the later steps while building them.
+   *
+   * It is not a shortcut that changes the render: the worker already falls back
+   * to DEFAULT_BACKGROUND_VIDEO_URL when no source clip is supplied, so a job
+   * started this way produces a real video over the placeholder background.
+   * The gate stays in production, because an ad over a stock clip is not what
+   * anyone is paying for.
+   */
+  const clipsRequired = process.env.NODE_ENV === 'production';
+
   const canNext =
     currentStepId === 'clips'
-      ? clips.length >= 1
+      ? !clipsRequired || clips.length >= 1
       : currentStepId === 'import'
-        ? productTitle.trim().length > 0
+        ? !clipsRequired || productTitle.trim().length > 0
         : currentStepId === 'generate'
           ? phase !== 'running'
           : true;
