@@ -224,10 +224,17 @@ Two things fall out, and neither was obvious:
   the first row is the webpack bundle and a cold font fetch, not the render. A long-lived worker
   pays it once; Lambda avoids it because the site is deployed ahead of time. Anyone measuring
   "one render" and taking the first number will overstate by 3×.
-- **Fonts are fetched from Google on every render.** The run logs 45–90 network requests per
-  browser tab for Montserrat alone. That is latency on every job and a dependency on Google
-  being reachable from the render box — on Lambda it is paid per invocation. Bundling the font
-  locally is a small change with an outsized effect. **Not done; worth doing before launch.**
+- **Fonts were fetched from Google on every render — fixed @ `817a752`+.** `loadFont()` was
+  called with no options, which pulls every weight and subset Google publishes: 45–90 network
+  requests per browser tab for Montserrat alone. Now restricted to the one weight the
+  composition actually draws (800) and to `latin` + `latin-ext` — the latter is not optional,
+  since Serbian needs č ć š ž đ and dropping it renders them as tofu. Request warnings went from
+  many to **zero**.
+  **Honest result: this did NOT measurably speed up a warm render** (26.1 ms/frame after vs a
+  23.5–35.6 band before; the fitted model predicted 14.3s for a 540-frame render and it measured
+  14.1s). Fonts load once per render, not per frame, so the win is not throughput — it is
+  removing a per-render dependency on `fonts.gstatic.com` being reachable, which on Lambda is
+  paid on every invocation and anywhere is a failure mode nobody would diagnose quickly.
 
 **Extrapolating to a 4-vCPU box** (the recommended CPX31): Remotion parallelises frames across
 cores, so expect roughly 3–4× the per-frame time, i.e. **~1 minute for an 18-second video, warm**.

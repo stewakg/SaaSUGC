@@ -21,8 +21,24 @@ import type { CaptionWord, MatrixAdProps, MatrixTransition } from '@adgen/core/t
 // Google Font with a near-identical bold-condensed look). "Montserrat" maps
 // to the real Montserrat. The `cap:<font>:...` prop format is kept as-is so a
 // real Impact .ttf can be swapped in later without touching the pipeline.
-const { fontFamily: antonFamily } = loadAnton();
-const { fontFamily: montserratFamily } = loadMontserrat();
+// Load ONLY what the composition draws. Calling these with no options pulls
+// every weight and subset Google publishes: a render was measured making 45-90
+// network requests per browser tab for Montserrat alone (bench-render.ts,
+// 2026-08-11). That is latency on every single render and a hard dependency on
+// fonts.gstatic.com being reachable from the render host — including from
+// Lambda, where it is paid per invocation.
+//
+// `latin-ext` is NOT optional: Serbian Latin needs č ć š ž đ, and dropping it
+// silently renders those as tofu in the captions. Weight 800 is the only one
+// used (see fontWeight below); Anton ships a single weight.
+const { fontFamily: antonFamily } = loadAnton('normal', {
+  subsets: ['latin', 'latin-ext'],
+  weights: ['400'],
+});
+const { fontFamily: montserratFamily } = loadMontserrat('normal', {
+  subsets: ['latin', 'latin-ext'],
+  weights: ['800'],
+});
 
 function clampNum(value: number, min: number, max: number): number {
   return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : min;
