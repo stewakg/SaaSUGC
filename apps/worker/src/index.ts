@@ -26,6 +26,8 @@ import {
   DEFAULT_MATRIX_CAPTION_STYLE,
   DEFAULT_MATRIX_OUTRO_TEXT,
   DEFAULT_VOICE_MODEL,
+  MAX_AD_SECONDS,
+  clampScriptForSpeech,
 } from '@adgen/core';
 import type { MatrixAdProps, MatrixTransition, Renderer } from '@adgen/core';
 import { JOB_COST } from '@adgen/core/pricing';
@@ -282,6 +284,16 @@ export async function runMatrixPipeline(
   }
 
   const assets: PipelineAsset[] = [];
+  /**
+   * What this job actually consumed, in UNITS rather than money.
+   *
+   * Units are a fact; rates are a contract that changes and differs per plan,
+   * so the worker records characters and seconds and leaves the multiplication
+   * to whoever holds the invoices. Without this, per-job margin was a guess —
+   * see RELEASE_PLAN L2.5.
+   */
+  const spend = { ttsCharacters: 0, variants: 0, renderSeconds: 0, videoSeconds: 0 };
+
   // Resolved ONCE per job (listVoices is a network call), not per variant.
   const voiceId = await resolveVoiceId(
     typeof params.voiceId === 'string' && params.voiceId ? params.voiceId : undefined,
@@ -290,8 +302,16 @@ export async function runMatrixPipeline(
   for (let i = 0; i < variants.length; i++) {
     const variant = variants[i];
 
+    // The single point where speech is paid for, so the single point the
+    // length limit is enforced. The approved-scripts path had its own 2000-char
+    // cap; a script straight from the model had none at all and was billed to
+    // ElevenLabs verbatim.
+    const spokenScript = clampScriptForSpeech(variant.script);
+    spend.ttsCharacters += spokenScript.length;
+    spend.variants += 1;
+
     const voice = await providers.voice.tts({
-      script: variant.script,
+      script: spokenScript,
       voiceId,
       model: DEFAULT_VOICE_MODEL,
       stability: 0.5,
@@ -305,11 +325,13 @@ export async function runMatrixPipeline(
     const captionWords =
       voice.words && voice.words.length > 0
         ? voice.words
-        : mockWordTimestamps(variant.script, variant.estDurationSec);
+        : mockWordTimestamps(spokenScript, variant.estDurationSec);
     const lastEnd = captionWords.length > 0 ? captionWords[captionWords.length - 1].endSec : 0;
-    const durationInFrames = Math.round((lastEnd + MATRIX_OUTRO_SECONDS) * MATRIX_FPS);
-
-    const targetSec = lastEnd + MATRIX_OUTRO_SECONDS;
+    // Clamped so a long TTS result cannot turn into an unbounded render. Render
+    // time is roughly linear in frames, so without this one job could occupy the
+    // renderer for as long as the model felt like talking.
+    const targetSec = Math.min(lastEnd + MATRIX_OUTRO_SECONDS, MAX_AD_SECONDS);
+    const durationInFrames = Math.round(targetSec * MATRIX_FPS);
     const shots =
       pool.length > 0
         ? buildMontage(pool, { targetSec })
@@ -350,13 +372,24 @@ export async function runMatrixPipeline(
       height: MATRIX_ASPECTS[toMatrixAspect(params.aspect)].height,
     };
 
+    const renderStartedAt = Date.now();
     const { videoUrl, storageKey } = await renderer.render({ composition: 'matrix-ad', props: matrixProps });
+    spend.renderSeconds += (Date.now() - renderStartedAt) / 1000;
+    spend.videoSeconds += targetSec;
     // `Renderer.storageKey` is optional by interface — a renderer that hands
     // back someone else's URL has no key of ours. `?? null` keeps the "never
     // fabricated" promise on PipelineAsset.storageKey; it used to be implicit
     // because the concrete LocalRemotionRenderer always returns one.
     assets.push({ kind: 'video', url: videoUrl, storageKey: storageKey ?? null });
   }
+
+  consoleLogger.info('job spend', {
+    ...spend,
+    renderSeconds: +spend.renderSeconds.toFixed(1),
+    videoSeconds: +spend.videoSeconds.toFixed(1),
+    voiceProvider: providers.voice.name,
+    renderer: renderer.name,
+  });
 
   await Promise.all(
     tempFiles.map((p) =>

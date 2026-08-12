@@ -11,6 +11,7 @@
  * character, so an unbounded `script` field is a direct route from a crafted
  * request to a large TTS bill — multiplied by `count`, which can be 15.
  */
+import { MAX_SCRIPT_CHARS } from '@adgen/core';
 import type { SpeakerGender } from '@adgen/core';
 
 export interface ApprovedScript {
@@ -20,10 +21,15 @@ export interface ApprovedScript {
 }
 
 /**
- * ~2000 characters is roughly two minutes of speech — far beyond any ad, and
- * generous enough that a legitimate edit never hits it.
+ * The same limit the worker enforces just before text-to-speech, re-exported
+ * so this module has one number rather than a second, laxer one of its own.
+ *
+ * It used to be 2000 here and nothing at all on the generated-script path,
+ * which meant the only scripts with a cost ceiling were the ones a human had
+ * already reviewed. The ceiling now lives in @adgen/core next to MAX_AD_SECONDS,
+ * because both limits bound the same thing: how much speech a job pays for.
  */
-export const MAX_SCRIPT_CHARS = 2000;
+export { MAX_SCRIPT_CHARS } from '@adgen/core';
 
 /**
  * Returns the usable approved scripts, or null when there are none — null means
