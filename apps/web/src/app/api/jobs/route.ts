@@ -16,6 +16,7 @@ import { createRedisConnection, JOB_QUEUE_NAME, type JobQueueData } from '@adgen
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
 import type { JobType } from '@adgen/db';
+import { toAdSeconds } from '@adgen/core';
 
 // Generous but real: blocks a runaway script/loop without getting in a real
 // user's way (the credit balance check already gates actual cost).
@@ -67,8 +68,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid_count', max: MAX_JOB_COUNT }, { status: 400 });
   }
   const cost = computeJobCost(type, count);
+  const rawParams =
+    typeof body.params === 'object' && body.params !== null ? (body.params as Record<string, unknown>) : {};
+
   const params = {
-    ...(typeof body.params === 'object' && body.params !== null ? (body.params as Record<string, unknown>) : {}),
+    ...rawParams,
+    // Normalised HERE as well as in the worker, so the stored job row records
+    // the length that will actually be rendered. Without it a client sending
+    // junk leaves a row claiming something the render never honoured, and the
+    // per-job spend log becomes impossible to reconcile against it.
+    targetSeconds: toAdSeconds(rawParams.targetSeconds),
     count,
   };
 
