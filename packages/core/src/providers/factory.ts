@@ -66,7 +66,9 @@ export function createProviders(overrides: Partial<Providers> = {}): Providers {
 
   const voice: VoiceProvider = overrides.voice ?? createVoiceProvider(env, storage);
 
-  const renderer: Renderer = overrides.renderer ?? createRendererProvider(env);
+  // Takes the storage: a Lambda render is copied into it rather than left in
+  // an AWS bucket (see renderer.lambda.ts), so the renderer is built after it.
+  const renderer: Renderer = overrides.renderer ?? createRendererProvider(env, storage);
 
   // Scraper is REAL-capable from day one (no paid account needed) — F3
   // enables it by default. FORCE_MOCK still gates it for deterministic tests;
@@ -176,7 +178,7 @@ function createStorageProvider(env: ReturnType<typeof loadEnv>): Storage {
  * check AWS creds without a network call) — a bad/missing credential
  * surfaces as a clear error from the actual render call instead.
  */
-function createRendererProvider(env: ReturnType<typeof loadEnv>): Renderer {
+function createRendererProvider(env: ReturnType<typeof loadEnv>, storage: Storage): Renderer {
   if (!hasKey(env, 'REMOTION_LAMBDA_FUNCTION_NAME')) return new MockRenderer();
   if (!hasKey(env, 'REMOTION_SERVE_URL')) {
     console.warn(
@@ -184,11 +186,14 @@ function createRendererProvider(env: ReturnType<typeof loadEnv>): Renderer {
     );
     return new MockRenderer();
   }
-  return new RemotionLambdaRenderer({
-    functionName: env.REMOTION_LAMBDA_FUNCTION_NAME!,
-    serveUrl: env.REMOTION_SERVE_URL!,
-    region: (env.REMOTION_AWS_REGION ?? 'eu-central-1') as AwsRegion,
-  });
+  return new RemotionLambdaRenderer(
+    {
+      functionName: env.REMOTION_LAMBDA_FUNCTION_NAME!,
+      serveUrl: env.REMOTION_SERVE_URL!,
+      region: (env.REMOTION_AWS_REGION ?? 'eu-central-1') as AwsRegion,
+    },
+    storage,
+  );
 }
 
 /** Quick helper for code that only needs one provider. */
