@@ -104,9 +104,9 @@ Wait for the completion notification, then edit.
 
 ## Baseline gates
 `pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core`, `@adgen/worker` and now
-`@adgen/web` — **185 tests as of 2026-08-11**, covering the montage chain, caption/cost
+`@adgen/web` — **319 tests as of 2026-08-12**, covering the montage chain, caption/cost
 logic, approved scripts, the OpenRouter provider, the matrix pipeline end to end with a fake
-renderer, R2 signed-URL generation, the SSRF guard and admin identification), and
+renderer, R2 signed-URL generation, the SSRF guard and admin identification, the ad-length cost ceiling, the yt-dlp search parser and the password checklist), and
 `pnpm --filter @adgen/web build` must pass before calling anything done.
 
 **Stop the dev server before running the web build.** `next build` and `next dev` share

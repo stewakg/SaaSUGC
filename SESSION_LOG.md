@@ -16,6 +16,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: launch-path work — legal text, hosting + Lambda decisions, cost ceiling, ad length, Simple/Advanced, SSRF hardening (apps/web/src/app/(legal)/** + apps/web/src/lib/{safe-url,clip-search,password,admin}.ts + apps/web/src/app/api/{jobs,scrape,import-clip,generate-scripts}/route.ts + apps/web/src/app/app/matrix/page.tsx + apps/worker/src/{index,bench-render}.ts + packages/core/src/{constants.ts,providers/{factory,renderer.lambda}.ts} + remotion/src/compositions/MatrixAd.tsx + RELEASE_PLAN.md) — CLEAN @ ec7df6f (2026-08-12), **after a self-review that found 3 real defects in my own diff, all fixed in `a83328b`**: Simple mode quoted and delivered the wrong variant count (effectiveCount still read scripts.length while Simple stops sending them); the render clamped speech that overran, cutting it mid-sentence, contradicting the comment directly above it; and the SSRF guard's IP-literal shortcut matched `[\d.]+`, so a NAME like `1.2.3.4.5` skipped DNS entirely. ✅ RUNTIME-VERIFIED: worker started in 6 configurations (mock guard refuse/allow/dev, Lambda on/off, WORKER_CONCURRENCY default/1/garbage); admin gate proven in BOTH directions against a real `next start` production server; three real Remotion renders timed; contrast + overflow sweep over `/`, `/uslovi`, `/impressum` in all three themes returns clean. **NOT verified: the Simple/Advanced wizard has never been clicked** — the preview session expired at the login wall. Tests 224 → 319. `#FFE000`, Lambda-against-AWS and R2-against-Cloudflare all remain unexecuted.
 REVIEWED: admin gate, matrix-pipeline tests, signed R2 links, mobile-menu keyboard (apps/web/src/lib/admin.ts + api/dev/credits/add/route.ts + app/app/page.tsx + components/{add-credits-button,app-shell}.tsx + apps/worker/src/{index.ts,matrix-pipeline.test.ts} + packages/core/src/providers/{storage.r2.ts,storage.r2.test.ts} + pnpm-workspace.yaml) — CLEAN @ 0a064b5, 54712b5, ac117d1, 8a655cf (2026-08-11). ✅ RUNTIME-VERIFIED, admin gate: against a real `next start` production server in BOTH directions — listed admin gets the button and the route passes the gate (400 unknown_pack, nothing granted); ADMIN_EMAILS emptied gives 0 buttons and 404 for a VALID pack id, so nobody can mint credits by knowing the URL. ✅ Mobile menu verified at 375px: open sets aria-expanded=true and focuses "Početna", Escape closes and returns focus to the hamburger (the slide itself NOT observed — non-compositing pane). Tests 105 → 130: 16 on `runMatrixPipeline` (count ceiling, storageKey never fabricated, montage:false really skips scene detection, all three aspects + fallback, captions matching the TTS script, absolutized voice url) and 9 on R2 signing, which verify REAL SigV4 signatures offline. **The R2 tests caught a wrong claim in my own code comment**: ContentType on PutObjectCommand does NOT bind it — only `host` is signed by default — so a link issued for an mp4 would have accepted text/html; fixed with an explicit `signableHeaders`. Still NOT live: no signature has been shown to a real Cloudflare bucket, and nothing calls the signed methods yet.
 REVIEWED: post-redesign bug hunt + worker mock guard (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + apps/web/src/components/{app-shell,tool-cards}.tsx + ~18 web files for focus/ARIA + apps/worker/src/index.ts + packages/core/src/{index.ts,providers/factory.ts} + NEW packages/core/src/pricing.{cost,integrity,grammar}.test.ts) — CLEAN @ 26b1f96, 77594e9 (2026-08-11). Three UI defects found by MEASURING every text node against its composited background per page per theme, not by looking: `--txt-low` failed contrast in obsidian (3.24:1) and poluton (3.16:1) while carrying job dates, costs and step labels; the `opacity-80` added during the P7 warn/err migration pulled those sub-lines back to 3.53:1; and /app/matrix overflowed to 544px inside a 375px viewport in all three themes (flex `min-width:auto` + a nowrap `truncate` label whose min-content is the full string). ✅ RUNTIME-VERIFIED: the sweep now returns EMPTY for /, /app, /app/matrix, /app/reklame in all three themes at 1280px AND 375px; only disabled buttons remain flagged, which WCAG 1.4.3 exempts. Keyboard focus added across ~18 files (subagent, diff checked for text-node changes — none). Worker: `mockProviderSlots()` + a production refusal, ✅ VERIFIED by running the worker three ways (production+mocks → exit 1 naming all six slots; +ALLOW_MOCK_PROVIDERS=1 → warns and listens; dev → warns and listens). **That verification found a live crash**: `mediaEdit` is null without FAL_API_KEY and the startup log read `.name` off it, so since 123d0de a fresh clone could not boot the worker at all. Money-path tests 67 → 105. Gates green (dev server must be STOPPED for the web build — it shares `.next`).
 REVIEWED: three-theme redesign, Prompt 7 closing sweep (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + apps/web/src/app/(legal)/{layout,uslovi,privatnost,impressum} + 20 files whose `text-ok|warn|err` call sites moved to the `-text` variants) — CLEAN @ feb7dab (2026-08-11), **with two defects found and fixed, not waved through**. (a) The whole `(legal)` group was still hardcoded light-on-dark and rendered white-on-near-white in poluton; 63 className attributes migrated, diff verified className-only (63 insertions / 63 deletions, every changed line contains `className`, so the frozen legal TEXT is provably untouched). (b) **`--warn` as TEXT measured 1.65:1 on poluton's ground** — unreadable, and it was carrying the legal disclaimer notices. Fixed at the token layer with `--ok-text`/`--warn-text`/`--err-text` (each hue pulled 55% toward the per-theme `--txt-hi`), so borders and fills keep the canonical hues while text stays legible; measured after on /uslovi in all three themes: warn 13.80 / 5.56 / 14.21, err 10.17 / 8.41 / 10.45, ok 12.41 / 6.44 / 12.82. Gates green: `pnpm -r typecheck` (5 projects), `pnpm -r test` (67), `pnpm --filter @adgen/web build`. ✅ RUNTIME-VERIFIED, full matrix this time: `/`, `/app`, `/app/matrix`, `/app/reklame` × 3 themes, plus `/login` and `/signup` × 3 themes, plus `/uslovi`, `/privatnost`, `/impressum` × 3 themes — 21 page-loads, each a real navigation. **This supersedes the "auth pages are CODE-COMPLETE" caveat in the verdict below**: they were rendered for real. Still probe-based, not screenshots — see the block below. `#FFE000` deliberately NOT migrated; all 7 callers listed there.
@@ -44,6 +45,75 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-08-12 (ninth session) — the launch path stops being a feeling
+**Account:** _(unrecorded)_ · **Machine:** primary. **36 commits**, `e1c994e..ec7df6f`, all
+pushed. **Deliberately left uncommitted: nothing.**
+
+**Owner decisions taken today**, all recorded in `RELEASE_PLAN.md` with reasons: payment goes
+through a bank (so no provider work until it lands); **hosting is a SECOND VPS**, not Vercel and
+not the existing box; **Remotion Lambda is in**, overruling my own recommendation; 30-day
+retention for everything; all purchases final; ad length is user-chosen at 10/15/30s; and the
+wizard gets a Simple/Advanced split.
+
+**The legal pages are as done as they can be without inventing a fact.** Uslovi went from 12 to
+13 sections and one placeholder. The clause that matters: "purchases are final" only works if
+the buyer expressly asks for delivery before the 14-day withdrawal period AND acknowledges
+losing it — so the terms now say plainly that **without that tick-box at checkout the 14 days
+still apply**, which makes it a code requirement (L3.6) rather than a wish. The cookie section
+is now a table of the TWO cookies that exist, verified by grep, and states that **no consent
+banner is required** — no analytics, no pixels, no third-party cookies anywhere. That closes
+L4.2 rather than leaving it open. The Impressum keeps every identity blank: filling in a name,
+address or tax id would be fabricating a statutory declaration.
+
+**Three findings that each cost real money if missed:**
+
+1. **The Lambda client had the repo's recurring bug for the third time.** It returned the
+   provider's own URL — a `privacy: 'public'`, permanent, world-readable link to a paying
+   customer's video, sitting outside our Storage so the 30-day promise could not apply and
+   `assets.storageKey` would be null. Same shape as the kie.ai and fal.ai bugs fixed on 08-10.
+   The renderer now takes a Storage, copies the file in, and deletes the AWS copy.
+2. **A job had no cost ceiling at all.** The 700-char cap lived in `approved-scripts.ts` and so
+   applied ONLY to human-reviewed scripts; a model-written one went to ElevenLabs verbatim, and
+   the render duration was unclamped. Both limits now live in core and are enforced at the one
+   point money is spent. A full `count=15` job is bounded, and the worker logs what each job
+   actually consumed — units, not money, because rates are a contract and units are a fact.
+3. **`durations: [15]` was hardcoded in TWO places that had drifted apart in purpose** — the
+   worker and `/api/generate-scripts`. The second is worse: the wizard shows those scripts for
+   approval, so a user could approve a 15-second script and receive a 10-second ad.
+
+**Render cost is measured now, not guessed** (`apps/worker/src/bench-render.ts`, run it first on
+any new machine). On a 16-core i7: 44.0s for an 18s video on the FIRST run, 8.5s and 21.2s warm.
+The first number is the webpack bundle plus a cold font fetch — **a cold start costs ~30
+seconds**, so anyone timing one render and taking the first number overstates by 3×. Fitted:
+~3.9s fixed + ~19ms/frame. Extrapolated to 4 vCPU that is ~1 min per 18s ad, so a `count=15`
+job is ~15 minutes of one customer waiting. **Lambda works out well under a euro-cent per
+video** — so it is not a cost decision, it is a burst-latency one, and the cost that actually
+matters is ElevenLabs at 15 calls per job.
+
+**Also fixed while measuring:** every render was making 45–90 network requests per browser tab
+for Google Fonts, because `loadFont()` was called with no options. Now one weight and
+`latin` + `latin-ext` — the latter is not optional, since dropping it renders č ć š ž đ as tofu
+in a Serbian ad. Honest result: **it did NOT speed up a warm render**; fonts load once per
+render, not per frame. The win is removing a per-render dependency on `fonts.gstatic.com`.
+
+**A self-review of my own diff found three defects** — see the ledger line above. Worth the
+habit: all three were introduced the same day, and two of them (wrong variant count, speech cut
+mid-sentence) would have reached a customer before a test would.
+
+**Tests 224 → 319**, including the first coverage of `parseSearchOutput` (the yt-dlp parser,
+where one malformed line must not cost the whole search) and `PASSWORD_RULES` (which has shipped
+wrong twice, both times letting the checklist go all-green before the server rejected).
+
+**The one thing NOT verified: nobody has clicked the Simple/Advanced wizard.** The preview
+session expired at the login wall and I will not type a password. Typecheck, 319 tests and a
+production build pass; the UI itself is unproven.
+
+**Still open:** no human eye has seen the redesign across five sessions; `#FFE000` survives in
+7 render-data call sites (listed in RELEASE_PLAN, deliberately not migrated); and R2, Lambda and
+`enhance`/`remove_text` have still never been executed against a real account.
 
 ---
 
