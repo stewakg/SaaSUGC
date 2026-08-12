@@ -48,7 +48,10 @@ export default function LandingPage() {
 
           <div className="animate-fade-in flex justify-center">
             <div className="phone-frame">
-              <span className="font-mono tabular text-xs text-txt-low">1080×1920</span>
+              {/* txt-mid, not txt-low: the frame is filled with --panel-2, which is
+                  lighter than the ground, so the quietest text token measured
+                  4.32:1 in obsidian against it — under the bar for 12px text. */}
+              <span className="font-mono tabular text-xs text-txt-mid">1080×1920</span>
             </div>
           </div>
         </div>
