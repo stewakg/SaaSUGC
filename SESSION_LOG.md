@@ -16,6 +16,7 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: delegated test + hardening pass (NEW apps/web/src/lib/rate-limit.test.ts + NEW packages/core/src/providers/{factory,renderer.lambda}.test.ts + apps/web/src/lib/rate-limit.ts + NEW .clinerules + NEW CLINE_LOG.md) — CLEAN @ 8420316, 7b83fcd, 64f2685, 2e82f29 (2026-08-12). Every file written by Cline, every run audited by **mutation, not by reading**: the implementation was deliberately broken and the new tests had to fail for the right reason, then `git diff --stat` had to come back empty. `rateLimit` — `<=`→`<` and a conditional `EXPIRE` failed exactly the boundary and NX tests; removing `withTimeout` turned the hang test from a 13 ms pass into a 5000 ms timeout. `factory` — dropping the `R2_PUBLIC_URL` check, deleting the missing-`REMOTION_SERVE_URL` fallback and weakening `mediaEdit !== undefined` failed exactly three tests, one each. `renderer.lambda` — returning the S3 `outputFile` as `videoUrl`, keying the upload by bucket name and removing the `try/catch` around `deleteRender` failed exactly five. **One real defect fixed, not just covered** (`64f2685`): `rateLimit`'s documented "hard ceiling" wrapped only `INCR`, so a socket stalling on `EXPIRE` or `TTL` hung the request past the 1 s budget — all three commands now share one budget. Two corrections were mine, not Cline's: the empty-env brief wrongly demanded a mock `scraper` (`RealScraper` needs no key, and the guard is right to stay quiet about it), and `factory.test.ts` was missing a closing brace so sections E–H nested inside D. Tests 319 → 463. **NOT verified: nothing here has been run against AWS, Cloudflare or a real Redis** — `renderer.lambda.ts` in particular remains code that has never once executed, and five open findings on it are listed in `CLINE_LOG.md`.
 REVIEWED: launch-path work — legal text, hosting + Lambda decisions, cost ceiling, ad length, Simple/Advanced, SSRF hardening (apps/web/src/app/(legal)/** + apps/web/src/lib/{safe-url,clip-search,password,admin}.ts + apps/web/src/app/api/{jobs,scrape,import-clip,generate-scripts}/route.ts + apps/web/src/app/app/matrix/page.tsx + apps/worker/src/{index,bench-render}.ts + packages/core/src/{constants.ts,providers/{factory,renderer.lambda}.ts} + remotion/src/compositions/MatrixAd.tsx + RELEASE_PLAN.md) — CLEAN @ ec7df6f (2026-08-12), **after a self-review that found 3 real defects in my own diff, all fixed in `a83328b`**: Simple mode quoted and delivered the wrong variant count (effectiveCount still read scripts.length while Simple stops sending them); the render clamped speech that overran, cutting it mid-sentence, contradicting the comment directly above it; and the SSRF guard's IP-literal shortcut matched `[\d.]+`, so a NAME like `1.2.3.4.5` skipped DNS entirely. ✅ RUNTIME-VERIFIED: worker started in 6 configurations (mock guard refuse/allow/dev, Lambda on/off, WORKER_CONCURRENCY default/1/garbage); admin gate proven in BOTH directions against a real `next start` production server; three real Remotion renders timed; contrast + overflow sweep over `/`, `/uslovi`, `/impressum` in all three themes returns clean. **NOT verified: the Simple/Advanced wizard has never been clicked** — the preview session expired at the login wall. Tests 224 → 319. `#FFE000`, Lambda-against-AWS and R2-against-Cloudflare all remain unexecuted.
 REVIEWED: admin gate, matrix-pipeline tests, signed R2 links, mobile-menu keyboard (apps/web/src/lib/admin.ts + api/dev/credits/add/route.ts + app/app/page.tsx + components/{add-credits-button,app-shell}.tsx + apps/worker/src/{index.ts,matrix-pipeline.test.ts} + packages/core/src/providers/{storage.r2.ts,storage.r2.test.ts} + pnpm-workspace.yaml) — CLEAN @ 0a064b5, 54712b5, ac117d1, 8a655cf (2026-08-11). ✅ RUNTIME-VERIFIED, admin gate: against a real `next start` production server in BOTH directions — listed admin gets the button and the route passes the gate (400 unknown_pack, nothing granted); ADMIN_EMAILS emptied gives 0 buttons and 404 for a VALID pack id, so nobody can mint credits by knowing the URL. ✅ Mobile menu verified at 375px: open sets aria-expanded=true and focuses "Početna", Escape closes and returns focus to the hamburger (the slide itself NOT observed — non-compositing pane). Tests 105 → 130: 16 on `runMatrixPipeline` (count ceiling, storageKey never fabricated, montage:false really skips scene detection, all three aspects + fallback, captions matching the TTS script, absolutized voice url) and 9 on R2 signing, which verify REAL SigV4 signatures offline. **The R2 tests caught a wrong claim in my own code comment**: ContentType on PutObjectCommand does NOT bind it — only `host` is signed by default — so a link issued for an mp4 would have accepted text/html; fixed with an explicit `signableHeaders`. Still NOT live: no signature has been shown to a real Cloudflare bucket, and nothing calls the signed methods yet.
 REVIEWED: post-redesign bug hunt + worker mock guard (apps/web/src/app/globals.css + apps/web/tailwind.config.ts + apps/web/src/components/{app-shell,tool-cards}.tsx + ~18 web files for focus/ARIA + apps/worker/src/index.ts + packages/core/src/{index.ts,providers/factory.ts} + NEW packages/core/src/pricing.{cost,integrity,grammar}.test.ts) — CLEAN @ 26b1f96, 77594e9 (2026-08-11). Three UI defects found by MEASURING every text node against its composited background per page per theme, not by looking: `--txt-low` failed contrast in obsidian (3.24:1) and poluton (3.16:1) while carrying job dates, costs and step labels; the `opacity-80` added during the P7 warn/err migration pulled those sub-lines back to 3.53:1; and /app/matrix overflowed to 544px inside a 375px viewport in all three themes (flex `min-width:auto` + a nowrap `truncate` label whose min-content is the full string). ✅ RUNTIME-VERIFIED: the sweep now returns EMPTY for /, /app, /app/matrix, /app/reklame in all three themes at 1280px AND 375px; only disabled buttons remain flagged, which WCAG 1.4.3 exempts. Keyboard focus added across ~18 files (subagent, diff checked for text-node changes — none). Worker: `mockProviderSlots()` + a production refusal, ✅ VERIFIED by running the worker three ways (production+mocks → exit 1 naming all six slots; +ALLOW_MOCK_PROVIDERS=1 → warns and listens; dev → warns and listens). **That verification found a live crash**: `mediaEdit` is null without FAL_API_KEY and the startup log read `.name` off it, so since 123d0de a fresh clone could not boot the worker at all. Money-path tests 67 → 105. Gates green (dev server must be STOPPED for the web build — it shares `.next`).
@@ -45,6 +46,80 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-08-12 (tenth session) — Cline does the writing, mutation testing does the trusting
+**Account:** _(unrecorded)_ · **Machine:** primary. **5 commits**, `936cf9a..2e82f29`, all
+pushed. **Deliberately left uncommitted: nothing.**
+
+**The mode, restated by the owner:** "ti si gazda a cline je radnik" — I spec and review, Cline
+writes. I did not write app code this session except two small corrections noted below. The
+owner recharged z.ai, so delegation is live again; the ⛔ block at the top of `CLAUDE.md` is
+now a ✅ and the invocation there gained the flag that matters.
+
+**`-P openai-compatible` is not optional.** There are two wallets and the `zai` entry is the
+empty one. Worse: running `-P zai` even once to test rewrites `lastUsedProvider`, so the NEXT
+bare invocation silently uses the empty wallet and reports "insufficient balance" — which reads
+exactly like a fresh outage and cost a wrong diagnosis earlier.
+
+**What was delegated (nine runs, ledger in the new `CLINE_LOG.md`):** tests for
+`resolveLocalStorageDir`, the credit rule, env loading, `pollJob`, `rateLimit`, the provider
+factory, and the Lambda renderer; plus two real code changes — `FORCE_MOCK` spelling +
+`hasKey` narrowing, and the rate-limiter timeout fix. Tests **319 → 463**.
+
+**Auditing is mutation testing, and it is written into `CLAUDE.md` now.** A delegated test file
+that passes proves nothing; the question is whether it would FAIL when the code breaks. So each
+run ended with me breaking the implementation on purpose and checking that the tests named after
+that behaviour failed — and only those. Every run caught its mutation at the right test:
+`<=`→`<` in the limiter hit the boundary test; removing `withTimeout` turned a 13 ms pass into a
+5000 ms timeout; returning the S3 url from the Lambda renderer failed the ownership tests. Then
+restore, and `git diff --stat` empty is the proof.
+
+**One real bug fixed, not merely covered** (`64f2685`). `rate-limit.ts` promises a "hard ceiling
+on how long rate limiting may delay a request", but only `INCR` was wrapped — a socket that
+accepted `INCR` and then stalled left `EXPIRE` or `TTL` pending forever. Failing open is only
+useful if it happens promptly. All three commands now share ONE budget; three per-command
+timeouts would allow 3 s, which is not what "ceiling" means. Cline found this while writing the
+tests for the previous commit, and it was fixed as its own change rather than smuggled in.
+
+**Two of the corrections were mine, not Cline's.** (a) My brief said an empty env must make
+every slot a mock *including* `scraper`. Cline wrote that test, it failed, and Cline **refused
+to weaken it** — reporting instead that `factory.ts` might be wrong. The refusal was right and
+the conclusion was not: `RealScraper` needs no key and no paid account, so "no key" says nothing
+about that slot, and `mockProviderSlots()` is right not to flag it — the guard exists to stop a
+worker serving **canned output**, and a real scraper is not canned output. A new test now pins
+the line between "no key" (`real-scraper`) and the kill switch (`FORCE_MOCK` → `mock-scraper`,
+and the slot DOES appear). (b) `factory.test.ts` was missing a closing brace, so sections E–H
+nested inside D and the runner printed `D. Script > E. Storage`; fixed by hand.
+
+**`.clinerules` is new and is the standing contract**, auto-read every run so it holds even when
+a spec forgets: git entirely off limits, the task's file list exhaustive, the project's own docs
+and migrations untouchable, no new dependencies, no reformatting, Serbian copy verbatim, no
+report file, and **a failing test is a finding to REPORT, never a thing to weaken**. That last
+rule is there because the refusal above is the behaviour worth keeping.
+
+**`renderer.lambda.ts` now has 11 tests and has still never been executed.** The tests pin the
+code's internal consistency — most importantly that `render()` returns OUR storage url and never
+the S3 `outputFile`, which would be a permanent world-readable link to a paying customer's video,
+outside the 30-day retention the Terms promise, billed by AWS forever. They cannot validate the
+SDK assumptions: `RenderProgress` comes from `@remotion/serverless-client`, which is not
+installed here, so `skipLibCheck` is carrying those field names. Only the first real deploy
+settles that.
+
+**Five open findings on that file are recorded in `CLINE_LOG.md`**, the sharpest being that
+`deleteRender` runs only on the success path — a timed-out render is not cancelled, only
+un-watched, so it keeps running on AWS and later deposits an output nobody fetches or deletes.
+A fix for that plus a guard on `progress.errors` was in flight to Cline when the session ended;
+if `git status` shows `renderer.lambda.{ts,test.ts}` modified and uncommitted, that run landed
+after the last commit and needs the usual mutation audit before it goes in.
+
+**Next, in order:** audit and commit that in-flight Lambda cleanup fix; then the remaining
+untested modules (`voice.elevenlabs.ts`, `scraper.real.ts`, `ai.kiefal.ts`, `yt-dlp.ts`,
+`theme.ts`). Everything else on the launch path is owner-blocked — domain (L1.1), R2 bucket
+(L1.3, which must precede AWS), the second VPS (L1.7), a sending address (L1.5), real worker
+keys (L2.1), the bank (L3.1). **Still true and still unverified: nobody has clicked the
+Simple/Advanced wizard, and no human eye has seen the redesign.**
 
 ---
 

@@ -76,28 +76,40 @@ Verdict format (one line):
 
 ## Code changes go through Cline (CLI-automated, since 2026-07-21)
 
-> ⛔ **BLOCKED as of 2026-08-12: the z.ai account has no balance.** Every run fails on the
-> first iteration with `Insufficient balance or no resource package. Please recharge.` —
-> verified against BOTH configured entries (`-P zai` and the `openai-compatible` coding
-> endpoint), so it is the account, not the config or the endpoint. The CLI itself is fine
-> (v3.0.50 on PATH, key present, model `glm-5.2`). **Until the owner recharges, delegating to
-> Cline is not an option and Claude does the work directly.** A queued, ready-to-fire spec sits
-> at `scratchpad/cline-prompt-storage-path-tests.md`.
+> ✅ **UNBLOCKED 2026-08-12 (later the same day): the owner recharged and delegation works.**
+> The earlier "insufficient balance" block is history. **Always pass `-P openai-compatible`** —
+> there are TWO wallets, and the `zai` entry is the empty one; worse, running `-P zai` once to
+> test rewrites `lastUsedProvider`, so a later bare invocation silently uses the empty wallet
+> and the failure looks like a fresh outage. Nine tasks ran this way on 2026-08-12; the ledger
+> is `CLINE_LOG.md`.
 >
-> The failure is loud and costs nothing — one iteration, zero tokens — so re-testing after a
-> recharge is a single cheap run.
+> **`.clinerules` (repo root) is the standing contract** — Cline auto-reads it every run, so it
+> holds whatever must be true even when a task spec forgets to say it: git is entirely off
+> limits, the task's file list is exhaustive, the project's own docs and migrations are
+> untouchable, no new dependencies, no reformatting, Serbian copy is copied verbatim, and **a
+> failing test is a finding to REPORT, never a thing to weaken.** That last rule earned its
+> place on the first day: Cline refused to weaken a test, and it turned out the *spec* was
+> wrong, not the code.
 Claude launches Cline **itself** via the `cline` CLI — the owner no longer copy-pastes
-prompts. Invocation: `cline --json -c "<repo>" "<self-contained task>"` (act mode,
+prompts. Invocation: `cline --json -P openai-compatible -c "<repo>" "<self-contained task>"` (act mode,
 `--auto-approve` default true; add `--thinking medium|high` for multi-step tasks and
 `-t <sec>` as a safety cap sized to the task; run long tasks in the background).
 Provider is z.ai GLM-5.2 (`~/.cline/data/settings/providers.json` — `cline config` needs
 a TTY, so read that file directly; never print its apiKey). GLM-5.2 is weaker than
 Claude → keep each task explicit and mechanical: one clearly-scoped unit, exact file
-paths, full code/commands, and a "definition of done". Have Cline write its report to
-`CLINE_REPORT.md`; audit every run via the `--json` stream + `git diff` + the changed
-files — never trust Cline's self-report on non-deterministic work. Cline auto-reads a
-`.clinerules` file in the cwd if present. Claude edits app code directly only when
-asked; meta/workflow docs (this file, `SESSION_LOG.md`) Claude may edit directly.
+paths, full code/commands, and a "definition of done". Cline reports in its FINAL MESSAGE
+only — `CLINE_REPORT.md` is obsolete and `.clinerules` now forbids writing it. Audit every
+run via the `--json` stream + `git diff` + the changed files — never trust Cline's
+self-report on non-deterministic work. Claude edits app code directly only when asked;
+meta/workflow docs (this file, `SESSION_LOG.md`, `CLINE_LOG.md`) Claude may edit directly.
+
+**Auditing a delegated TEST task means mutation testing, not reading the diff.** A test file
+that passes proves nothing about whether it would FAIL when the code breaks. So: break the
+implementation on purpose (invert the boundary, delete the guard, return the wrong url), run
+the new tests, confirm the ones named after that behaviour fail and nothing else does, then
+restore — `git diff --stat` empty is the proof you restored it. Back the file up first
+(`cp` to the scratchpad) when the mutation spans several hunks. Every run on 2026-08-12 was
+audited this way and every one caught the mutation at the right test.
 
 **Two invocation traps, both hit on 2026-08-05:**
 1. **Run `cline` from PowerShell, never the Bash tool** — there is no working bash shim,
@@ -115,9 +127,9 @@ Wait for the completion notification, then edit.
 
 ## Baseline gates
 `pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core`, `@adgen/worker` and now
-`@adgen/web` — **319 tests as of 2026-08-12**, covering the montage chain, caption/cost
+`@adgen/web` — **463 tests as of 2026-08-12**, covering the montage chain, caption/cost
 logic, approved scripts, the OpenRouter provider, the matrix pipeline end to end with a fake
-renderer, R2 signed-URL generation, the SSRF guard and admin identification, the ad-length cost ceiling, the yt-dlp search parser and the password checklist), and
+renderer, R2 signed-URL generation, the SSRF guard and admin identification, the ad-length cost ceiling, the yt-dlp search parser, the password checklist, the rate limiter's fail-open behaviour, the provider factory including `mockProviderSlots()`, and the Lambda renderer's ownership transfer), and
 `pnpm --filter @adgen/web build` must pass before calling anything done.
 
 **Stop the dev server before running the web build.** `next build` and `next dev` share
