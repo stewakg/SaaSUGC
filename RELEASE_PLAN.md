@@ -97,7 +97,8 @@ spike on the worker for an upscaled video. Streaming it would be the fix.
 |---|---|---|---|
 | L2.1 | Give the VPS worker real provider keys | **Owner** | **This is the sharpest edge in the project.** The production worker was found running on `mock-script` and `mock-voice` — it would have answered real paying jobs with canned text that looks like success. It is deliberately STOPPED right now for that reason (`howto.md` §5). |
 | L2.2 | Make it impossible to repeat L2.1 by accident | Claude | The worker should refuse to start in production when any provider resolved to a mock, instead of running and quietly lying. A code guard is the only thing that makes L2.1 permanent. |
-| L2.3 | Decide the render path: Remotion Lambda vs VPS | **Owner decides** | Lambda is NOT "just add a key" — it needs a one-time `remotion lambda functions deploy` + `sites create` against a real AWS account, and `REMOTION_LAMBDA_FUNCTION_NAME`/`REMOTION_SERVE_URL` are OUTPUTS of that deploy. Rendering on the VPS is viable at low volume and is the cheaper first step. |
+| L2.3 | **Remotion Lambda — DECIDED 2026-08-11** | **Owner does the AWS setup, Claude has done the code** | Owner's call: the product is meant to serve many users, so rendering goes serverless and the VPS keeps the web app, Redis and yt-dlp. My recommendation had been "later, when bursts hurt"; the owner reaffirmed, so it is the plan. **Sequencing matters: R2 (L1.3) must come FIRST.** Lambda without R2 renders in the cloud and then copies the file to the worker's local disk, which is the worst of both. See the runbook below. |
+| ~~L2.3-alt~~ | ~~VPS rendering~~ | — | Superseded by the line above. The measured numbers stay useful as the fallback: ~1 min per 18s video on 4 vCPU. | Lambda is NOT "just add a key" — it needs a one-time `remotion lambda functions deploy` + `sites create` against a real AWS account, and `REMOTION_LAMBDA_FUNCTION_NAME`/`REMOTION_SERVE_URL` are OUTPUTS of that deploy. Rendering on the VPS is viable at low volume and is the cheaper first step. |
 | L2.4 | Run `enhance` and `remove_text` against real fal.ai once | Claude, after L1.3 | Both are wired and typecheck but have **never been executed**. Their 21 tests all mock `fetch`. First customer use must not be the first live test. |
 | L2.5 | Capture real per-job cost against provider dashboards | **Owner** | `BUSINESS.md` margins are modelled, never measured. A matrix job with `count=15` makes 15 real ElevenLabs calls. |
 
@@ -280,6 +281,71 @@ BullMQ supports through separate queues and is a real change, not a config line.
    unmeasured.
 4. **Postgres.** Supabase is managed and will not be the constraint for a long time.
 5. **Storage.** R2 does not run out. That is the point of it.
+
+## Remotion Lambda runbook (L2.3)
+
+Do these in order. Everything before step 6 needs the owner's AWS account; step 6 onward is
+config the code already reads.
+
+**0. R2 must exist first (L1.3).** With Lambda on and no R2, the worker copies the finished
+video from AWS onto its own local disk — cloud rendering into a local file. Do not start here.
+
+**1. AWS account + an IAM user for Remotion.** Remotion generates the exact policy it needs;
+do not hand-write one and do not use a root key:
+
+```bash
+pnpm --dir remotion exec remotion lambda policies user
+```
+
+Paste that as an inline policy on a fresh IAM user, then create an access key for it.
+
+**2. Region.** Use `eu-central-1` (Frankfurt). It matches the Impressum's German setup and keeps
+customer video inside the EU, which is what the Privacy page says happens.
+
+**3. Deploy the function.**
+
+```bash
+pnpm --dir remotion exec remotion lambda functions deploy
+```
+
+**4. Deploy the site** — this is the bundle of the composition, and it is why Lambda has no
+cold-bundle cost:
+
+```bash
+pnpm --dir remotion exec remotion lambda sites create src/index.ts --site-name=adgen
+```
+
+It prints a `serveUrl`. That is `REMOTION_SERVE_URL`.
+
+**5. Version lock, the classic failure.** The deployed function, the CLI and
+`@remotion/lambda-client` must be the SAME version. This repo is on **4.0.490** everywhere
+(verified 2026-08-11). Any `remotion upgrade` means re-running steps 3 and 4, or renders fail
+with a version-mismatch error that reads like nothing else.
+
+**6. Fill these in `.env`**, then `pnpm env:sync`:
+
+```
+REMOTION_AWS_ACCESS_KEY_ID=
+REMOTION_AWS_SECRET_ACCESS_KEY=
+REMOTION_LAMBDA_FUNCTION_NAME=   # printed by step 3
+REMOTION_SERVE_URL=              # printed by step 4
+REMOTION_AWS_REGION=eu-central-1
+```
+
+Deliberately NOT named `AWS_ACCESS_KEY_ID` — that name belongs to the S3/R2 storage credentials
+in this codebase, and the two must not collide.
+
+**7. Confirm the switch flipped.** Start the worker and read the startup line: it must say
+`"matrixRenderer":"remotion-lambda-renderer"`. If it says `local-remotion-renderer`, one of the
+two env vars is missing and the render silently stayed on the box.
+
+**8. Then run one real job and check three things**, because none of this has ever executed:
+the video plays; a row appears in R2 under `renders/lambda-<renderId>.mp4`; and the AWS bucket
+does **not** keep a copy (the client deletes it — a growing Lambda bucket means the delete is
+failing and only warning).
+
+**Costs to watch after the first week:** the AWS bill should be almost entirely Lambda compute,
+with S3 near zero. S3 growing means step 8's delete is failing.
 
 ## Explicitly NOT in v1
 
