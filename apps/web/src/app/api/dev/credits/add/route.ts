@@ -8,6 +8,16 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { CREDIT_PACKS } from '@adgen/core/pricing';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/admin';
+import { rateLimit } from '@/lib/rate-limit';
+
+/**
+ * Tight on purpose. This is the one route that creates credits out of nothing,
+ * and it was the only credit-touching route with no limit at all — found by the
+ * 2026-08-13 audit. The production admin gate below is the real defence; this is
+ * the second one, so that a regression in the gate cannot be turned into
+ * unlimited minting in a loop. Legitimate use is a handful of clicks.
+ */
+const RATE_LIMIT = { max: 10, windowSeconds: 60 };
 
 export async function GET(request: NextRequest) {
   // Order matters: identify the caller FIRST, then decide. The previous
@@ -19,6 +29,11 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
+  }
+
+  const rl = await rateLimit(`devcredits:${user.id}`, RATE_LIMIT.max, RATE_LIMIT.windowSeconds);
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'rate_limited', retryAfterSeconds: rl.resetSeconds }, { status: 429 });
   }
 
   // In production this route mints credits out of nothing, so it is for listed

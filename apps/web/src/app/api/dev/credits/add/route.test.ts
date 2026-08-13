@@ -23,7 +23,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
-const { getUser, rpcMock, isAdminEmailMock } = vi.hoisted(() => ({
+const { getUser, rpcMock, isAdminEmailMock, rateLimitMock } = vi.hoisted(() => ({
+  rateLimitMock: vi.fn(),
   getUser: vi.fn(),
   rpcMock: vi.fn(),
   isAdminEmailMock: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock('@/lib/supabase/server', () => ({
   createAdminClient: () => ({ rpc: rpcMock }),
 }));
 vi.mock('@/lib/admin', () => ({ isAdminEmail: isAdminEmailMock }));
+vi.mock('@/lib/rate-limit', () => ({ rateLimit: rateLimitMock }));
 
 import { GET } from './route.ts';
 import { CREDIT_PACKS } from '@adgen/core/pricing';
@@ -56,6 +58,7 @@ beforeEach(() => {
   // one behaviour it cares about.
   vi.resetAllMocks();
   getUser.mockResolvedValue({ data: { user: { id: 'u1', email: 'user@example.com' } } });
+  rateLimitMock.mockResolvedValue({ allowed: true, resetSeconds: 0 });
   rpcMock.mockResolvedValue({ error: null });
   isAdminEmailMock.mockReturnValue(false);
 });
@@ -73,6 +76,18 @@ describe('GET /api/dev/credits/add — authentication and the production admin g
     const res = await GET(req(CREDIT_PACKS[0].id));
 
     expect(res.status).toBe(401);
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it('1b. rate limited ⇒ 429 and nothing minted', async () => {
+    // Added by the 2026-08-13 audit: this was the only credit-touching route
+    // with no limit at all. The admin gate is the real defence; this stops a
+    // regression in that gate from becoming unlimited minting in a loop.
+    rateLimitMock.mockResolvedValue({ allowed: false, resetSeconds: 42 });
+
+    const res = await GET(req(CREDIT_PACKS[0].id));
+
+    expect(res.status).toBe(429);
     expect(rpcMock).not.toHaveBeenCalled();
   });
 
