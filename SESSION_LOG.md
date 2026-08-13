@@ -50,6 +50,64 @@ NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewe
 
 ---
 
+## 2026-08-14 (fourteenth session) — the overhaul pass: dig, fix, deploy, repeat
+**Account:** _(unrecorded)_ · **Machine:** primary. **Deliberately left uncommitted: nothing.**
+
+Owner's instruction: "complete overhaul, dig and fix, do not stop, report at the end." Everything
+below was found by looking rather than by being told, and every fix is deployed and verified on the
+live box.
+
+**Two things the app was lying about, both customer-facing.**
+`quick_test`, `edit`, `mix` and `translate` each had a dashboard card, a link and a three-step
+wizard, and none of them has a pipeline — the customer filled in three steps and got an error. They
+are badged USKORO now. The mirror image: **`revoice` had a pipeline, a price, a descriptor and full
+test coverage since F4 and NOTHING in the app could reach it.** It is the matrix pipeline with
+scene detection off, so it is now a switch in step 3 ("Iseci klipove u montažu") that changes the
+job type and the quoted price — a second 1400-line wizard would have been a copy waiting to drift.
+
+**The script model can finally see the product.** `describeImage` had been sitting unused since
+2026-08-13 while the wizard collected product photos it never showed anyone. `runMatrixPipeline`
+now describes the first image once per job and appends it to the prompt. Every failure degrades to
+"no extra context": a worse script is bad, a dead paid job is worse.
+
+**⚠️ SECURITY: every server secret was baked into the web Docker image.** `.dockerignore` listed
+`.env` and `.env.*`, which READS like "no env files in the image" and is not what Docker does —
+the patterns match the context ROOT only, so `apps/web/.env` was copied in with the Supabase
+service role and every provider key. Verified by listing the file inside the running image, then
+fixed: the two `NEXT_PUBLIC_*` values (public by design — the anon key is protected by RLS) come in
+as build args, everything else arrives at runtime. Verified again after: `CISTO`, and the URL is
+still baked into the client bundle.
+
+**That fix immediately broke the worker, and the deploy caught it.** Its start script was
+`tsx --env-file=.env`, which hard-fails when the file is gone — crash loop, exit 9, every few
+seconds. The flag was always redundant in production (compose injects env before the process
+starts); `--env-file-if-exists` covers dev and prod. **Removing a file from an image is not just a
+packaging change if something inside insists the file is there.**
+
+**The deploy files existed ONLY on the VPS.** `apps/web/Dockerfile` was untracked and the compose
+web service was an uncommitted edit on the box — written there deliberately, then never brought
+home. This is the exact failure CLAUDE.md names in its own words: code that exists on one disk does
+not exist. Both are in git now. The web container also gained the healthcheck it never had, so a
+hung Next process stops reporting as "Up".
+
+**A CRLF trap worth remembering:** the `.env` copied up from Windows carried CRLF, so
+`set -a; . ./.env` produced values with a trailing `` and the build args arrived blank. Stripped
+on the server; the deploy note in TODO.md says to keep it LF.
+
+**Also:** drag-and-drop is now in all six wizards, `/api/upload`'s comment no longer claims Vercel
+is "still TODO" (it was ruled out and the app runs on the VPS), and **TODO.md was rewritten from
+scratch** — it was last reviewed 2026-08-10, wrong on nearly every line, pointed at the OLD VPS ip,
+and listed three "known defects" that were all already fixed. It now carries an ordered advice
+section and a two-machine section (what does not travel with git, the deploy commands that pull
+from git rather than a laptop, and the warning that two workers on one Redis fight over the queue).
+
+**Gates:** `pnpm -r typecheck` clean; **724 tests** (core 337, web 297, worker 90). Live stack
+verified after every deploy: web 200 and healthy, worker listening with every provider REAL.
+
+**Still the owner's, unchanged:** migration 0007 is NOT applied to the live database — the credit
+self-grant hole stays open in production until it is; there is no domain, so no TLS; and no euro
+may be taken before the friend's entity exists and Lemon Squeezy is in its name.
+
 ## 2026-08-13 (thirteenth session) — infrastructure went live, then the audits found what it broke
 **Account:** _(unrecorded)_ · **Machine:** primary. **Deliberately left uncommitted: nothing.**
 
