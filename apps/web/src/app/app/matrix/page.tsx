@@ -1320,14 +1320,17 @@ export default function MatrixPage() {
    */
   const clipsRequired = process.env.NODE_ENV === 'production';
 
-  const canNext =
-    currentStepId === 'clips'
-      ? !clipsRequired || clips.length >= 1
-      : currentStepId === 'import'
-        ? !clipsRequired || productTitle.trim().length > 0
-        : currentStepId === 'generate'
-          ? phase !== 'running'
-          : true;
+  /**
+   * What the JOB actually needs, as opposed to what the wizard lets you look at.
+   * Navigation is free; this is checked on the Generate action, where a missing
+   * piece can be named instead of silently disabling a button two steps away.
+   */
+  const missingForGenerate: string[] = [];
+  if (clipsRequired && clips.length === 0) missingForGenerate.push('bar jedan video klip');
+  if (clipsRequired && productTitle.trim().length === 0) missingForGenerate.push('naziv proizvoda');
+  const canGenerate = missingForGenerate.length === 0;
+
+  const canNext = currentStepId === 'generate' ? phase !== 'running' && canGenerate : true;
 
   const nextLabel =
     safeIndex < lastIndex
@@ -1337,6 +1340,35 @@ export default function MatrixPage() {
         : phase === 'running'
           ? 'Renderujem…'
           : 'Pokreni';
+
+  // The missing-requirement notice belongs on the Generate step, but it needs
+  // `canGenerate`, which is only known once the step list is built (it rides on
+  // `clipsRequired`, next to `canNext`). Splice the notice into the rendered
+  // steps then; navigation itself (`steps`, `safeIndex`, `currentStepId`) is
+  // untouched — only what the Generate step displays changes.
+  const stepsWithNotice =
+    currentStepId === 'generate' && !canGenerate
+      ? steps.map((s) =>
+          s.id === 'generate'
+            ? {
+                ...s,
+                content: (
+                  <>
+                    <div className="rounded-control border border-warn/40 bg-warn/10 p-3 text-sm text-warn-text">
+                      <p className="font-medium">Pre pokretanja fali još:</p>
+                      <ul className="mt-1 list-disc pl-5">
+                        {missingForGenerate.map((m) => (
+                          <li key={m}>{m}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    {s.content}
+                  </>
+                ),
+              }
+            : s,
+        )
+      : steps;
 
   return (
     <div className="py-6">
@@ -1383,7 +1415,7 @@ export default function MatrixPage() {
       </div>
 
       <JobWizard
-        steps={steps}
+        steps={stepsWithNotice}
         activeIndex={safeIndex}
         onBack={() => setStepIndex(Math.max(0, safeIndex - 1))}
         onNext={() => {
@@ -1400,6 +1432,7 @@ export default function MatrixPage() {
           }
         }}
         canNext={canNext}
+        allowJumpAhead
         nextLabel={nextLabel}
         onStepSelect={(i) => setStepIndex(i)}
         costLabel={

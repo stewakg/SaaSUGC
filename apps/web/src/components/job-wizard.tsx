@@ -24,6 +24,7 @@ export function JobWizard({
   nextLabel,
   costLabel,
   onStepSelect,
+  allowJumpAhead = false,
 }: {
   steps: WizardStep[];
   activeIndex: number;
@@ -37,6 +38,13 @@ export function JobWizard({
    * stays read-only, which is what every wizard except matrix wants.
    */
   onStepSelect?: (index: number) => void;
+  /**
+   * Let the rail jump FORWARD to a step not yet reached. Off by default: most
+   * wizards validate step by step through `canNext`, and skipping ahead would
+   * walk past that. Matrix opts in because its only real requirement is checked
+   * on the Generate action itself, not on each step.
+   */
+  allowJumpAhead?: boolean;
 }) {
   const step = steps[activeIndex];
   const isLast = activeIndex === steps.length - 1;
@@ -47,12 +55,14 @@ export function JobWizard({
         The rail was a row of <div>s. It has an active state, a done state and
         chip styling — it LOOKS like navigation, so people click it, and nothing
         happened. Now every step already reached is a real button that jumps
-        there; steps ahead stay disabled, because skipping forward would walk
-        past the validation in `canNext`.
+        there. Steps ahead stay disabled by default, because skipping forward
+        would walk past the validation in `canNext`; `allowJumpAhead` opts in to
+        a free rail for wizards whose only real requirement is checked on the
+        final action, not on each step.
       */}
       <nav className="step-rail mb-4" aria-label="Koraci">
         {steps.map((s, i) => {
-          const reached = i <= activeIndex;
+          const reached = allowJumpAhead || i <= activeIndex;
           return (
             <button
               key={s.id}
