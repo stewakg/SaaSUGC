@@ -66,6 +66,14 @@ export interface ScriptProvider {
   }): Promise<{
     variants: { angle: string; script: string; estDurationSec: number }[];
   }>;
+
+  /**
+   * Describe a product image in a few words usable as a SEARCH QUERY for stock
+   * footage — not a caption and not marketing copy. Optional because it needs a
+   * vision-capable model; callers must handle `undefined` and fall back to
+   * text-only behaviour.
+   */
+  describeImage?(imageUrl: string, language: string): Promise<string>;
 }
 
 /** ElevenLabs. Mock returns a silent/placeholder mp3. */

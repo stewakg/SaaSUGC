@@ -40,6 +40,18 @@ const SYSTEM_PROMPT =
   '[{"angle": "kratak opis ugla", "script": "tekst skripte", "estDurationSec": broj}]';
 
 /**
+ * System prompt for describeImage. Written in English (unlike SYSTEM_PROMPT,
+ * which is Serbian): the OUTPUT language is supplied per call via the
+ * `language` argument, so the model must be told which language to write in
+ * rather than defaulting to English.
+ */
+const VISION_SYSTEM_PROMPT =
+  'You turn a product photo into a SHORT search query for stock footage. ' +
+  'Reply with ONLY 3 to 6 words naming the physical product itself — ' +
+  'no brand names, no marketing adjectives, no punctuation, no extra text. ' +
+  'Write the search phrase in the language the user specifies, and nothing else.';
+
+/**
  * Strict-schema request shape. Honoured only by models that advertise
  * structured outputs; the rest ignore it and answer in prose, which is why
  * parseVariantsJson below still strips markdown fences. Both paths are needed
@@ -170,6 +182,57 @@ export class OpenRouterScriptProvider implements ScriptProvider {
       throw new Error('OpenRouter returned no parseable script variants.');
     }
     return { variants: variants.slice(0, input.count) };
+  }
+
+  async describeImage(imageUrl: string, language: string): Promise<string> {
+    const userText = `Describe this product image as a stock-footage search query, written in this language: ${language}.`;
+
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        'Content-Type': 'application/json',
+        // Optional OpenRouter attribution — shows the app in its rankings.
+        'X-Title': 'AdGen',
+      },
+      body: JSON.stringify({
+        model: this.config.model ?? DEFAULT_MODEL,
+        messages: [
+          { role: 'system', content: VISION_SYSTEM_PROMPT },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userText },
+              { type: 'image_url', image_url: { url: imageUrl } },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`OpenRouter image description failed (${res.status}): ${body}`);
+    }
+
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: string }; finish_reason?: string }[];
+      error?: { message?: string };
+    };
+    // OpenRouter can return HTTP 200 with an error body when an upstream
+    // provider fails — check it before reading choices (same as generateVariants).
+    if (json.error) {
+      throw new Error(`OpenRouter returned an error: ${json.error.message ?? 'unknown'}`);
+    }
+    const content = json.choices?.[0]?.message?.content ?? '';
+    if (!content.trim()) {
+      throw new Error('OpenRouter returned no image description content.');
+    }
+
+    // Trim surrounding quotes/newlines and clamp: a model that ignores the
+    // "short search phrase" instruction must not produce a 2000-character "query".
+    const cleaned = content.trim().replace(/^["'`]+|["'`]+$/g, '').trim();
+    return cleaned.length > 120 ? cleaned.slice(0, 120) : cleaned;
   }
 }
 

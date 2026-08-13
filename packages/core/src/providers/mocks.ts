@@ -70,6 +70,11 @@ export class MockScriptProvider implements ScriptProvider {
     const n = Math.max(1, Math.min(input.count, CANNED_SCRIPTS.length));
     return { variants: CANNED_SCRIPTS.slice(0, n) };
   }
+  // Never calls a model — returns a fixed, obviously-fake search phrase.
+  async describeImage(_imageUrl: string, _language: string) {
+    await fakeLatency();
+    return 'mock proizvod za pretragu';
+  }
 }
 
 // ----------------------------------------------------------------------------
