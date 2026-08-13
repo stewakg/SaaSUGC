@@ -1,10 +1,12 @@
 # TODO.md — what is missing for the site to actually work
 
-One line per item. **This file is an index, not a second source of truth** — the detail,
-the history and the caveats live in `INFRASTRUCTURE.md`. If the two ever disagree,
-`INFRASTRUCTURE.md` wins and this file is the one that is stale.
+One line per item. **This file is an index, not a second source of truth** — the detail, the
+history and the caveats live in `INFRASTRUCTURE.md` and `RELEASE_PLAN.md`. If they ever disagree,
+those win and this file is the one that is stale.
 
-**Last reviewed:** 2026-08-10
+**Last reviewed: 2026-08-14 — full rewrite.** The previous version was written on 2026-08-10 and
+had gone wrong on nearly every line: hosting, R2, Lambda, the worker's real keys and billing have
+all happened since, and all three "known defects" in its §6b had already been fixed.
 
 ## Legend
 
@@ -23,129 +25,147 @@ the history and the caveats live in `INFRASTRUCTURE.md`. If the two ever disagre
 
 | Status | Item | Who | Note |
 |---|---|---|---|
-| ❌ ⛔ | **Web hosting** — no Vercel account exists | 👤 | Or self-host on the same VPS. Note: Vercel's ~4.5MB request-body cap would break `POST /api/upload` for real video; self-hosting has no such limit |
-| ❌ ⛔ | **Domain + DNS + email** | 👤 | ~€10/yr. Nothing is reserved |
-| 🟡 | **Worker on the VPS** — container runs, but on **all mocks** | 🤖 | `/opt/adgen-saas/apps/worker/.env` has no OpenRouter/ElevenLabs/kie/fal keys, so production would ship fake ads. Currently **stopped** on purpose (see §6) |
-| ✅ | **Redis** — `adgen-redis-prod` on the VPS, healthy | — | Loopback-only by design; reached from here over an SSH tunnel |
-| ✅ | **Supabase cloud** — auth, DB, migrations 0001–0006 applied | — | Project `iqfzhnndhhrprkrkfygd` |
-| ❌ ⛔ | **R2 bucket** — no bucket exists | 👤 then 🤖 | `storage.r2.ts` is written and has never run. Without it there is nowhere for rendered files to live in production |
-| ❌ ⛔ | **Decision: presigned URLs vs public bucket** | 👤 | `getUrl` currently returns a permanent unauthenticated URL with guessable keys — that is cross-user asset exposure, the exact thing `/api/storage`'s auth check exists to prevent |
-| ❌ | **Remotion Lambda** — never deployed | 👤 then 🤖 | Needs an AWS account plus a one-time `remotion lambda functions deploy`. `REMOTION_SERVE_URL` is the *output* of that, not a value to invent. Alternative: keep rendering on the VPS |
-| ❌ | **Error alerting + cost dashboard** | 👤 | Nothing reports a failed job today |
+| ✅ | **VPS** — Hetzner CX23, Nürnberg, Ubuntu 24.04 | — | `5.75.154.153`. ufw (SSH/80/443 only), fail2ban, 2 GB swap, Docker 29.7 |
+| ✅ | **Web + worker + Redis in Docker** | — | `adgen-web-prod`, `adgen-worker-prod`, `adgen-redis-prod` at `/srv/adgen`; web answers 200 on port 80 |
+| ✅ | **R2 bucket** — `adgenwebsaas`, EU jurisdiction | — | Verified by a real upload. EU buckets need their own S3 endpoint (`R2_ENDPOINT`); the derived form fails with "bucket not found" |
+| ✅ | **Remotion Lambda** — function + site, `eu-central-1` | — | First real render 26.8s; the mp4 landed in R2 and the AWS copy was deleted |
+| ✅ | **Supabase cloud** — auth, DB, migrations 0001–0006 | — | ⚠️ 0007 is written and NOT applied — see §2 |
+| ❌ ⛔ | **Apply migration 0007 to the live DB** | 👤 | **The credit self-grant hole is open in production until this runs.** One paste into the SQL editor |
+| ❌ ⛔ | **Domain + DNS** | 👤 | Nothing reserved. Blocks HTTPS, the Supabase auth callback, the Lemon Squeezy webhook URL, a sending address, and the R2 custom domain |
+| ❌ ⛔ | **TLS / reverse proxy** | 🤖 | Caddy in front of the web container; ten minutes of work, blocked entirely on the domain |
+| ❌ | **Sending email address** | 👤 | Supabase auth mail still goes out on Supabase defaults |
+| ❌ | **Error alerting** | 🤖 | Nothing reports a failed job. The worker already logs `job failed`; shipping that line to a webhook is an hour |
+| 🟡 | **R2 public URL is still the `r2.dev` dev subdomain** | 👤 then 🤖 | Cloudflare rate-limits it and says not for production. Swap to `cdn.<domain>` once the domain exists |
 
 ## 2. Money
 
 | Status | Item | Who | Note |
 |---|---|---|---|
-| ❌ ⛔ | **No payment provider at all** | 👤 | Lemon Squeezy deleted 2026-08-10. A real user has no way to buy credits |
-| ✅ | **Dev credits** | — | Dashboard "Dodaj kredit" → `/api/dev/credits/add`. 404s in production |
-| ⏸️ | **Per-stage billing** (scripts ~1 credit, audio ~2, video on creation) | 👤 | **Parked by you** — pricing a product still being built. Two open questions recorded in `INFRASTRUCTURE.md` F5 |
-| 🤖 | `database.types.ts:158` still declares `charge_credits` with 3 args; the live function takes 4 | 🤖 | Blocks any caller that wants to pass `p_reason`. Only matters once billing is unparked |
+| ✅ | **Billing layer restored** — Lemon Squeezy | — | Idempotent webhook (order id → `add_credits_idempotent`), paid-variant cross-check, redirect back to the app, production refusal when billing resolves to the mock. 24 tests |
+| 🟡 ⛔ | **Never called with a real Lemon Squeezy key** | 👤 | Needs a store, one variant per pack, and `LEMONSQUEEZY_VARIANT_MAP`. Blocked on the entity below |
+| ❌ ⛔ | **Whose company takes the money** | 👤 | The owner operates from Frankfurt on his own cards; the plan is a friend's LLC. **No euro may be taken and no real user onboarded before that entity exists and Lemon Squeezy is in its name** — otherwise the operator, the taxpayer and the GDPR controller are all him. A German Steuerberater should see the US-LLC-managed-from-Germany question before the company is formed |
+| ❌ ⛔ | **Migration 0007 (credit self-grant)** | 👤 | `profiles_update_own` let any logged-in user set their own `balance` and spend it on real provider calls. Fixed in code 2026-08-13, **not yet applied** |
+| ❌ | **Refunds / chargebacks (L3.6)** | 👤 then 🤖 | Needs a decision first: a reversal arriving after the credits were SPENT → negative balance, clamp at zero, or freeze the account |
+| ❌ | **Per-job cost compared against real invoices** | 👤 | The worker logs units (characters, render seconds); nobody has held them next to an ElevenLabs or OpenRouter bill |
 
-## 3. Tools — does the thing the card promises actually happen?
+## 3. Tools — does the card tell the truth?
+
+Trimmed 2026-08-14 by the functional audit: a card links to a wizard ONLY if a pipeline exists.
 
 | Status | Tool | Note |
 |---|---|---|
-| 🟡 | **Matrix** | Deepest path. Real script + real voice + real local render. Never yet run start-to-finish in one click-through |
-| ✅ | **AI slike** | Runs for real end-to-end (2026-08-10, 4 credits): kie.ai returned a genuine generated image. **The persistence gap this row used to describe is CLOSED** (`123d0de`): `persistRemoteAsset()` in `apps/worker/src/index.ts` fetches the provider result and uploads it through `Storage`, so `assets.url` is ours and `storageKey` is set. kie.ai hands back `tempfile.aiquickdraw.com` links — the name says why this mattered |
-| 🟡 | **Brzi test / Edit / Mix / Prevod** | **They used to charge and return Big Buck Bunny** — confirmed live 2026-08-10, Brzi test took 2 credits and returned `w3schools.com/html/mov_bbb.mp4`. **Fixed the same day**: the generic branch now throws `tool_not_implemented`, the job handler marks it `error`, and `charge_credits` never runs. Re-verified live — the job lands as "Greška", balance unchanged. They still do not *work*; they now fail honestly. Cause remains `apps/worker/src/index.ts` rendering every non-matrix, non-image job through `providers.renderer`, which is `MockRenderer` while the Remotion Lambda env is unset |
-| 🟡 | **Enhance** | **Wired since `123d0de`** — `runMediaEditPipeline` routes it to `FalMediaEditProvider.upscaleImage/upscaleVideo`, refuses when `FAL_API_KEY` is absent, and refuses a `localhost` source because fal cannot fetch it (so it is hard-blocked until R2 exists, RELEASE_PLAN L1.3). **Never executed against real fal.ai** — its 21 tests all mock `fetch`. `faceEnhancement` is explicitly off: Topaz retouches faces by default, which on a product shot is an edit nobody asked for |
-| 🟡 | **Remove text** | **Image path wired since `123d0de`** via `FalMediaEditProvider.removeTextFromImage` (`fal-ai/image-editing/text-removal`, $0.04), chosen over kie's cheaper `nano-banana-edit` because it takes **no prompt** — a general editor told to "remove all text" can regenerate the frame or invent a label. **Never executed against real fal.ai.** **Video path: still do not ship** — negative margin before a frame renders |
-| ❌ | **AI influencer** (`ai_video`) | F7. `generateVideo` has never been called |
-
-## 3b. Two NEW standalone tools — owner's decision 2026-08-10
-
-Both were things I had ruled out *for Matrix*. The owner's point: not fitting inside a Matrix
-video's margin is not a reason to drop a capability — it is a reason to sell it **separately,
-priced on its own**. Neither is part of the Matrix flow.
-
-| Status | Tool | Model | Cost to us | Note |
-|---|---|---|---|---|
-| ❌ | **Ukloni objekat iz videa** | `fal-ai/bria/video/erase/keypoints` or `…/mask` | **$0.14 per second** | Priced as its own job, the $2.10 for a 15s clip is chargeable instead of eaten. ⚠️ Two hard limits: the keypoints variant **refuses input longer than 5 seconds**, and the mask variant needs a **mask video** we would have to generate. Chunking a longer clip into 5s pieces breaks temporal consistency at the seams — verify before promising anything over 5s |
-| ❌ | **Fotografija proizvoda** | `fal-ai/image-apps-v2/product-photography` | not captured | Professional product shots with realistic lighting and backgrounds. A COD seller would buy this on its own, independent of any video |
-
-### ⚠️ The language problem, and how each tool answers it
-
-Owner's constraint: **our users are Serbian and may not speak English**, but these models take
-English instructions. Two different answers, and the first one is the better pattern wherever
-it is available:
-
-1. **Don't use language at all.** `bria/video/erase/keypoints` takes coordinates —
-   `{x: 100, y: 100, type: 'positive' | 'negative'}` — not a description. The user taps the
-   watermark on a frame and taps anything that must be preserved. Point at it, don't describe
-   it. Nothing to translate, nothing to get wrong, and it is a better interface in any language.
-2. **Serbian in, English out, invisibly.** Product photography genuinely needs a description.
-   Take Serbian free text and have OpenRouter turn it into the English prompt before the call —
-   `ScriptProvider` already runs through OpenRouter, so this is a prompt, not new plumbing.
-   Pair it with Serbian preset buttons (bela pozadina, drvo, mermer, studio svetlo…) so most
-   users never type at all; free text is the escape hatch, not the main path.
-
-**Rule to apply to every future tool:** if the model can be driven by clicks, coordinates, or
-presets, do that. Reach for translation only when the task is genuinely descriptive.
+| ✅ | **Video reklame** (`matrix`) | Renamed from "Matrix" 2026-08-13. Real script, real TTS, scene-detect montage, Lambda render |
+| ✅ | **AI slike** (`image_ads`) | kie.ai primary, fal.ai fallback, result copied into our storage |
+| 🟡 | **Poboljšaj kvalitet** (`enhance`) | Unblocked now that R2 gives a public URL — **never called against real fal.ai** |
+| 🟡 | **Skini tekst** (`remove_text`) | Images only by design (video erasers are negative margin). Never called for real |
+| ❌ | **Brzi test · Edit videi · Mix · Prevod** | Wizard exists, pipeline does not. Now badged USKORO instead of linking to a wizard that ends in an error |
+| ❌ 🤖 | **Preozvuči (`revoice`): pipeline exists, NO UI** | The opposite problem — built, tested, unreachable. It is the Matrix wizard with montage off |
 
 ## 4. Output quality
 
-| Status | Item | Who | Note |
-|---|---|---|---|
-| ❌ ⛔ | **Other platforms' burned-in UI in source clips** | 🤖 | Someone else's handle and watermark inside a paying customer's ad. Legal weight, not cosmetic. **Approach DECIDED by the owner 2026-08-10: exclude the dirty shots — never erase them.** Backed by measured prices: fal.ai's only video erasers (`bria/video/erase/{mask,keypoints}`) cost **$0.14/s**, which is $2.10 for a 15s ad against ~€3.00–4.50 of revenue for the whole video, and the keypoints one refuses input over **5 seconds**. Buying our way out is not affordable, so detection + shot filtering is the only path. See `research/fal-ai-catalogue.md` §2 |
-| ❌ | **Imported clips arrive at 360p** and get upscaled to 1080×1920 | 🤖 | Measured 2026-08-10: the imported clip was **640×360**. If output looks soft, this is why |
-| ❌ | **A 16:9 source is cover-cropped into 9:16 and roughly two thirds of the frame is thrown away** | 🤖 | Measured on the same clip: 640×360 (16:9) in, 1080×1920 out. Filling 1920 of height from 360 keeps only ~202 of the 640 px of width and upscales ~5.3×, which is why the render reads as an extreme zoom. Output size is hardcoded in `remotion/src/Root.tsx:48-49`; the crop is `objectFit: 'cover'` at `remotion/src/compositions/MatrixAd.tsx:266` |
-| 🟡 | **Let the user choose the aspect ratio** — owner's request 2026-08-10 | 🤖 | **Output format DONE and verified live**: 9:16 / 1:1 / 16:9 picker in the Matrix wizard, size flows through Remotion's `calculateMetadata`, and a real 16:9 job rendered a **1920×1080** h264 file (`matrix-ad-1786382389944.mp4`, 22.3s). Unset still falls back to 9:16 so older jobs are unaffected. **Search side: measured 2026-08-10, and it is harder than it looks.** `--flat-playlist --dump-json` returns **no `width`/`height` for the video** — the only dimension-bearing field is `thumbnails`, and those are YouTube's fixed sizes (480×270), which say nothing about the source's orientation. Knowing it at search time therefore costs one full `--dump-json` network call **per result**, which is exactly the cost `--flat-playlist` exists to avoid. Two cheaper options worth weighing instead: probe the file at **import** time (we download it anyway) and warn "ovaj klip je 16:9, izabrani format je 9:16 — gubiš oko dve trećine kadra", or fetch full metadata only for a clip the user actually previews |
-| ✅ | **Serbian model choice** | — | **Graded 2026-08-10: all 30 acceptable.** Default moved to the cheapest tier, `google/gemini-3.1-flash-lite`. Caveat recorded rather than buried: the 3 canned control variants passed too, so the eval did not separate the models — this is "nothing is broken", not "cheapest equals best" |
+| Status | Item | Note |
+|---|---|---|
+| ❌ 🤖 | **The script model cannot see the product** | `describeImage` landed 2026-08-13 and nothing calls it. The wizard already collects product images. Cheapest remaining quality win |
+| ❌ | **Third-party watermarks in imported clips** | Decision recorded (exclude dirty shots, never erase); nothing built |
+| ❌ | **No music/SFX library** | Bring-your-own only — and the Matrix description no longer claims otherwise |
+| 🟡 | **Script quality** | The blind eval concluded "no model produced broken Serbian", NOT "the cheapest is as good as the best". Re-run scoring each axis if a bad script ever ships |
 
 ## 5. Legal (before any real customer)
 
 | Status | Item | Who |
 |---|---|---|
-| ❌ ⛔ | Uslovi korišćenja / Privatnost / Impressum | 👤 |
-| ❌ ⛔ | GDPR + cookie consent | 👤 |
+| ❌ ⛔ | Uslovi / Privatnost / Impressum reviewed by a lawyer | 👤 |
+| ❌ ⛔ | Impressum must name the REAL operator | 👤 |
+| ❌ | GDPR / cookie consent | 🤖 after the lawyer |
+| ❌ | 30-day retention | 👤 sets the bucket rule; 🤖 does the expired-asset UI, which would lie until the rule exists |
 
 Deliberately not drafted by me: this carries real legal weight across DE/RS/EU, and generated
 placeholder text is worse than none because it reads as if it were coverage.
 
-## 6. Testing — the current pass
+## 6. Testing
 
-| Status | Screen | Note |
-|---|---|---|
-| ✅ | Login | Works (session was live 2026-08-10) |
-| ❌ | Signup | Not clicked this round |
-| ❌ | **Password recovery** | Never clicked. Sends a real email to your address |
-| ✅ | Dashboard `/app` | Tool cards match `JOB_COST`; balance renders; "Dodaj kredit" verified against the live DB (3 → 723, `pack_agency` = 600 + 120) |
-| ✅ | `/app/reklame` (history) | Shows the finished job: Matrix · Gotovo · 15 kredita |
-| ✅ | Matrix — script generation | Click-test 2 passed: OpenRouter wrote real Serbian copy, correct gender |
-| ✅ | Matrix — caption + sound controls | Click-test 4 passed |
-| ✅ | Matrix — **submit a job and get a finished video** | **DONE 2026-08-10.** Clip search → yt-dlp import → OpenRouter script → ElevenLabs (Charlie) → scene-detect montage → Remotion render → charge → history, all in one click-through. Output: `matrix-ad-1786378804132.mp4`, 10.7 MB, h264 **+ aac**, 18.67s, word-synced Serbian captions. Balance 723 → 708 |
-| ✅ | **Brzi test** | Ran. **Failed the only thing that matters**: charged 2 credits, returned Big Buck Bunny (see §3) |
-| ✅ | **AI slike** | Ran. Real kie.ai image, charged 4 credits. Persistence closed `123d0de` (see §3) |
-| ⏭️ | Edit / Mix / Prevod | **Deliberately not run.** All three share `index.ts:331` with Brzi test, which is already proven to return a placeholder. Spending 18 + 12 + 15 credits to re-prove one line is waste; they become testable the moment that line has a real renderer |
-| ❌ | Signup, password recovery | Need your inbox — password recovery sends a real email to your address |
-| 🟡 | Enhance, Remove text | Models chosen and wired (`123d0de`); blocked on R2 (fal cannot fetch a `localhost` source) and never run live |
+**717 tests** (core 337, web 297, worker 83); `pnpm -r typecheck` clean on all five projects.
+All 12 API routes are covered. Every delegated suite was mutation-audited — the implementation was
+deliberately broken and the right test had to fail.
 
-**Current local rig** (temporary, not how production works): SSH tunnel forwards the VPS
-Redis to `127.0.0.1:6379`, the worker runs **here** with real keys, and the VPS worker is
-**stopped** so it cannot steal jobs off the same queue and answer them with mocks.
-Restart it with:
+| Status | Item |
+|---|---|
+| ✅ | Money path: job admission, charge-on-success, refund-on-failure, rollback, webhook idempotency |
+| ✅ | Security-shaped: SSRF gates, path traversal, cross-customer storage access, the production admin gate |
+| ✅ | Both renderers, all four providers, the billing layer |
+| ❌ | **No end-to-end test** — nothing exercises signup → job → asset against a real stack |
+| ❌ ⛔ | **No human has clicked the wizard, and no human eye has seen the redesign** — it was verified by measuring contrast and probing the DOM, not by looking |
+| ❌ | Signup and password recovery never click-tested (recovery sends a real email) |
 
+**All three "known defects" from the old §6b are fixed** and were verified on 2026-08-14:
+Serbian plurals go through `creditsWord` (`1 kredit` / `2 kredita`), the fal poller treats any
+non-pending status as terminal (`FAL_PENDING_STATUSES`), and `charge_credits` is typed with four
+arguments including `p_reason`.
+
+## 7. Advice — what I would do next, in this order
+
+Judgement, not blockers. Cheapest first.
+
+1. **Apply migration 0007 today.** The only open hole with money attached, and it is one paste.
+2. **Buy the domain.** The single item unblocking the most others: TLS, email, the Lemon Squeezy
+   webhook, the R2 custom domain. Being unblocked matters more than the name being perfect — a
+   name can be rebranded later, a missing domain blocks five things today.
+3. **Wire `describeImage` into the script prompt.** The images are already collected and the model
+   can already see; this is the biggest quality gain per line of code left, and script quality is
+   what a customer actually judges.
+4. **Give `revoice` a UI.** A finished, tested pipeline nobody can reach is the cheapest feature in
+   the backlog.
+5. **Ship the `job failed` log line to a Telegram or Discord webhook.** Without it, the first real
+   failure is discovered by the customer.
+6. **Do the L5 rehearsal on production with a real card** before the link is shared with anyone.
+7. **Only then**: watermark handling, a music library, the expired-asset state, per-job-type worker
+   concurrency (cheap tools 4, matrix 1 — BullMQ does it with separate queues).
+
+## 8. Two machines, one repo — how not to lose work
+
+The owner works from more than one computer, and the sibling `aikutak` project lost three weeks to
+exactly this. The rule that cost them:
+
+> **Never end a session with uncommitted work.** Commit it anyway — a `wip:` prefix or a
+> `wip/<topic>` branch — then push. A commit is not a claim that something is finished; it is the
+> only thing that carries work to the other machine, and the only backup.
+
+**Start of every session, on either machine:**
+
+```bash
+git fetch origin && git status -sb
 ```
-ssh root@46.225.214.52 "docker start adgen-worker-prod"
+
+`behind` → pull before touching a file. `ahead` → the last session did not push; find out why
+before adding to it.
+
+**What does NOT travel with git, and must be set up once per machine:**
+
+| Thing | Why | What to do |
+|---|---|---|
+| `.env` | gitignored, holds live keys | Copy it across by hand over a channel you trust. Never paste keys into a chat |
+| `node_modules` | not tracked | `pnpm install` |
+| SSH key for the VPS | machine-local | Copy the key, or add the second machine's public key in Hetzner |
+| Cline wallet | lives in `~/.cline` | Log in again. Always `-P openai-compatible` — the `zai` entry is the empty wallet |
+| Docker images | server-side only | Nothing to do; the VPS is the deployment, not your laptop |
+
+**Deploying from either machine** is the same three commands, and the server pulls from GIT rather
+than from your disk — so anything you did not push does not deploy:
+
+```bash
+ssh root@5.75.154.153 'cd /srv/adgen && git pull'
+ssh root@5.75.154.153 'cd /srv/adgen && docker compose -f infra/docker-compose.prod.yml -p adgen up -d --build'
+ssh root@5.75.154.153 'docker compose -f infra/docker-compose.prod.yml -p adgen ps'
 ```
 
-## 6b. Known smaller defects, found but not fixed
+**The server's `.env` is separate from yours and does not come from git.** If you add a key
+locally, copy the file up and rebuild, or the container keeps the old values:
 
-| Item | Where | Note |
-|---|---|---|
-| **Serbian plurals are wrong everywhere** | `kredita` used unconditionally across the app | `1 kredita` should be `1 kredit`; 2–4 take `kredita`, 5+ take `kredita`. Needs one shared pluralisation helper, not a local patch |
-| ~~AI-generated images are never persisted~~ | `apps/worker/src/index.ts` | **FIXED `123d0de`** — `persistRemoteAsset()` copies every provider result into our Storage before the url is recorded. Kept as a row because the same mistake reappeared a third time in the Lambda renderer (`515f90c`) |
-| **Queue poller burns its full timeout on a dead job** | `ai.kiefal.ts` | Any status it does not recognise keeps it looping to the timeout (up to 10 min) instead of failing immediately. `media-edit.fal.ts` already does it correctly — back-port that |
-| **`charge_credits` typed with 3 args** | `packages/db/src/generated/database.types.ts:158` | The live function takes four. Blocks any caller that wants `p_reason` |
+```bash
+scp .env root@5.75.154.153:/srv/adgen/.env
+ssh root@5.75.154.153 'cd /srv/adgen && cp .env apps/web/.env && cp .env apps/worker/.env'
+```
 
-## 7. Next up
-
-1. **Wire `enhance` and `remove_text`** to `FalMediaEditProvider`. The provider is written and
-   tested; what is missing is the worker branch (replace the `tool_not_implemented` throw for
-   those two types), a `capability → provider` routing table (the winner is no longer the same
-   provider for every capability), and copying results into our own storage — fal returns CDN
-   URLs that expire, the same defect the image path already has.
-2. **Clip search by orientation** — the other half of the aspect-ratio request.
-3. **Signup and password recovery click-tests** — need the owner's inbox.
-4. Then the smaller defects in §6b.
+⚠️ **One Redis, one queue.** If a worker runs on your laptop AND on the VPS against the same Redis,
+both pull from the same queue and whichever grabs a job answers it. That is how a job once got
+answered with mocks. Run one worker at a time, or point them at different Redis instances.

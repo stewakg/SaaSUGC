@@ -20,11 +20,13 @@
  * limit (historically ~4.5MB) that sits in front of this code and isn't
  * configurable from here — a real video upload would 413 there well before
  * MAX_SIZE_BYTES is ever checked. This route works as written on a
- * self-hosted Node server (no such limit), which matches this project's
- * current plan (worker → Hetzner; web → Vercel is still TODO per
- * INFRASTRUCTURE.md F6). If web ends up on Vercel, the real fix is a
- * presigned-URL upload straight from the browser to Storage (bypassing this
- * route for the file bytes entirely) — not something to retrofit blind here.
+ * self-hosted Node server (no such limit) — and as of 2026-08-13 that is not a
+ * plan but the deployment: web and worker both run in Docker on the Hetzner
+ * box, and Vercel was ruled out precisely because of this cap (plus it cannot
+ * run the yt-dlp binary the clip routes need). If the web app is ever moved
+ * behind a platform with a body limit, the fix is a presigned-URL upload
+ * straight from the browser to Storage — `signedUploadUrl` already exists in
+ * storage.r2.ts — not a retrofit of this route.
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { createProviders } from '@adgen/core';

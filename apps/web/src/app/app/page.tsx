@@ -6,14 +6,24 @@ import { MainToolCard, UtilityToolCard } from '@/components/tool-cards';
 import { createServerClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/admin';
 
-/** Job types with a working wizard so far. */
+/**
+ * Job types that WORK END TO END — a wizard AND a pipeline that produces a real
+ * asset. Anything absent here renders with an "USKORO" badge and no link.
+ *
+ * Trimmed 2026-08-14 after the functional audit. `quick_test`, `edit`, `mix`
+ * and `translate` all have a wizard and a card, and none of them has a
+ * pipeline: `runPipeline` refuses them with `tool_not_implemented`, which is
+ * the correct behaviour (nothing is charged) but a terrible way for a customer
+ * to find out. They clicked a card that looked live, filled in three steps, hit
+ * Pokreni and got an error. Listing them here was the app promising work it
+ * cannot do; the badge tells the truth up front.
+ *
+ * Put a tool back the moment its pipeline lands — that is the same list the
+ * worker's RENDERABLE_COMPOSITIONS guards from the other side.
+ */
 const LIVE_TOOL_LINKS: Partial<Record<JobType, string>> = {
-  quick_test: '/app/quick-test',
   image_ads: '/app/ai-slike',
   matrix: '/app/matrix',
-  edit: '/app/edit',
-  mix: '/app/mix',
-  translate: '/app/translate',
   enhance: '/app/enhance',
   remove_text: '/app/remove-text',
 };
