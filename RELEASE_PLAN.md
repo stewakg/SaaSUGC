@@ -328,8 +328,11 @@ video from AWS onto its own local disk — cloud rendering into a local file. Do
 do not hand-write one and do not use a root key:
 
 ```bash
-pnpm --dir remotion exec remotion lambda policies user
+npx @remotion/lambda@4.0.490 policies user
 ```
+(and `policies role` for the second one — Remotion needs BOTH an IAM user policy and a role policy;
+the role must be named exactly `remotion-lambda-role` or the deploy fails with "the role ... cannot
+be assumed by Lambda", which reads like a credentials problem and is not one.)
 
 Paste that as an inline policy on a fresh IAM user, then create an access key for it.
 
@@ -339,14 +342,20 @@ customer video inside the EU, which is what the Privacy page says happens.
 **3. Deploy the function.**
 
 ```bash
-pnpm --dir remotion exec remotion lambda functions deploy
+npx @remotion/lambda@4.0.490 functions deploy
 ```
+
+⚠️ **Do NOT `pnpm add @remotion/lambda` to run these.** It was tried on 2026-08-13 and it drags in
+`@types/react@18.3.12`, which collides with the RC types `apps/web` aliases — five TS2786 errors in
+files nobody touched, and a web typecheck that had been clean all day. The CLI is deploy-only; the
+runtime uses `@remotion/lambda-client`, which is already installed. Pinning the version at the npx
+call site keeps the lock the runbook requires without putting the tool in the dependency graph.
 
 **4. Deploy the site** — this is the bundle of the composition, and it is why Lambda has no
 cold-bundle cost:
 
 ```bash
-pnpm --dir remotion exec remotion lambda sites create src/index.ts --site-name=adgen
+npx @remotion/lambda@4.0.490 sites create src/index.ts --site-name=adgen
 ```
 
 It prints a `serveUrl`. That is `REMOTION_SERVE_URL`.
