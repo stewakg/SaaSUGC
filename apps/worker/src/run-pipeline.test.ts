@@ -7,7 +7,7 @@
  * a failing test is a finding to report, never a reason to edit index.ts.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { runPipeline } from './index.ts';
+import { runPipeline, RENDERABLE_COMPOSITIONS } from './index.ts';
 
 type Deps = NonNullable<Parameters<typeof runPipeline>[2]>;
 
@@ -110,8 +110,15 @@ describe('routing — matrix / revoice / media-edit', () => {
   });
 });
 
-describe('unknown tools + the mock-renderer money guard', () => {
-  it('throws tool_not_implemented naming the tool and never renders when the renderer is the mock', async () => {
+/**
+ * The guard used to ask whether the RENDERER was a mock. Deploying Remotion
+ * Lambda on 2026-08-13 made that question always answer "no" and silently
+ * disarmed it — quick_test/edit/mix/translate began calling Lambda with a
+ * composition that is not deployed. It now asks whether the TOOL is renderable,
+ * so these tests pin the tool, not the renderer's name.
+ */
+describe('unimplemented tools + the money guard', () => {
+  it('throws tool_not_implemented naming the tool, with a MOCK renderer', async () => {
     const deps = makeDeps({ rendererName: 'mock-renderer' });
     const err = await runPipeline('quick_test', {}, deps as unknown as Deps).catch((e) => e);
 
@@ -121,26 +128,44 @@ describe('unknown tools + the mock-renderer money guard', () => {
     expect(deps.renderer.render).not.toHaveBeenCalled();
   });
 
-  it('renders and returns a video asset when the renderer is real', async () => {
+  it('STILL refuses with a REAL renderer — the regression this replaced', async () => {
+    // Before the fix this rendered: a real renderer meant the guard passed, and
+    // an undeployed composition id went to Lambda. The customer paid nothing
+    // (the catch marks the job error before charge_credits) but burned an
+    // invocation and got an SDK error instead of a sentence.
     const deps = makeDeps({ rendererName: 'remotion-lambda-renderer' });
-    const result = await runPipeline('quick_test', { p: 1 }, deps as unknown as Deps);
+    const err = await runPipeline('quick_test', { p: 1 }, deps as unknown as Deps).catch((e) => e);
 
-    expect(deps.renderer.render).toHaveBeenCalledWith({
-      composition: 'quick_test',
-      props: { p: 1 },
-    });
-    expect(result).toEqual([
-      { kind: 'video', url: 'https://our/vid', storageKey: 'renders/v.mp4' },
-    ]);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toMatch(/tool_not_implemented/);
+    expect(deps.renderer.render).not.toHaveBeenCalled();
   });
 
-  it('falls back to a null storageKey when the renderer omits it', async () => {
-    const deps = makeDeps({ rendererName: 'remotion-lambda-renderer' });
-    deps.renderer.render.mockResolvedValueOnce({ videoUrl: 'https://our/vid' });
+  it('renders a tool whose composition IS deployed, and defaults storageKey to null', async () => {
+    // RENDERABLE_COMPOSITIONS is empty today (only matrix-ad is deployed, and
+    // matrix/revoice return earlier), so the render path is exercised by adding
+    // a member for the duration of this test — the alternative is leaving the
+    // whole branch untested until some future tool lands.
+    RENDERABLE_COMPOSITIONS.add('quick_test');
+    try {
+      const deps = makeDeps({ rendererName: 'remotion-lambda-renderer' });
+      const result = await runPipeline('quick_test', { p: 1 }, deps as unknown as Deps);
 
-    const result = await runPipeline('quick_test', {}, deps as unknown as Deps);
+      expect(deps.renderer.render).toHaveBeenCalledWith({
+        composition: 'quick_test',
+        props: { p: 1 },
+      });
+      expect(result).toEqual([
+        { kind: 'video', url: 'https://our/vid', storageKey: 'renders/v.mp4' },
+      ]);
 
-    expect(result).toEqual([{ kind: 'video', url: 'https://our/vid', storageKey: null }]);
+      const deps2 = makeDeps({ rendererName: 'remotion-lambda-renderer' });
+      deps2.renderer.render.mockResolvedValueOnce({ videoUrl: 'https://our/vid' });
+      const result2 = await runPipeline('quick_test', {}, deps2 as unknown as Deps);
+      expect(result2).toEqual([{ kind: 'video', url: 'https://our/vid', storageKey: null }]);
+    } finally {
+      RENDERABLE_COMPOSITIONS.delete('quick_test');
+    }
   });
 });
 

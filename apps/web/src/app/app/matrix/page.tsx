@@ -14,6 +14,7 @@ import {
   MATRIX_TRANSITIONS as TRANSITIONS,
   DEFAULT_MATRIX_OUTRO_TEXT,
 } from '@adgen/core/constants';
+import { FileDropzone } from '@/components/file-dropzone';
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
 import { uploadFile, type UploadedFile } from '@/lib/upload-file';
@@ -324,8 +325,7 @@ export default function MatrixPage() {
   const cost = computeJobCost('matrix', effectiveCount);
   const captionStyle = `cap:${captionFont}:${captionAnim}:${captionColor}`;
 
-  async function handleFilesChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
+  async function handleFiles(files: File[]) {
     if (files.length === 0) return;
     setUploading(true);
     setUploadError(null);
@@ -336,7 +336,6 @@ export default function MatrixPage() {
       setUploadError(err instanceof Error ? err.message : 'Nepoznata greška.');
     } finally {
       setUploading(false);
-      e.target.value = '';
     }
   }
 
@@ -588,17 +587,14 @@ export default function MatrixPage() {
           <p className="text-sm text-txt-mid">
             Otpremi jedan ili više video snimaka — od njih se pravi reklama. Svaki snimak može biti kompilacija više kadrova.
           </p>
-          <label className="block">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/mp4,video/quicktime,video/webm"
-              multiple
-              onChange={(e) => void handleFilesChange(e)}
-              aria-label="Upload klipova"
-              className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
-            />
-          </label>
+          <FileDropzone
+            accept="video/mp4,video/quicktime,video/webm"
+            multiple
+            disabled={uploading}
+            title="Klikni ili prevuci video ovde"
+            hint="MP4, MOV ili WEBM · do 200MB po fajlu"
+            onFiles={handleFiles}
+          />
           {uploading && <p className="text-sm text-txt-mid">Otpremam…</p>}
           {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
           <div className="border-t border-line pt-4">
@@ -726,6 +722,23 @@ export default function MatrixPage() {
                 </li>
               ))}
               <li>
+                {/*
+                  The dropzone owns its own input; this hidden one backs the
+                  compact "+ Dodaj još jedan klip" button so it can open the
+                  picker without being coupled to the dropzone's internals. The
+                  button resets the value before clicking (see below), so a
+                  re-pick of the same file still fires a change.
+                */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/mp4,video/quicktime,video/webm"
+                  multiple
+                  onChange={(e) => void handleFiles(Array.from(e.target.files ?? []))}
+                  aria-hidden
+                  tabIndex={-1}
+                  className="hidden"
+                />
                 <button
                   type="button"
                   onClick={() => {

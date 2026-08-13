@@ -538,6 +538,21 @@ export async function runMediaEditPipeline(
   return [{ kind: 'video', url, storageKey }];
 }
 
+/**
+ * Job types that have a Remotion composition DEPLOYED and can therefore be
+ * rendered by the generic fall-through at the end of `runPipeline`.
+ *
+ * Empty today, and that is the honest state: `remotion/src/Root.tsx` registers
+ * exactly one composition, `matrix-ad`, and the two job types that use it
+ * (`matrix`, `revoice`) return earlier through `runMatrixPipeline`. So nothing
+ * reaches the generic render — every other tool is still unimplemented.
+ *
+ * Exported so a test can prove BOTH directions: a member renders, a non-member
+ * is refused. Adding a tool here without deploying its composition would make
+ * the worker call Lambda with an id that does not exist.
+ */
+export const RENDERABLE_COMPOSITIONS = new Set<string>([]);
+
 export async function runPipeline(
   type: string,
   params: Record<string, unknown>,
@@ -594,25 +609,35 @@ export async function runPipeline(
     return deps.runMediaEdit(type, sourceUrl, params);
   }
 
-  // ⚠️ Everything that reaches this line — quick_test, edit, mix, translate, and
-  // the video path of enhance/remove_text — has no real pipeline yet. Only
-  // `matrix`/`revoice` get a genuine render, via the `matrixRenderer` built at
-  // the top of this file; `providers.renderer` is MockRenderer whenever the
-  // Remotion Lambda env is unset, which is always today.
+  // ⚠️ Everything that reaches this line — quick_test, edit, mix, translate —
+  // has no real pipeline. Only the branches above are implemented.
   //
   // Until 2026-08-10 this happily returned MockRenderer's placeholder — Big Buck
   // Bunny on w3schools.com — and the caller then charged for it, because
   // charge-on-success cannot tell a real asset from a fake one. Verified live:
   // Brzi test took 2 credits and delivered that clip.
   //
-  // Throwing instead is what makes the billing honest. The catch in the job
-  // handler marks the job `error` and returns BEFORE charge_credits runs, so the
-  // user keeps their credits and sees a failure rather than someone else's
-  // cartoon. Delete this guard the moment a real renderer is wired.
-  if (deps.renderer.name === 'mock-renderer') {
+  // The guard used to ask `renderer.name === 'mock-renderer'`, which was true
+  // for as long as no Remotion Lambda existed. Deploying Lambda on 2026-08-13
+  // silently disarmed it: the renderer became `remotion-lambda-renderer`, the
+  // guard stopped firing, and these four tools began calling Lambda with a
+  // composition id that is not deployed — the site registers `matrix-ad` and
+  // nothing else. That burns an invocation and answers the customer with an SDK
+  // error instead of a sentence they can read. Caught by the functional audit
+  // the same day, before any customer saw it.
+  //
+  // So the question the guard asks is now about the TOOL, not about which
+  // renderer happens to be configured. A tool is renderable when a composition
+  // for it is actually deployed; that list is here, next to the throw, so
+  // adding a tool means adding it here on purpose.
+  //
+  // Throwing keeps the billing honest: the catch in the job handler marks the
+  // job `error` and returns BEFORE charge_credits runs, so the user keeps their
+  // credits and sees a failure rather than someone else's cartoon.
+  if (!RENDERABLE_COMPOSITIONS.has(type)) {
     throw new Error(
-      `tool_not_implemented: "${type}" nema pravi renderer — posao nije naplaćen. ` +
-        `Alat je u izradi; Matrix i AI slike rade.`,
+      `tool_not_implemented: "${type}" još nema pravi renderer — posao nije naplaćen. ` +
+        `Alat je u izradi; Video reklame, AI slike i Poboljšaj kvalitet rade.`,
     );
   }
 
