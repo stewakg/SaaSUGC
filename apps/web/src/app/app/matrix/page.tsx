@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { computeJobCost, creditsLabel } from '@adgen/core/pricing';
 import type { CaptionAnim, CaptionFont, MatrixAspect, MatrixTransition, UiLanguage } from '@adgen/core/types';
@@ -173,6 +173,14 @@ export default function MatrixPage() {
 
   // Step 0 — upload source clips (the raw montage material)
   const [clips, setClips] = useState<UploadedFile[]>([]);
+  /**
+   * The file input is hidden behind an explicit "+ Dodaj još jedan klip" button
+   * once at least one clip exists. A bare `<input multiple>` technically accepts
+   * more files on a second pick, but nothing on screen SAYS so — the link field
+   * next to it has its own visible add affordance, and users read the absence of
+   * one here as "only one batch allowed".
+   */
+  const fileInputRef = useRef<HTMLInputElement>(null);
   /**
    * Real pixel size per clip url, filled in the background as clips arrive.
    * Feeds the shape warning on the format step — a 16:9 clip forced into a 9:16
@@ -582,6 +590,7 @@ export default function MatrixPage() {
           </p>
           <label className="block">
             <input
+              ref={fileInputRef}
               type="file"
               accept="video/mp4,video/quicktime,video/webm"
               multiple
@@ -716,6 +725,24 @@ export default function MatrixPage() {
                   </button>
                 </li>
               ))}
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Reset the value first: picking the SAME file twice fires no
+                    // change event otherwise, so a user re-adding a clip they just
+                    // removed would click and see nothing happen.
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                      fileInputRef.current.click();
+                    }
+                  }}
+                  disabled={uploading}
+                  className="btn-ghost w-full text-sm disabled:opacity-50"
+                >
+                  + Dodaj još jedan klip
+                </button>
+              </li>
             </ul>
           )}
         </div>

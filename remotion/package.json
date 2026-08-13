@@ -18,7 +18,6 @@
   "devDependencies": {
     "@remotion/bundler": "4.0.490",
     "@remotion/cli": "4.0.490",
-    "@remotion/lambda": "4.0.490",
     "@remotion/renderer": "4.0.490",
     "@types/node": "^22.9.0",
     "@types/react": "18.3.12",
