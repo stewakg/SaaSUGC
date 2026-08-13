@@ -127,7 +127,7 @@ Wait for the completion notification, then edit.
 
 ## Baseline gates
 `pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core`, `@adgen/worker` and now
-`@adgen/web` — **577 tests as of 2026-08-13** (core 302, web 192, worker 83), covering the montage chain, caption/cost
+`@adgen/web` — **601 tests as of 2026-08-13** (core 326, web 192, worker 83), covering the montage chain, caption/cost
 logic, approved scripts, the OpenRouter provider, the matrix pipeline end to end with a fake
 renderer, R2 signed-URL generation, the SSRF guard and admin identification, the ad-length cost ceiling, the yt-dlp search parser + the shell-free `runYtDlp` argv contract, the password checklist, the rate limiter's fail-open behaviour, the provider factory including `mockProviderSlots()`, the Lambda renderer's ownership transfer + its progress-aware timeout and fetch-retry, the LOCAL Remotion renderer's ownership + temp-cleanup contract, the worker's voice-id fallback + image-ads prompt builder, asset ownership (persistRemoteAsset) + the enhance/remove_text fail-not-charge guards, the tool dispatch and its mock-renderer money guard, the ElevenLabs voice provider, the RealScraper heuristics + SSRF redirect guard, the kie.ai/fal.ai router fallback contract, and the worker job state machine's charge/refund/rollback), and
 `pnpm --filter @adgen/web build` must pass before calling anything done.
@@ -138,5 +138,14 @@ pages with NO stylesheet — which has now cost three separate debugging detours
 an audit that reported every element as unstyled. Provider reality as of 2026-08-10: **kie.ai, fal.ai, ElevenLabs and
 OpenRouter have all been called live** (see `INFRASTRUCTURE.md` F5); **R2 and Remotion
 Lambda are still CODE-COMPLETE and have never been called with a real key** — treat those
-two as unverified until a real call happens. Billing no longer exists at all: Lemon Squeezy
-was deleted 2026-08-10 and nothing replaced it.
+two as unverified until a real call happens. **Billing is back as of 2026-08-13**: the owner
+chose Lemon Squeezy as the launch provider (a merchant of record carries the EU VAT that a
+Serbian entity otherwise would; an own entity + Stripe is a later question). The layer deleted
+on 2026-08-10 was restored from `d8dfb49^` — so it still carries the webhook idempotency from
+`5fc43fc` — re-wired into the current factory, hardened (the webhook now cross-checks the
+variant actually PAID against `LEMONSQUEEZY_VARIANT_MAP`, the checkout redirects back to the
+app, a mock provider is refused in production, and the 500 body no longer echoes env-var
+names) and covered by 24 tests. **It has NEVER been called with a real Lemon Squeezy key** —
+same CODE-COMPLETE caveat as R2 and Lambda. Refunds/chargebacks (`order_refunded`) are still
+NOT handled: that is RELEASE_PLAN L3.6 and needs the owner's decision on an already-spent
+balance before any code is written.

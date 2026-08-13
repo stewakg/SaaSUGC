@@ -84,9 +84,11 @@ fires, "Moje reklame" will list jobs whose files are gone and render dead links.
 needs an expired state, and if 30 days is sold as a feature the remaining time should be
 visible. The wording is Serbian copy, so the owner's call; the state is mine.
 
-One known limit worth fixing before large video passes through it: `persistRemoteAsset` buffers
-the whole file in memory (`Buffer.from(await res.arrayBuffer())`). Fine for images, a memory
-spike on the worker for an upscaled video. Streaming it would be the fix.
+~~One known limit worth fixing before large video passes through it: `persistRemoteAsset` buffers
+the whole file in memory.~~ **Already fixed** (noticed stale on 2026-08-13): it streams the
+response body straight into Storage via `Readable.fromWeb`, so an upscaled video no longer spikes
+the worker's memory, and it throws on an empty body rather than uploading nothing. Covered by
+`apps/worker/src/media-edit.test.ts`.
 
 ---
 
@@ -109,9 +111,9 @@ spike on the worker for an upscaled video. Streaming it would be the fix.
 
 | # | Item | Who | Notes |
 |---|---|---|---|
-| L3.1 | Choose a payment provider | **Owner** | Lemon Squeezy was deleted on 2026-08-10 and **nothing replaced it**. There is no `/api/billing` route of any kind. For Serbia/Balkans + EU VAT, a merchant-of-record (Paddle, Lemon Squeezy again, Polar) removes the VAT problem; Stripe does not. |
-| L3.2 | Implement checkout + webhook | Claude | The old implementation is in git history and is worth reading before rewriting — including its idempotency fix. |
-| L3.3 | Idempotent credit granting | Claude | Non-negotiable. Webhooks are at-least-once; the previous implementation granted credits twice per purchase until migration `0004` added `credits_ledger.external_ref` + `add_credits_idempotent`. That migration still exists — reuse it, do not reinvent it. |
+| L3.1 | Choose a payment provider | **Owner** | ✅ DECIDED 2026-08-13: **Lemon Squeezy** (merchant of record — it carries the EU VAT a Serbian entity would otherwise register for). Reasoning: against ~5% MoR fees, doing VAT yourself only wins past roughly 100 paying users, which is also about where the paušalac limit sits; an own entity + Stripe is a later question, not a launch one. Original note kept for history: Lemon Squeezy was deleted on 2026-08-10 and **nothing replaced it**. There is no `/api/billing` route of any kind. For Serbia/Balkans + EU VAT, a merchant-of-record (Paddle, Lemon Squeezy again, Polar) removes the VAT problem; Stripe does not. |
+| L3.2 | Implement checkout + webhook | Claude | ✅ DONE @ `5232a44` (core), `f8238b0` (routes), `ec085e4` (24 tests). Restored from `d8dfb49^` rather than rewritten — so the idempotency fix came back with it — then re-wired into the current factory and hardened: the webhook cross-checks the variant actually PAID against the map (a wrong entry would have sold a €50 pack for €5), the checkout redirects to `/app?kupljeno=1`, a mock provider is refused with 503 in production, the 500 body no longer echoes env-var names, and a malformed payload is told apart from a bad signature. **NEVER called with a real Lemon Squeezy key.** |
+| L3.3 | Idempotent credit granting | Claude | ✅ CARRIED BACK with the restore (`5232a44`): `parseWebhook` returns the LS order id and the route passes it as `p_external_ref` to `add_credits_idempotent`; migration 0004 was never removed. A mutation making the order id constant fails 3 tests. Non-negotiable. Webhooks are at-least-once; the previous implementation granted credits twice per purchase until migration `0004` added `credits_ledger.external_ref` + `add_credits_idempotent`. That migration still exists — reuse it, do not reinvent it. |
 | L3.4 | Remove or hard-gate the dev credit button | Claude | ✅ ALREADY DONE (2026-08-12 audit): `canGrantCredits` (`apps/web/src/app/app/page.tsx:45`) renders the button only when `NODE_ENV !== 'production'` OR `isAdminEmail(user.email)`, and `GET /api/dev/credits/add` itself 404s non-admins in production. A paying non-admin never sees it and can't hit it. No code change was needed. |
 | L3.5 | Tests on the money path | Claude | ✅ done @ `77594e9` — 67 → 105 tests. Still no coverage of the job state machine; see the seam note under L2. |
 | L3.6 | **Reversals: refund, chargeback, failed capture** | Claude, once L3.1 is chosen | Owner's requirement, 2026-08-11: if a payment is reversed, the credits must not be granted — or must be taken back if they already were. Mirror image of L3.3: the same `credits_ledger` + `external_ref` that stops double-granting is what lets a reversal find the exact grant to undo. Three cases, and they are not the same: (a) reversal arrives before the grant → never grant; (b) after the grant, credits unspent → debit them back; (c) after the grant, credits already SPENT → the balance would go negative. Case (c) needs a decision, not code: allow a negative balance, clamp at zero and eat the loss, or freeze the account. **Do not let the balance silently clamp by accident.** |
