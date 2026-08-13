@@ -158,14 +158,18 @@ function resolveStorageUrl(url: string): string {
  * guessing: a transient catalogue outage shouldn't silently switch the voice on
  * a user who picked a valid one.
  */
-async function resolveVoiceId(requested?: string): Promise<string> {
+export async function resolveVoiceId(
+  requested?: string,
+  // Injected for tests; defaults to the active provider so callers are unchanged.
+  voice: Pick<typeof providers.voice, 'listVoices' | 'name'> = providers.voice,
+): Promise<string> {
   try {
-    const voices = await providers.voice.listVoices();
+    const voices = await voice.listVoices();
     if (voices.length === 0) return requested ?? '';
     if (requested && voices.some((v) => v.id === requested)) return requested;
     consoleLogger.warn('voice id not offered by provider; falling back', {
       requested: requested ?? '(unset)',
-      provider: providers.voice.name,
+      provider: voice.name,
       fallback: voices[0].id,
     });
     return voices[0].id;
@@ -185,7 +189,7 @@ interface PipelineAsset {
 }
 
 /** Builds the AI prompt for an `image_ads` job from the scraped/edited product info (F3). */
-function buildImageAdsPrompt(params: Record<string, unknown>, index: number): string {
+export function buildImageAdsPrompt(params: Record<string, unknown>, index: number): string {
   const title = typeof params.productTitle === 'string' && params.productTitle.trim() ? params.productTitle.trim() : 'Proizvod';
   const price = typeof params.price === 'string' && params.price.trim() ? params.price.trim() : '';
   const notes = typeof params.offerNotes === 'string' && params.offerNotes.trim() ? params.offerNotes.trim() : '';
