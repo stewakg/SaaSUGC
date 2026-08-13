@@ -23,6 +23,10 @@ import { isAdminEmail } from '@/lib/admin';
  */
 const LIVE_TOOL_LINKS: Partial<Record<JobType, string>> = {
   image_ads: '/app/ai-slike',
+  // Same wizard as matrix: the montage switch in step 3 sends the `revoice` job
+  // type instead. Until 2026-08-14 this pipeline had a price, a descriptor and
+  // full test coverage, and nothing in the app could reach it.
+  revoice: '/app/matrix',
   matrix: '/app/matrix',
   enhance: '/app/enhance',
   remove_text: '/app/remove-text',

@@ -19,6 +19,7 @@ import { JobWizard, type WizardStep } from '@/components/job-wizard';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
 import { uploadFile, type UploadedFile } from '@/lib/upload-file';
 import type { ClipSuggestion } from '@/lib/clip-search';
+import type { JobType } from '@adgen/db';
 
 /** 96 → "1:36". Suggestions are short, so hours are not worth handling. */
 function formatDuration(sec: number): string {
@@ -217,6 +218,13 @@ export default function MatrixPage() {
   // Step 2 — voice / captions / variants
   const [tone, setTone] = useState('energetic');
   const [count, setCount] = useState(5);
+  /**
+   * On = cut the clips into a fresh montage per variant (`matrix`). Off = keep
+   * each clip whole and change only the narration (`revoice`, cheaper because
+   * it skips scene detection). Defaults to on: montage is what the tool is for,
+   * and revoice is the deliberate exception.
+   */
+  const [montage, setMontage] = useState(true);
   const [aspect, setAspect] = useState<MatrixAspect>(DEFAULT_MATRIX_ASPECT);
   const [voices, setVoices] = useState<VoiceOption[]>(VOICES_LOADING);
   const [voiceId, setVoiceId] = useState('');
@@ -322,7 +330,20 @@ export default function MatrixPage() {
   // picker the user had just used did nothing.
   const usingApprovedScripts = mode === 'advanced' && scripts.length > 0;
   const effectiveCount = usingApprovedScripts ? scripts.length : count;
-  const cost = computeJobCost('matrix', effectiveCount);
+
+  /**
+   * Montage on = `matrix` (scene-detect the clips and cut a fresh video per
+   * variant). Montage off = `revoice` — the SAME pipeline with detection
+   * skipped, so the clip is kept whole and only the narration changes.
+   *
+   * `revoice` has had a full pipeline, its own descriptor and a price since F4
+   * and was reachable from nowhere: no page, no card, no link. Rather than
+   * duplicate a 1400-line wizard to expose one boolean, the wizard sends the
+   * other job type — the two differ by exactly this switch, which is also why
+   * revoice is cheaper (8 vs 15): no detection, no montage.
+   */
+  const jobType: JobType = montage ? 'matrix' : 'revoice';
+  const cost = computeJobCost(jobType, effectiveCount);
   const captionStyle = `cap:${captionFont}:${captionAnim}:${captionColor}`;
 
   async function handleFiles(files: File[]) {
@@ -521,7 +542,7 @@ export default function MatrixPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'matrix',
+          type: jobType,
           // One video per approved script — the worker loops over the scripts
           // it is given, not over `count`. Sending the picker's `count` here
           // would bill for 5 videos and deliver 3 when the user kept only 3.
@@ -916,6 +937,44 @@ export default function MatrixPage() {
               ))}
             </div>
           </label>
+          {/*
+            The switch that turns this wizard into the `revoice` tool. That job
+            type has had a pipeline, a price and a descriptor since F4 and was
+            reachable from nowhere in the app — no page, no card, no link. It is
+            the same pipeline with scene detection skipped, so exposing it as a
+            toggle is honest and costs one boolean, where a second 1400-line
+            wizard would have been a copy waiting to drift.
+          */}
+          <div className="rounded-card border border-line p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <span className="block text-sm text-txt-hi">Iseci klipove u montažu</span>
+                <span className="mt-0.5 block text-xs text-txt-mid">
+                  {montage
+                    ? 'Klipovi se seku na kadrove i svaka verzija dobija svoju montažu.'
+                    : 'Klip ostaje ceo — menja se samo naracija. Jeftinije po videu.'}
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={montage}
+                aria-label="Iseci klipove u montažu"
+                onClick={() => setMontage((on) => !on)}
+                className={`focus-ring relative h-6 w-11 shrink-0 rounded-full border transition ${
+                  montage ? 'border-accent-ring bg-accent' : 'border-line bg-panel-2'
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-panel transition-all ${
+                    montage ? 'left-[22px]' : 'left-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
           <label className="block">
             <span className="mb-1 block text-sm text-txt-mid">Format videa</span>
             <div className="flex flex-wrap gap-2">
