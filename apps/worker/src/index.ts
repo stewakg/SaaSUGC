@@ -538,13 +538,31 @@ export async function runMediaEditPipeline(
   return [{ kind: 'video', url, storageKey }];
 }
 
-async function runPipeline(type: string, params: Record<string, unknown>): Promise<PipelineAsset[]> {
+export async function runPipeline(
+  type: string,
+  params: Record<string, unknown>,
+  // Injected for tests; defaults are the real singletons/pipelines so processJob
+  // and every other caller behave exactly as before.
+  deps: {
+    ai: typeof providers.ai;
+    renderer: typeof providers.renderer;
+    persist: typeof persistRemoteAsset;
+    runMatrix: typeof runMatrixPipeline;
+    runMediaEdit: typeof runMediaEditPipeline;
+  } = {
+    ai: providers.ai,
+    renderer: providers.renderer,
+    persist: persistRemoteAsset,
+    runMatrix: runMatrixPipeline,
+    runMediaEdit: runMediaEditPipeline,
+  },
+): Promise<PipelineAsset[]> {
   const count = typeof params.count === 'number' && params.count > 0 ? Math.floor(params.count) : 1;
 
   if (type === 'image_ads') {
     const assets: PipelineAsset[] = [];
     for (let i = 0; i < count; i++) {
-      const generated = await providers.ai.generateImage({
+      const generated = await deps.ai.generateImage({
         prompt: buildImageAdsPrompt(params, i),
         size: '1080x1080',
       });
@@ -554,26 +572,26 @@ async function runPipeline(type: string, params: Record<string, unknown>): Promi
       // provider already did (storageKey set means it is ours).
       const owned = generated.storageKey
         ? { url: generated.url, storageKey: generated.storageKey }
-        : await persistRemoteAsset(generated.url, 'image-ads');
+        : await deps.persist(generated.url, 'image-ads');
       assets.push({ kind: 'image', url: owned.url, storageKey: owned.storageKey });
     }
     return assets;
   }
 
   if (type === 'matrix') {
-    return runMatrixPipeline(params);
+    return deps.runMatrix(params);
   }
 
   // Same chain, scene detection off: the clip is kept whole and re-voiced once
   // per variant. See the note on runMatrixPipeline.
   if (type === 'revoice') {
-    return runMatrixPipeline(params, { montage: false });
+    return deps.runMatrix(params, { montage: false });
   }
 
   const sourceUrl = typeof params.sourceUrl === 'string' ? params.sourceUrl : '';
 
   if (type === 'enhance' || type === 'remove_text') {
-    return runMediaEditPipeline(type, sourceUrl, params);
+    return deps.runMediaEdit(type, sourceUrl, params);
   }
 
   // ⚠️ Everything that reaches this line — quick_test, edit, mix, translate, and
@@ -591,14 +609,14 @@ async function runPipeline(type: string, params: Record<string, unknown>): Promi
   // handler marks the job `error` and returns BEFORE charge_credits runs, so the
   // user keeps their credits and sees a failure rather than someone else's
   // cartoon. Delete this guard the moment a real renderer is wired.
-  if (providers.renderer.name === 'mock-renderer') {
+  if (deps.renderer.name === 'mock-renderer') {
     throw new Error(
       `tool_not_implemented: "${type}" nema pravi renderer — posao nije naplaćen. ` +
         `Alat je u izradi; Matrix i AI slike rade.`,
     );
   }
 
-  const { videoUrl, storageKey } = await providers.renderer.render({ composition: type, props: params });
+  const { videoUrl, storageKey } = await deps.renderer.render({ composition: type, props: params });
   return [{ kind: 'video', url: videoUrl, storageKey: storageKey ?? null }];
 }
 
