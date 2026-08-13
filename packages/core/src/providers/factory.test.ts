@@ -67,6 +67,7 @@ const PROVIDER_KEYS = [
   'R2_ACCESS_KEY_ID',
   'R2_SECRET_ACCESS_KEY',
   'R2_PUBLIC_URL',
+  'R2_ENDPOINT',
   'AWS_S3_BUCKET',
   'AWS_ACCESS_KEY_ID',
   'AWS_SECRET_ACCESS_KEY',
@@ -293,6 +294,36 @@ describe('E. Storage — partial-config falls back to mock + warns', () => {
     });
     const p = createProviders();
     expect(p.storage.name).not.toBe(MOCK_NAME.storage);
+  });
+
+  it('11b. with no R2_ENDPOINT the account-id endpoint form is built', async () => {
+    const { createProviders } = await withEnv({
+      R2_BUCKET: 'test-bucket',
+      R2_ACCOUNT_ID: 'acct',
+      R2_ACCESS_KEY_ID: 'ak',
+      R2_SECRET_ACCESS_KEY: 'sk',
+      R2_PUBLIC_URL: 'https://example.invalid',
+    });
+    const p = createProviders();
+    expect((p.storage as { endpoint?: string }).endpoint).toBe('https://acct.r2.cloudflarestorage.com');
+  });
+
+  it('11c. R2_ENDPOINT overrides it — an EU-jurisdiction bucket needs its own endpoint', async () => {
+    // Cloudflare serves a DIFFERENT S3 endpoint per bucket jurisdiction. This
+    // project's bucket is EU, and the derived default form fails against it with
+    // "bucket not found" — a failure that only surfaces on the first real call,
+    // which is exactly the kind this suite exists to catch beforehand.
+    const { createProviders } = await withEnv({
+      R2_BUCKET: 'test-bucket',
+      R2_ACCOUNT_ID: 'acct',
+      R2_ACCESS_KEY_ID: 'ak',
+      R2_SECRET_ACCESS_KEY: 'sk',
+      R2_PUBLIC_URL: 'https://example.invalid',
+      R2_ENDPOINT: 'https://acct.eu.r2.cloudflarestorage.com',
+    });
+    const p = createProviders();
+    expect((p.storage as { endpoint?: string }).endpoint).toBe('https://acct.eu.r2.cloudflarestorage.com');
+    expect((p.storage as { endpoint?: string }).endpoint).not.toBe('https://acct.r2.cloudflarestorage.com');
   });
 
   it('12. no R2 but AWS_S3_BUCKET + creds + public URL → real storage', async () => {

@@ -23,6 +23,15 @@ export const SIGNED_UPLOAD_TTL_SECONDS = 15 * 60; // 15 minutes
 
 export class S3CompatibleStorage implements Storage {
   readonly name = 's3-storage';
+  /**
+   * The S3 endpoint actually in use, exposed for diagnostics. Cloudflare serves
+   * a different endpoint per bucket JURISDICTION (an EU bucket lives at
+   * `<account>.eu.r2.cloudflarestorage.com`), and pointing the default form at
+   * an EU bucket fails every request with "bucket not found" — a failure that
+   * only shows up on the first real call. Surfacing it lets the startup log and
+   * the tests state which one was chosen instead of guessing.
+   */
+  readonly endpoint?: string;
   private readonly client: S3Client;
 
   constructor(
@@ -35,6 +44,7 @@ export class S3CompatibleStorage implements Storage {
       secretAccessKey: string;
     },
   ) {
+    this.endpoint = config.endpoint;
     this.client = new S3Client({
       region: config.region ?? 'auto',
       endpoint: config.endpoint,

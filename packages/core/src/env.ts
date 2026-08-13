@@ -65,6 +65,17 @@ const EnvSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET: z.string().optional(),
   R2_PUBLIC_URL: optionalUrl(),
+  /**
+   * S3 endpoint override. Cloudflare serves a DIFFERENT endpoint per bucket
+   * jurisdiction — an EU-jurisdiction bucket lives at
+   * `https://<account>.eu.r2.cloudflarestorage.com`, not the default
+   * `https://<account>.r2.cloudflarestorage.com`, and using the wrong one fails
+   * every request with "bucket not found". This project's bucket is EU (the
+   * Privacy page promises customer data stays in the EU), so the endpoint is
+   * copied verbatim from the Cloudflare dashboard rather than guessed. Leave it
+   * unset for a default-jurisdiction bucket and the account-id form is built.
+   */
+  R2_ENDPOINT: optionalUrl(),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_REGION: z.string().optional(),

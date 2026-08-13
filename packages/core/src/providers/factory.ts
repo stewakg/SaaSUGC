@@ -152,7 +152,14 @@ function createStorageProvider(env: ReturnType<typeof loadEnv>): Storage {
     return new S3CompatibleStorage({
       bucket: env.R2_BUCKET!,
       publicBaseUrl: env.R2_PUBLIC_URL!,
-      endpoint: `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      // R2_ENDPOINT wins when set. Cloudflare serves a different S3 endpoint per
+      // bucket JURISDICTION: an EU bucket is `<account>.eu.r2.cloudflarestorage.com`,
+      // and pointing the default form at it fails every request with "bucket not
+      // found". This project's bucket is EU (the Privacy page promises customer
+      // data stays in the EU), so the value is copied from the dashboard rather
+      // than derived. The account-id form remains the fallback for a
+      // default-jurisdiction bucket, which is what every earlier deploy assumed.
+      endpoint: env.R2_ENDPOINT ?? `https://${env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
       accessKeyId: env.R2_ACCESS_KEY_ID!,
       secretAccessKey: env.R2_SECRET_ACCESS_KEY!,
     });
