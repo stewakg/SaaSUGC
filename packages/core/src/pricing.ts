@@ -62,8 +62,14 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
   },
   {
     type: 'matrix',
-    label: 'Matrix',
-    description: 'Kompletan video paket: skripta, glas, titl, muzika, CTA.',
+    // Renamed from "Matrix" 2026-08-13. "Matrix" is our internal word for the
+    // job type (and stays as `type: 'matrix'` everywhere) but told a customer
+    // nothing. The description also promised MUSIC, which the product does not
+    // supply — there is no sound library, the user brings their own file
+    // (RELEASE_PLAN: explicitly not in v1). It now names the actual mechanic:
+    // it cuts YOUR clips and assembles several different videos from them.
+    label: 'Video reklame',
+    description: 'Od tvojih klipova pravi 5–15 različitih reklama.',
     cost: JOB_COST.matrix,
     icon: 'video',
     theme: 'orange',
@@ -112,7 +118,7 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     tier: 'main',
     benefits: [
       'Ubaciš klipove jednom, dobiješ više vrsta reklama',
-      'Deo su Matrix videi sa AI titlovima',
+      'Deo su video reklame sa AI titlovima',
       'Deo su Edit videi sa AI scenama',
     ],
   },
