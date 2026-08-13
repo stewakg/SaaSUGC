@@ -100,7 +100,11 @@ export async function POST(request: NextRequest) {
     .select('id')
     .single();
   if (insertError || !job) {
-    return NextResponse.json({ error: insertError?.message ?? 'insert_failed' }, { status: 500 });
+    // The Postgres message can name tables, columns and constraints, so it is
+    // logged rather than returned — same posture as the billing routes. The
+    // client only needs to know the job was not created.
+    console.error('[jobs] insert failed:', insertError?.message ?? 'no row returned');
+    return NextResponse.json({ error: 'insert_failed' }, { status: 500 });
   }
 
   await getQueue().add(type, { jobId: job.id });
