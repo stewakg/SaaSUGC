@@ -80,8 +80,15 @@ const EnvSchema = z.object({
   // can be deployed in a different AWS region than the storage bucket.
   REMOTION_AWS_REGION: z.string().optional(),
 
-  // No billing vars: Lemon Squeezy was removed 2026-08-10 and nothing replaced
-  // it yet. Dev credits come from GET /api/dev/credits/add (add_credits RPC).
+  // --- Billing ---
+  LEMONSQUEEZY_API_KEY: z.string().optional(),
+  LEMONSQUEEZY_STORE_ID: z.string().optional(),
+  LEMONSQUEEZY_WEBHOOK_SECRET: z.string().optional(),
+  LEMONSQUEEZY_VARIANT_MAP: z.string().optional(),
+
+  // Public app URL — Lemon Squeezy's hosted checkout redirects buyers back
+  // here after payment. Defaults to the local web origin (see factory.ts).
+  WEB_PUBLIC_URL: z.string().optional(),
 
   // --- Local storage root (dev mock Storage) ---
   LOCAL_STORAGE_DIR: z.string().default('./storage'),

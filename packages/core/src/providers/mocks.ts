@@ -7,12 +7,14 @@
  */
 import type {
   AIProvider,
+  Billing,
   Renderer,
   ScriptProvider,
   Scraper,
   Storage,
   VoiceProvider,
 } from '../interfaces.ts';
+import { CREDIT_PACKS } from '../pricing.ts';
 import { resolveLocalStorageDir } from '../storage-path.ts';
 
 /** Deterministic small delay so progress/loading states are testable. */
@@ -159,6 +161,23 @@ export class MockScraper implements Scraper {
       images: [placeholderImage('PROIZVOD', seedCounter++)],
       description: `Ovo je mock scrapovan sadržaj za ${url}. Pravi Scraper (fetch + cheerio) se dodaje u F3.`,
     };
+  }
+}
+
+// ----------------------------------------------------------------------------
+export class MockBilling implements Billing {
+  readonly name = 'mock-billing';
+  async listPacks() {
+    return CREDIT_PACKS.map((p) => ({ id: p.id, credits: p.credits, priceEUR: p.priceEUR }));
+  }
+  async createCheckout(_userId: string, packId: string) {
+    // In dev: pretend the checkout succeeded immediately by returning a magic
+    // internal URL the dev "add credits" button recognises.
+    return { url: `/api/dev/credits/add?pack=${packId}&mock=1` };
+  }
+  async parseWebhook(_req: Request) {
+    /* no-op in mock; credits are added synchronously by the dev endpoint */
+    return null;
   }
 }
 

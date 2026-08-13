@@ -113,17 +113,24 @@ export interface Storage {
   getUrl(key: string): string;
 }
 
-/*
- * There is deliberately NO `Billing` interface here. Lemon Squeezy was wired
- * (never live-tested) and removed wholesale on 2026-08-10 — the owner decided
- * it will not be used. Nothing replaced it yet, so rather than keep an
- * abstraction with one mock implementation and no caller, the whole layer went.
- * Credits are granted in dev through `GET /api/dev/credits/add`, which calls
- * the `add_credits` RPC directly; `CREDIT_PACKS` still lives in pricing.ts and
- * still drives the dashboard's pack cards. When a real payment provider is
- * chosen, reintroduce the interface then — the shape will follow that
- * provider's webhook, not Lemon Squeezy's.
- */
+/** Mock (instant credit in dev) → Lemon Squeezy (launch). */
+export interface Billing {
+  readonly name: string;
+  listPacks(): Promise<{ id: string; credits: number; priceEUR: number }[]>;
+  createCheckout(userId: string, packId: string): Promise<{ url: string }>;
+  /**
+   * Verifies + parses an incoming payment-provider webhook request. Returns
+   * the credit grant to apply (userId + amount + reason) for a successful
+   * paid event, or null for an event that doesn't grant credits (refund,
+   * unhandled event type, etc). The DB write is the caller's job —
+   * providers in @adgen/core have no DB dependency, matching how the
+   * worker and apps/web routes already own all DB writes directly.
+   * Implementations should THROW on signature verification failure so the
+   * caller can reject the request (400), as distinct from returning null
+   * for a validly-signed but irrelevant event (caller should still ack 200).
+   */
+  parseWebhook(req: Request): Promise<{ userId: string; amount: number; reason: string; orderId: string } | null>;
+}
 
 /**
  * Product page → {title, price, images}. Can be REAL from day one (no paid

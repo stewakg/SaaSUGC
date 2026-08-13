@@ -17,6 +17,7 @@ export type { Providers } from './providers/factory.ts';
 export { consoleLogger } from './logger.ts';
 export {
   MockAIProvider,
+  MockBilling,
   MockRenderer,
   MockScriptProvider,
   MockScraper,

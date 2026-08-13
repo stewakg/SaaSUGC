@@ -10,6 +10,7 @@
 import { hasKey, loadEnv } from '../env.ts';
 import type {
   AIProvider,
+  Billing,
   Renderer,
   ScriptProvider,
   Scraper,
@@ -18,6 +19,7 @@ import type {
 } from '../interfaces.ts';
 import {
   MockAIProvider,
+  MockBilling,
   MockRenderer,
   MockScriptProvider,
   MockScraper,
@@ -32,6 +34,7 @@ import { RemotionLambdaRenderer } from './renderer.lambda.ts';
 import type { AwsRegion } from '@remotion/lambda-client';
 import { FalMediaEditProvider } from './media-edit.fal.ts';
 import { RealScraper } from './scraper.real.ts';
+import { LemonSqueezyBilling } from './billing.lemonsqueezy.ts';
 
 export interface Providers {
   ai: AIProvider;
@@ -40,6 +43,7 @@ export interface Providers {
   renderer: Renderer;
   storage: Storage;
   scraper: Scraper;
+  billing: Billing;
   /**
    * Upscaling and text removal (F5). `null` when `FAL_API_KEY` is absent —
    * unlike every other slot there is no mock counterpart, and inventing one
@@ -76,6 +80,8 @@ export function createProviders(overrides: Partial<Providers> = {}): Providers {
   // fetch/parse failure, so a bad URL never hard-fails the wizard.
   const scraper: Scraper = overrides.scraper ?? (env.FORCE_MOCK ? new MockScraper() : new RealScraper());
 
+  const billing: Billing = overrides.billing ?? createBillingProvider(env);
+
   const mediaEdit =
     overrides.mediaEdit !== undefined
       ? overrides.mediaEdit
@@ -83,7 +89,7 @@ export function createProviders(overrides: Partial<Providers> = {}): Providers {
         ? new FalMediaEditProvider({ apiKey: env.FAL_API_KEY! })
         : null;
 
-  return { ai, script, voice, renderer, storage, scraper, mediaEdit };
+  return { ai, script, voice, renderer, storage, scraper, billing, mediaEdit };
 }
 
 /**
@@ -194,6 +200,32 @@ function createRendererProvider(env: ReturnType<typeof loadEnv>, storage: Storag
     },
     storage,
   );
+}
+
+/**
+ * Billing provider switch (F6). Must not throw on a partial config — a user who
+ * sets only LEMONSQUEEZY_API_KEY without the store/webhook/variant-map vars must
+ * NOT crash the whole web process at module load; fall back to mock with a
+ * warning instead, the same posture as createStorageProvider.
+ */
+function createBillingProvider(env: ReturnType<typeof loadEnv>): Billing {
+  if (!hasKey(env, 'LEMONSQUEEZY_API_KEY')) return new MockBilling();
+  try {
+    return new LemonSqueezyBilling({
+      apiKey: env.LEMONSQUEEZY_API_KEY!,
+      storeId: env.LEMONSQUEEZY_STORE_ID ?? '',
+      webhookSecret: env.LEMONSQUEEZY_WEBHOOK_SECRET ?? '',
+      variantMapJson: env.LEMONSQUEEZY_VARIANT_MAP,
+      appUrl: env.WEB_PUBLIC_URL ?? 'http://localhost:3000',
+    });
+  } catch (err) {
+    console.warn(
+      `[core] LEMONSQUEEZY_API_KEY is set but billing config is incomplete — falling back to mock billing: ${
+        err instanceof Error ? err.message : err
+      }`,
+    );
+    return new MockBilling();
+  }
 }
 
 /** Quick helper for code that only needs one provider. */
