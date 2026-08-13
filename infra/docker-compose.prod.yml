@@ -61,5 +61,42 @@ services:
       redis:
         condition: service_healthy
 
+  web:
+    build:
+      context: ../
+      dockerfile: apps/web/Dockerfile
+    container_name: adgen-web-prod
+    restart: unless-stopped
+    env_file:
+      - ../apps/web/.env
+    environment:
+      # Same reasoning as the worker: the app must reach THIS stack's redis by
+      # service name, not whatever REDIS_URL the .env carries for local dev.
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: production
+    ports:
+      # Port 80 straight to Next, no reverse proxy yet: there is no domain, so
+      # there is no certificate to get. Caddy goes in front the moment a domain
+      # exists — that is the only change needed for TLS.
+      - '80:3000'
+    # Without this, compose reports a hung Next process as "Up" and no restart
+    # policy fires — the container is running, it just answers nothing. Uses
+    # node, already in the image, so no curl/wget dependency is added.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "require('http').get('http://127.0.0.1:3000/',r=>process.exit(r.statusCode<500?0:1)).on('error',()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   redis_data:

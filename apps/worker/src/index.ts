@@ -183,6 +183,36 @@ export async function resolveVoiceId(
   }
 }
 
+/**
+ * Turn the first product image into a sentence the script model can use.
+ *
+ * The wizard has always collected `sourceImages`, and the script model has been
+ * writing from a title and a price alone — so an ad for a "masažer za vrat"
+ * never mentioned that the thing in the photo is worn over the shoulders. The
+ * provider's `describeImage` is optional (it needs a vision-capable model), so
+ * every failure path here degrades to "no extra context" rather than failing the
+ * job: a worse script is bad, a dead job is worse.
+ */
+export async function describeProductImage(
+  params: Record<string, unknown>,
+  language: string,
+  script: Pick<typeof providers.script, 'describeImage'> = providers.script,
+): Promise<string> {
+  const images = Array.isArray(params.sourceImages) ? params.sourceImages : [];
+  const first = images.find((u): u is string => typeof u === 'string' && u.trim().length > 0);
+  if (!first) return '';
+  if (typeof script.describeImage !== 'function') return '';
+  try {
+    const described = await script.describeImage(first, language);
+    return described.trim();
+  } catch (err) {
+    consoleLogger.warn('describeImage failed; writing the script without it', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return '';
+  }
+}
+
 interface PipelineAsset {
   kind: AssetKind;
   url: string;
@@ -282,11 +312,23 @@ export async function runMatrixPipeline(
   // it would silently discard the text the user chose and bill them for a
   // second generation they never asked for.
   const approved = approvedScripts(params.scripts);
+  // Free-form product context that reaches the script prompt. The image
+  // description is appended to THIS field (not `product`) because `benefits` is
+  // the one the model reads as "extra things to know about the product".
+  const benefits = [description, offerNotes].filter(Boolean).join(' · ');
+  // Show the script model the product photo, not just title + price. The
+  // provider's `describeImage` is optional (needs a vision model) and every
+  // failure path degrades to no extra context — a worse script is bad, a dead
+  // job is worse. Resolved ONCE here (one network round trip) and shared by
+  // every variant: never per-variant, since the pool shares one product. Skipped
+  // when the user already approved scripts, since no generation happens then.
+  const seen = approved ? '' : await describeProductImage(params, language);
+  const benefitsWithImage = seen ? `${benefits}\nNa slici se vidi: ${seen}`.trim() : benefits;
   const { variants } = approved
     ? { variants: approved.slice(0, count) }
     : await providers.script.generateVariants({
         product: price ? `${productTitle} (${price})` : productTitle,
-        benefits: [description, offerNotes].filter(Boolean).join(' · '),
+        benefits: benefitsWithImage,
         tone,
         language,
         style: 'ugc',
