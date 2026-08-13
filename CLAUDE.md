@@ -136,9 +136,11 @@ renderer, R2 signed-URL generation, the SSRF guard and admin identification, the
 `apps/web/.next`; building while dev is up 404s `main-app.js`, kills hydration, and serves
 pages with NO stylesheet — which has now cost three separate debugging detours, once producing
 an audit that reported every element as unstyled. Provider reality as of 2026-08-10: **kie.ai, fal.ai, ElevenLabs and
-OpenRouter have all been called live** (see `INFRASTRUCTURE.md` F5); **R2 and Remotion
-Lambda are still CODE-COMPLETE and have never been called with a real key** — treat those
-two as unverified until a real call happens. **Billing is back as of 2026-08-13**: the owner
+OpenRouter have all been called live** (see `INFRASTRUCTURE.md` F5); **R2 and Remotion Lambda are LIVE as of
+2026-08-13** — the owner created an EU-jurisdiction R2 bucket and deployed the Lambda function
+and site, and the first real render ran end to end through OUR renderer (not the Remotion CLI):
+26.8s for a 5s clip, the finished mp4 landed in R2, and the returned url was ours, not the AWS
+S3 one — so the "take ownership" path is proven, not assumed. **Billing is back as of 2026-08-13**: the owner
 chose Lemon Squeezy as the launch provider (a merchant of record carries the EU VAT that a
 Serbian entity otherwise would; an own entity + Stripe is a later question). The layer deleted
 on 2026-08-10 was restored from `d8dfb49^` — so it still carries the webhook idempotency from

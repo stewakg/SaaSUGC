@@ -50,6 +50,56 @@ NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewe
 
 ---
 
+## 2026-08-13 (twelfth session) — R2 and Lambda stop being code-complete
+**Account:** _(unrecorded)_ · **Machine:** primary. **Deliberately left uncommitted: nothing**
+(the `.env` values are the owner's and are gitignored by design).
+
+**The two things this project had described as "written but never executed" for weeks are now
+executed.** The owner created the infrastructure while I drove the deploys and verified each step
+against the code rather than against a screenshot.
+
+**R2 (L1.3).** Bucket `adgenwebsaas`, **EU jurisdiction**, API token scoped to that single bucket,
+public dev URL enabled. ✅ VERIFIED by probe: `createProviders()` resolves `s3-storage`, not the
+mock, and the endpoint in use is the EU one.
+
+⚠️ **The EU choice exposed a real bug before it could cost anything** (`7c7a1fd`). The endpoint was
+derived as `https://<account>.r2.cloudflarestorage.com` — correct ONLY for a default-jurisdiction
+bucket. Cloudflare serves a per-jurisdiction endpoint, and an EU bucket at the derived address
+fails every request with "bucket not found", which reads like a credentials problem. Added
+`R2_ENDPOINT` (copied verbatim from the dashboard, derived form kept as the fallback) and exposed
+`S3CompatibleStorage.endpoint` so the choice is inspectable. Two tests pin both branches.
+
+**Remotion Lambda (L2.3).** IAM user + role with Remotion's own generated policies, function
+`remotion-render-4-0-490-mem2048mb-disk2048mb-120sec` and site `adgen`, both in `eu-central-1`.
+`@remotion/lambda@4.0.490` had to be installed — only `lambda-client` was present, and the CLI
+package is what deploys. Pinned to match: a version drift between function, CLI and client is the
+classic Lambda failure mode.
+
+✅ **RUNTIME-VERIFIED, and deliberately through OUR code rather than the Remotion CLI**, because
+the CLI would only have proven Remotion works. A render driven through `RemotionLambdaRenderer`
+took **26.8s** for a 5s clip and returned
+`https://pub-….r2.dev/renders/lambda-4ijxax6y31.mp4` — asserted in the probe to be our R2 url and
+NOT an `amazonaws.com` one. So the ownership transfer that `renderer.lambda.test.ts` has been
+asserting against mocks since 2026-08-12 does the same thing against real AWS. The owner opened
+the link and the video plays.
+
+**What that closes:** the CODE-COMPLETE caveat on both R2 and Lambda, and the L2.3 sequencing rule
+(R2 first) was respected — R2 existed before the first Lambda render, so no file was ever copied
+to a worker's local disk.
+
+**Still NOT verified:** Lemon Squeezy (`billing` still resolves to `mock-billing` — it waits on the
+company, see below), `enhance`/`remove_text` against real fal.ai (now UNBLOCKED, since a public R2
+url exists), and the wizard has still never been clicked by a human.
+
+**A non-technical blocker surfaced, and it gates the money path.** The owner is operating from
+Frankfurt with his own cards, intending to transfer everything to a friend's LLC later. Recorded
+because it changes sequencing, not because it is my call: **no euro may be taken and no real user
+onboarded before that entity exists and Lemon Squeezy is in its name** — otherwise the operator,
+the taxpayer and the GDPR controller are all him, whatever the intent. My earlier tax framing in
+this project assumed Serbia and a paušalac; if he is German-resident that advice was wrong, and a
+US LLC managed from Germany does not avoid German taxation. Flagged for a Steuerberater; I am not
+one.
+
 ## 2026-08-12 (eleventh session) — the untested modules, and two Lambda findings turned into fixes
 **Account:** _(unrecorded)_ · **Machine:** primary. **7 commits**, `99916f5..9050706`, all
 pushed. **Deliberately left uncommitted: nothing.**
