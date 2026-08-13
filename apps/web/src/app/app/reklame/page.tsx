@@ -1,5 +1,6 @@
-import { getJobDescriptor, creditsLabel } from '@adgen/core/pricing';
+import { getJobDescriptor } from '@adgen/core/pricing';
 import { createServerClient } from '@/lib/supabase/server';
+import { costLabel, humanError } from '@/lib/job-display';
 import type { JobStatus, JobType } from '@adgen/db';
 
 const STATUS_LABEL: Record<JobStatus, string> = {
@@ -24,33 +25,6 @@ interface JobRow {
   result: { assets?: { kind: string; url: string }[] } | null;
   error: string | null;
   created_at: string;
-}
-
-/**
- * `job.cost` is the price quoted when the job was *enqueued*, not money that
- * actually moved. The worker charges on success only, so anything that is not
- * `done` has not been billed: an `error` job never reaches `charge_credits`,
- * and `queued`/`running` are still only an estimate. Rendering the bare figure
- * for every status is what made a failed placeholder-tool job read as
- * "… · 2 kredita · tool_not_implemented: …" — i.e. as if the user had been
- * charged for a job that produced nothing. They had not. Hence per-status copy.
- */
-function costLabel(status: JobStatus, cost: number): string {
-  if (status === 'done') return creditsLabel(cost);
-  if (status === 'error') return 'nije naplaćeno';
-  return `procena: ${creditsLabel(cost)}`;
-}
-
-/** Machine prefix on worker errors, e.g. `tool_not_implemented: `. */
-const ERROR_CODE_PREFIX = /^[a-z0-9_]+:\s*/;
-
-/**
- * Worker errors arrive as `<code>: <poruka na srpskom>`. The part after the
- * code is already user-facing, so drop the code; if there is no such prefix
- * (or nothing left after it), show the string as-is rather than nothing.
- */
-function humanError(error: string): string {
-  return error.replace(ERROR_CODE_PREFIX, '').trim() || error;
 }
 
 /**
