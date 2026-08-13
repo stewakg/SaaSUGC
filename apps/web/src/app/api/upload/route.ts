@@ -52,6 +52,31 @@ const ALLOWED_TYPES = new Set([
   'audio/x-m4a',
 ]);
 
+/**
+ * Canonical extension per allowed MIME type. The stored key's extension is
+ * derived from the type we validated, never from the client-supplied filename —
+ * `/api/storage` picks the response Content-Type by extension, so letting the
+ * filename choose it would let an upload be served as a type it is not.
+ *
+ * Keep this in lockstep with ALLOWED_TYPES above (every allowed type has exactly
+ * one extension here) AND with CONTENT_TYPES in `/api/storage/[...path]`, which
+ * must be able to serve every extension this can produce.
+ */
+const EXT_BY_TYPE: Record<string, string> = {
+  'video/mp4': '.mp4',
+  'video/quicktime': '.mov',
+  'video/webm': '.webm',
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/webp': '.webp',
+  'audio/mpeg': '.mp3',
+  'audio/wav': '.wav',
+  'audio/x-wav': '.wav',
+  'audio/ogg': '.ogg',
+  'audio/mp4': '.m4a',
+  'audio/x-m4a': '.m4a',
+};
+
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
   const {
@@ -79,7 +104,7 @@ export async function POST(request: NextRequest) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const ext = file.name.includes('.') ? file.name.slice(file.name.lastIndexOf('.')) : '';
+  const ext = EXT_BY_TYPE[file.type] ?? '';
   const key = `uploads/${user.id}/${Date.now()}${ext}`;
 
   const { storage } = createProviders();

@@ -27,14 +27,26 @@ import { createServerClient } from '@/lib/supabase/server';
 
 const ROOT = resolveLocalStorageDir(process.env.LOCAL_STORAGE_DIR ?? './storage');
 
+/**
+ * Response Content-Type per extension. This MUST cover every extension
+ * `/api/upload`'s EXT_BY_TYPE can produce, or a legitimately uploaded file is
+ * served as `application/octet-stream` — and now that the response also carries
+ * `X-Content-Type-Options: nosniff`, the browser will not rescue it by sniffing.
+ * That would silently break exactly the uploads a Matrix ad needs: .m4a/.ogg
+ * background music and SFX. Keep the two lists in lockstep.
+ */
 const CONTENT_TYPES: Record<string, string> = {
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
   '.mp3': 'audio/mpeg',
   '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.m4a': 'audio/mp4',
 };
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
@@ -84,7 +96,16 @@ async function serveFile(resolved: string) {
   try {
     const data = await readFile(resolved);
     const contentType = CONTENT_TYPES[path.extname(resolved).toLowerCase()] ?? 'application/octet-stream';
-    return new NextResponse(data, { headers: { 'Content-Type': contentType } });
+    return new NextResponse(data, {
+      headers: {
+        'Content-Type': contentType,
+        // The type comes from a small allowlist and falls back to
+        // application/octet-stream; nosniff stops a browser overriding that by
+        // sniffing the bytes, which is what would turn an unexpected upload
+        // into rendered content on our own origin.
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
   } catch {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
