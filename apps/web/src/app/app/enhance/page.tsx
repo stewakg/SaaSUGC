@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getJobDescriptor, creditsLabel } from '@adgen/core/pricing';
+import { FileDropzone } from '@/components/file-dropzone';
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
 import { uploadFile } from '@/lib/upload-file';
@@ -38,8 +39,8 @@ export default function EnhancePage() {
   const [genError, setGenError] = useState<string | null>(null);
   const [resultAssets, setResultAssets] = useState<JobAsset[]>([]);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function handleFiles(files: File[]) {
+    const file = files[0];
     if (!file) return;
     setUploadPhase('uploading');
     setUploadError(null);
@@ -85,15 +86,13 @@ export default function EnhancePage() {
       content: (
         <div className="space-y-4">
           <p className="text-sm text-txt-mid">Otpremi sliku ili video kome treba popraviti kvalitet.</p>
-          <label className="block">
-            <input
-              type="file"
-              accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp"
-              onChange={(e) => void handleFileChange(e)}
-              aria-label="Uvezi fajl"
-              className="block w-full text-sm text-txt-mid file:mr-3 file:rounded-control file:border-0 file:bg-accent-soft file:px-3 file:py-2 file:text-sm file:font-medium file:text-accent-text hover:file:bg-accent/20"
-            />
-          </label>
+          <FileDropzone
+            accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp"
+            disabled={uploadPhase === 'uploading'}
+            title="Klikni ili prevuci fajl ovde"
+            hint="MP4, MOV, WEBM, PNG, JPG ili WEBP · do 200MB"
+            onFiles={handleFiles}
+          />
           {uploadPhase === 'uploading' && <p className="text-sm text-txt-mid">Otpremam…</p>}
           {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
           {uploadPhase === 'done' && sourceUrl && (
