@@ -80,9 +80,11 @@ const matrixRenderer =
  * Failure here fails the job on purpose. Falling back to the provider url would
  * "succeed", charge the user, and quietly hand them the same expiring link.
  */
-async function persistRemoteAsset(
+export async function persistRemoteAsset(
   remoteUrl: string,
   keyPrefix: string,
+  // Injected for tests; defaults to the active storage so callers are unchanged.
+  storage: Pick<typeof providers.storage, 'upload'> = providers.storage,
 ): Promise<{ url: string; storageKey: string }> {
   const res = await fetch(remoteUrl);
   if (!res.ok) {
@@ -116,7 +118,7 @@ async function persistRemoteAsset(
    */
   if (!res.body) throw new Error(`empty response body for ${keyPrefix}`);
   const body = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]);
-  const { url } = await providers.storage.upload(storageKey, body, contentType);
+  const { url } = await storage.upload(storageKey, body, contentType);
   return { url, storageKey };
 }
 
@@ -468,16 +470,21 @@ export async function runMatrixPipeline(
  * against the 6 credits (≈€1.20–1.80) this tool earns. That is negative margin
  * before a frame renders, so the job fails with an explanation instead.
  */
-async function runMediaEditPipeline(
+export async function runMediaEditPipeline(
   type: 'enhance' | 'remove_text',
   sourceUrl: string,
   params: Record<string, unknown>,
+  // Injected for tests; defaults keep every caller unchanged.
+  deps: { mediaEdit: typeof providers.mediaEdit; persist: typeof persistRemoteAsset } = {
+    mediaEdit: providers.mediaEdit,
+    persist: persistRemoteAsset,
+  },
 ): Promise<PipelineAsset[]> {
   if (!sourceUrl) {
     throw new Error(`missing_source: ${type} zahteva otpremljeni fajl.`);
   }
 
-  const mediaEdit = providers.mediaEdit;
+  const mediaEdit = deps.mediaEdit;
   if (!mediaEdit) {
     // No FAL_API_KEY. Fail rather than substitute anything — see the guard at
     // the end of runPipeline for why a placeholder is worse than an error.
@@ -508,7 +515,7 @@ async function runMediaEditPipeline(
       );
     }
     const { url: remoteUrl } = await mediaEdit.removeTextFromImage(absoluteSource);
-    const { url, storageKey } = await persistRemoteAsset(remoteUrl, 'remove-text');
+    const { url, storageKey } = await deps.persist(remoteUrl, 'remove-text');
     return [{ kind: 'image', url, storageKey }];
   }
 
@@ -522,12 +529,12 @@ async function runMediaEditPipeline(
       upscaleFactor,
       faceEnhancement: false,
     });
-    const { url, storageKey } = await persistRemoteAsset(remoteUrl, 'enhance');
+    const { url, storageKey } = await deps.persist(remoteUrl, 'enhance');
     return [{ kind: 'image', url, storageKey }];
   }
 
   const { url: remoteUrl } = await mediaEdit.upscaleVideo(absoluteSource, { upscaleFactor });
-  const { url, storageKey } = await persistRemoteAsset(remoteUrl, 'enhance');
+  const { url, storageKey } = await deps.persist(remoteUrl, 'enhance');
   return [{ kind: 'video', url, storageKey }];
 }
 
