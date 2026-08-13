@@ -276,6 +276,80 @@ body {
     background-image: linear-gradient(160deg, var(--accent-soft), transparent 55%);
   }
 
+  /* ---------------------------------------------------------------------
+     PER-TOOL COLOUR — reintroduced 2026-08-13 at the owner's call, after
+     comparing against EcomAlati's coloured cards. This partially reverses
+     "colour carries state, never identity": identity colour is now allowed on
+     the dashboard cards, and NOWHERE else.
+
+     The reversal is deliberately partial, because the earlier rule was not
+     arbitrary. The competitor paints the whole card in a saturated hue and puts
+     white text on it, which does not survive a contrast check — and this
+     project already shipped one unreadable token (--warn at 1.65:1, carrying
+     legal notices) and spent a session finding it.
+
+     So the hue is a WASH OVER the panel, not a replacement for it: text keeps
+     sitting on --panel and inherits the contrast that was already measured, in
+     all three themes, while the card reads as orange/blue/teal at a glance. The
+     wash is strongest in the corner behind the icon and gone by the time it
+     reaches the body copy.
+
+     MEASURED 2026-08-13, not eyeballed. Text composited over ground -> panel ->
+     tool-a -> tool-b at the wash's STRONGEST corner, all three themes, all six
+     hues. The first attempt (0.22/0.12) failed: --txt-mid landed at 3.94:1 on
+     obsidian/teal and 4.35:1 on obsidian/orange, under the 4.5:1 body text
+     needs. At 0.16/0.09 the worst case is 4.78:1 (obsidian/teal) and --txt-hi
+     never drops below 8.9:1.
+
+     --txt-low is NOT safe on these cards — it measures 3.2-4.4:1 over the wash —
+     and the cards deliberately do not use it (only --txt-hi and --txt-mid, plus
+     the badge). If you ever put --txt-low on a tool card, re-measure first.
+
+     Anything stronger than this must be re-measured per theme before shipping;
+     `--tool-a`/`--tool-b` are the only knobs that need touching.
+     --------------------------------------------------------------------- */
+  .card-tool {
+    @apply card;
+    position: relative;
+    overflow: hidden;
+    background-image:
+      radial-gradient(120% 90% at 0% 0%, var(--tool-a), transparent 62%),
+      linear-gradient(160deg, var(--tool-b), transparent 70%);
+  }
+  .card-tool.card--lift:hover {
+    border-color: var(--tool-edge);
+  }
+  .card-tool--orange {
+    --tool-a: rgba(255, 138, 61, 0.16);
+    --tool-b: rgba(255, 94, 61, 0.09);
+    --tool-edge: rgba(255, 138, 61, 0.55);
+  }
+  .card-tool--blue {
+    --tool-a: rgba(61, 148, 255, 0.16);
+    --tool-b: rgba(61, 108, 255, 0.09);
+    --tool-edge: rgba(61, 148, 255, 0.55);
+  }
+  .card-tool--purple {
+    --tool-a: rgba(155, 108, 255, 0.16);
+    --tool-b: rgba(124, 92, 255, 0.09);
+    --tool-edge: rgba(155, 108, 255, 0.55);
+  }
+  .card-tool--teal {
+    --tool-a: rgba(45, 212, 191, 0.16);
+    --tool-b: rgba(16, 185, 129, 0.09);
+    --tool-edge: rgba(45, 212, 191, 0.55);
+  }
+  .card-tool--pink {
+    --tool-a: rgba(244, 114, 182, 0.16);
+    --tool-b: rgba(217, 70, 239, 0.09);
+    --tool-edge: rgba(244, 114, 182, 0.55);
+  }
+  .card-tool--red {
+    --tool-a: rgba(248, 113, 113, 0.16);
+    --tool-b: rgba(239, 68, 68, 0.09);
+    --tool-edge: rgba(248, 113, 113, 0.55);
+  }
+
   /* MIGRATED to tokens */
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition;

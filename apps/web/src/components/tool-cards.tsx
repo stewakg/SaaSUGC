@@ -11,13 +11,35 @@ interface ToolCardProps {
   cost: number;
   href?: string;
   soon?: boolean;
+  /** Identity hue from the tool descriptor — see toolToneClass below. */
+  theme?: string;
 }
 
 /**
- * "Main tier" dashboard card — neutral `.card`, no per-tool colour. Colour
- * carries state (running/done/error/selected), never tool identity, so every
- * card here shares the same look: icon chip, bold title, one-line
- * description, up to 3 benefit bullets, mono/tabular price badge top-right.
+ * Map a descriptor's `theme` to its card class. Unknown or missing themes fall
+ * back to the neutral card rather than an unstyled one, so a new tool added to
+ * pricing.ts without a matching class still renders correctly.
+ */
+const TOOL_TONE: Record<string, string> = {
+  orange: 'card-tool card-tool--orange',
+  blue: 'card-tool card-tool--blue',
+  purple: 'card-tool card-tool--purple',
+  teal: 'card-tool card-tool--teal',
+  pink: 'card-tool card-tool--pink',
+  red: 'card-tool card-tool--red',
+};
+function toolToneClass(theme?: string): string {
+  return (theme && TOOL_TONE[theme]) || 'card';
+}
+
+/**
+ * "Main tier" dashboard card.
+ *
+ * Per-tool colour returned 2026-08-13 (owner's call, after comparing against
+ * EcomAlati). The wash comes from `.card-tool--<hue>`; the TEXT still sits on
+ * `--panel`, so every contrast measurement taken during the redesign still
+ * holds — see the long comment on `.card-tool` in globals.css for why it is a
+ * wash rather than a fully painted card.
  */
 export function MainToolCard({
   icon,
@@ -27,10 +49,11 @@ export function MainToolCard({
   benefits,
   href,
   soon,
+  theme,
   className,
 }: ToolCardProps & { benefits?: string[]; className?: string }) {
   const card = (
-    <div className={cn('card h-full', href && 'card--lift', soon && 'opacity-80')}>
+    <div className={cn(toolToneClass(theme), 'h-full', href && 'card--lift', soon && 'opacity-80')}>
       <div className="flex items-start justify-between gap-3">
         <ToolIcon icon={icon} />
         {soon ? (

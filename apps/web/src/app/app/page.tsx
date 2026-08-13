@@ -61,6 +61,7 @@ export default async function DashboardPage({
               description={t.description}
               cost={t.cost}
               benefits={t.benefits}
+              theme={t.theme}
               href={LIVE_TOOL_LINKS[t.type]}
               soon={!LIVE_TOOL_LINKS[t.type]}
               className="xl:col-span-2"
