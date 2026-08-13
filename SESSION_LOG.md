@@ -50,6 +50,60 @@ NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewe
 
 ---
 
+## 2026-08-13 (thirteenth session) — infrastructure went live, then the audits found what it broke
+**Account:** _(unrecorded)_ · **Machine:** primary. **Deliberately left uncommitted: nothing.**
+
+Continues the same day as the block below. The owner set up real infrastructure; I drove it,
+verified each step against the code, then ran security and functional audits over the result — and
+the audits earned their keep immediately.
+
+**VPS is live.** Hetzner CX23 (2 vCPU / 3.7 GB), Ubuntu 24.04, Nürnberg. Hardened (ufw: SSH/80/443
+only, fail2ban, 2 GB swap), Docker 29.7 + Compose v5.4, repo at `/srv/adgen`. **`apps/web` got its
+first Dockerfile — written ON the box**, exactly as RELEASE_PLAN insisted, and that was the right
+call: the first build failed on `TS5083: Cannot read file '/app/tsconfig.base.json'`, which no
+amount of reading from a laptop would have predicted. It also fetches the yt-dlp binary into the
+image, closing the trap where pnpm 10 skips youtube-dl-exec's postinstall and the clip routes 502.
+Stack runs: `adgen-web-prod` (200 on port 80), `adgen-worker-prod` and `adgen-redis-prod`. The
+worker's startup log shows every provider REAL — including `matrixRenderer: remotion-lambda-renderer`.
+No TLS yet: certificates need a domain, and there is still no name.
+
+**SECURITY AUDIT — one critical finding, exploitable from a browser console.**
+`profiles` holds `balance`, and migration 0001 shipped `profiles_update_own`. RLS is row-level, not
+column-level, so "update your own row" meant "update your own BALANCE":
+`supabase.from('profiles').update({ balance: 999999 })`. /api/jobs admits any job whose cost fits
+the balance, so the payoff was unlimited free videos — real money at ElevenLabs, OpenRouter,
+kie.ai/fal.ai and Lambda, per video, until someone noticed. **Migration 0007** drops the policy and
+revokes UPDATE on (balance, id); nothing legitimate is lost, because NOTHING writes to `profiles`
+from a client. Also added a rate limit to `/api/dev/credits/add`, the only credit-touching route
+without one. ⚠️ **0007 IS NOT APPLIED to the live database yet — until it is, the hole is open.**
+Everything else swept clean: no secrets in source, no tracked .env, no dangerouslySetInnerHTML,
+every route authenticated or HMAC-verified, service-role key never client-side.
+
+**FUNCTIONAL AUDIT — the Lambda deploy silently disarmed the money guard, the same day.**
+`runPipeline` refused unimplemented tools by asking `renderer.name === 'mock-renderer'`. That was a
+fine proxy while no real renderer existed. Deploying Lambda made it always false, so quick_test,
+edit, mix and translate — four tools with a dashboard card and a wizard and no pipeline — began
+calling Lambda with a composition id that is not deployed (only `matrix-ad` is). Nobody would have
+been charged, but each attempt burned an invocation and returned an SDK error instead of a readable
+sentence. The guard now asks whether the TOOL is renderable (`RENDERABLE_COMPOSITIONS`, exported,
+empty, next to the throw). **This is the second time a "safe" proxy check rotted when the thing it
+proxied changed** — worth remembering.
+
+**Also this session:** Matrix renamed to **"Video reklame"** with a description that names the real
+mechanic and stops promising music the product does not supply; the wizard's navigation freed with
+the gate moved onto the Generate button (it now lists what is missing); per-tool colour returned to
+the dashboard cards as a MEASURED wash (the first attempt failed contrast at 3.94:1 and was dialled
+back — numbers in globals.css); the step rail went vertical beside a wide panel; drag-and-drop
+upload; a visible "+ Dodaj još jedan klip"; and `describeImage` — the script model can finally SEE
+a product image, which is the piece image-based clip search needs.
+
+**Backed out:** `@remotion/lambda` as a dependency. Installing it for the deploy dragged in
+`@types/react@18` and broke the web typecheck in files nobody had touched. The CLI is deploy-only;
+it is invoked with a pinned `npx` instead, and the runbook says so.
+
+**Owner-side blocker recorded, unchanged:** no euro may be taken and no real user onboarded before
+the friend's entity exists and Lemon Squeezy is in its name.
+
 ## 2026-08-13 (twelfth session) — R2 and Lambda stop being code-complete
 **Account:** _(unrecorded)_ · **Machine:** primary. **Deliberately left uncommitted: nothing**
 (the `.env` values are the owner's and are gitignored by design).

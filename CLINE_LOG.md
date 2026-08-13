@@ -62,6 +62,27 @@ cline --json -P openai-compatible --thinking medium -c "<repo>" "Read scratchpad
 | 29 | Tests for the two SSRF-guarded routes | `apps/web/src/app/api/ssrf-routes.test.ts` | Three mutations: dropping `assertPublicHost` from scrape and from import-clip (the guard must run BEFORE the fetch), and removing the 200 MB cap. | ✅ accepted | `585adb9` |
 | 30 | Tests for the last four routes | `apps/web/src/app/api/remaining-routes.test.ts` | Six mutations across generate-scripts / search-clips / voices / jobs[id]. Two initially looked like misses because the caps are `Math.min` helpers rather than `.slice` — the perl never hit the code. Same lesson as run 19: confirm WHICH line a mutation changed before believing a negative. **Route coverage now 12/12.** | ✅ accepted | `203ebb0` |
 
+| 31 | **Code change:** vision — `describeImage` over OpenRouter | `packages/core/src/{interfaces.ts,providers/{script.openrouter,mocks}.ts}` + NEW vision test | Three mutations: sending `content: userText` instead of the multimodal array (i.e. quietly NOT showing the model the image, which would still produce plausible output) failed test 1; dropping the 120-char clamp and the quote-stripping each failed their own test. 9 tests. | ✅ accepted | `7539d96` |
+| 32 | **Code change:** free wizard navigation, gate on Generate | `apps/web/src/components/job-wizard.tsx` + `app/app/matrix/page.tsx` | Diff-audited: `canNext` reduced to "not running", `missingForGenerate`/`canGenerate` added, `allowJumpAhead` opt-in so no other wizard changes. The production `clipsRequired` rule and its comment survived intact — that was the thing worth protecting, since removing it would let someone pay for ads over stock footage. | ✅ accepted | `d6655c2` |
+| 33 | Drag-and-drop dropzone + Matrix wiring | NEW `apps/web/src/components/file-dropzone.tsx` + `app/app/matrix/page.tsx` | Diff-audited. Correct on the three things that are easy to get wrong: a depth COUNTER for drag state (a boolean flickers when the pointer crosses a child), `preventDefault` on dragover (without it the browser opens the file instead of firing drop), and a real `<button>` so focus and Enter/Space work without hand-rolled a11y. Uploads still append rather than replace. | ✅ accepted | `8789681` |
+
+## Audits run by Claude, not delegated (2026-08-13)
+
+Two sweeps the owner asked for. Both found real defects, and both are worth repeating whenever the
+infrastructure changes — because in each case the bug was created by a change made the SAME DAY.
+
+**Security.** One critical: `profiles_update_own` let any authenticated user set their own
+`balance` (RLS is row-level, not column-level) and spend it on real provider calls. Closed by
+migration 0007 — drop the policy, revoke UPDATE on the columns, and note that NOTHING writes to
+`profiles` from a client so nothing legitimate is lost. Plus a rate limit on the credit-minting
+route. Everything else clean.
+
+**Functional.** The `tool_not_implemented` guard asked `renderer.name === 'mock-renderer'`.
+Deploying Lambda that morning made it always false, so four unimplemented tools began calling
+Lambda with an undeployed composition id. Fixed by asking about the TOOL instead. **The pattern to
+remember: a guard written as a proxy for a condition rots the moment the thing it proxies
+changes** — and it fails OPEN, silently.
+
 ## When the spec is wrong, not the code (run 7)
 
 Worth recording because it is the failure mode that costs the most: my brief said "with no keys,
