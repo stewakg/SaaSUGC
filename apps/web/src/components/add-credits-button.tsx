@@ -4,18 +4,11 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 /**
- * Grants a credit pack instantly — DEV ONLY.
+ * Starts a real credit-pack purchase through the active Billing provider.
  *
- * This used to POST /api/billing/checkout and follow whatever URL the active
- * Billing provider returned (a Lemon Squeezy hosted checkout in production, the
- * dev route in development). Lemon Squeezy was removed on 2026-08-10 and no
- * payment provider replaced it, so the indirection had exactly one destination
- * left and is gone: the button navigates straight to the dev route.
- *
- * `GET /api/dev/credits/add` 404s when NODE_ENV is production, so shipping this
- * button as-is cannot grant free credits to a real user — it simply stops
- * working, which is the correct failure. Wiring it to a real provider is a
- * launch blocker tracked in INFRASTRUCTURE.md F6.
+ * POSTs to /api/billing/checkout and follows the URL the provider returns —
+ * a Lemon Squeezy hosted checkout page in production, or the dev instant-credit
+ * route when the active provider is the mock (local dev).
  */
 export function AddCreditsButton({
   packId,
@@ -25,12 +18,35 @@ export function AddCreditsButton({
   className?: string;
 }) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
 
-  function handleClick() {
+  async function handleClick() {
     setLoading(true);
-    // A plain navigation, not fetch: the route answers with a redirect back to
-    // /app?credited=1, and letting the browser follow it refreshes the balance.
-    window.location.href = `/api/dev/credits/add?pack=${encodeURIComponent(packId)}`;
+    setError(false);
+    try {
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packId }),
+      });
+      if (!res.ok) {
+        setLoading(false);
+        setError(true);
+        return;
+      }
+      const data = (await res.json()) as { url?: string };
+      if (!data.url) {
+        setLoading(false);
+        setError(true);
+        return;
+      }
+      // Hand off to the provider's checkout page (or the dev instant-credit
+      // redirect). Leaving the page also clears the loading state visually.
+      window.location.href = data.url;
+    } catch {
+      setLoading(false);
+      setError(true);
+    }
   }
 
   // Carries its own button styling rather than trusting the caller to pass a
@@ -38,12 +54,15 @@ export function AddCreditsButton({
   // pass `btn-ghost`; the next caller that forgot would have got an unstyled
   // button with no focus ring. `className` still wins for layout.
   return (
-    <button
-      onClick={handleClick}
-      disabled={loading}
-      className={cn('btn-ghost disabled:opacity-50', className)}
-    >
-      {loading ? '…' : 'Dodaj kredit'}
-    </button>
+    <>
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        className={cn('btn-ghost disabled:opacity-50', className)}
+      >
+        {loading ? '…' : 'Dodaj kredit'}
+      </button>
+      {error && <p className="mt-2 text-sm text-err-text">Kupovina trenutno nije moguća.</p>}
+    </>
   );
 }
