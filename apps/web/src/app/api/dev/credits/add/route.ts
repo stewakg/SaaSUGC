@@ -44,7 +44,10 @@ export async function GET(request: NextRequest) {
     p_reason: `dev_add_credits:${pack.id}`,
   });
   if (rpcError) {
-    return NextResponse.json({ error: rpcError.message }, { status: 500 });
+    // Log the Postgres detail rather than returning it — it names tables,
+    // columns and constraints. Same posture as /api/jobs and the billing routes.
+    console.error('[dev-credits] add_credits failed:', rpcError.message);
+    return NextResponse.json({ error: 'grant_failed' }, { status: 500 });
   }
 
   return NextResponse.redirect(new URL('/app?credited=1', request.url));
