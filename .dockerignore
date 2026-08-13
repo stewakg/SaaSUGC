@@ -6,6 +6,13 @@ node_modules
 storage
 **/storage
 *.log
+# Root AND nested. dockerignore patterns are NOT recursive: plain `.env` matches
+# only the context root, so apps/web/.env and apps/worker/.env were being copied
+# into the image with every server secret in them (found 2026-08-14). The web
+# build genuinely needs the two NEXT_PUBLIC_* values — those now arrive as build
+# args instead; everything else reaches the container at RUNTIME via env_file.
 .env
 .env.*
+**/.env
+**/.env.*
 !.env.example

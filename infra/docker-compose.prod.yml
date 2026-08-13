@@ -65,6 +65,12 @@ services:
     build:
       context: ../
       dockerfile: apps/web/Dockerfile
+      # The only two values the BUILD needs, and both are public by design.
+      # Export them before running compose:
+      #   set -a; . ./.env; set +a; docker compose -f infra/... up -d --build
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     container_name: adgen-web-prod
     restart: unless-stopped
     env_file:

@@ -52,10 +52,20 @@ COPY packages/db packages/db
 COPY remotion remotion
 COPY apps/worker apps/worker
 
-# NEXT_PUBLIC_* are inlined at BUILD time, so .env must be present here, not
-# only at runtime. It is copied with the app above (apps/web/.env).
+# NEXT_PUBLIC_* are inlined at BUILD time, so the build needs them — but ONLY
+# them. Copying the whole .env in (which is what happened until 2026-08-14, via
+# a .dockerignore whose patterns are not recursive) baked the Supabase service
+# role and every provider key into an image layer, where anyone who can read the
+# image can read them. These two are public by design: the anon key is protected
+# by RLS, not by secrecy. Everything else arrives at runtime through env_file.
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+
 WORKDIR /app/apps/web
 ENV NODE_ENV=production
+RUN test -n "$NEXT_PUBLIC_SUPABASE_URL" || (echo "NEXT_PUBLIC_SUPABASE_URL build arg is empty — the built app would have no Supabase URL baked in" && exit 1)
 RUN pnpm build
 
 EXPOSE 3000
