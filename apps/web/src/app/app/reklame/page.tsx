@@ -1,6 +1,8 @@
+import { cookies } from 'next/headers';
 import { getJobDescriptor } from '@adgen/core/pricing';
 import { createServerClient } from '@/lib/supabase/server';
 import { costLabel, humanError } from '@/lib/job-display';
+import { TIMEZONE_COOKIE, formatDateTime, resolveTimezone } from '@/lib/timezone';
 import type { JobStatus, JobType } from '@adgen/db';
 
 const STATUS_LABEL: Record<JobStatus, string> = {
@@ -32,6 +34,13 @@ interface JobRow {
  * so no explicit ownership filter is needed.
  */
 export default async function ReklamePage() {
+  // This page is a server component, so the zone cannot come from
+  // document.cookie — it is read from the request the same way layout.tsx reads
+  // the theme. Resolved once here and threaded through formatDateTime below,
+  // so every row on the page renders in the same, user-picked zone.
+  const pickedTz = (await cookies()).get(TIMEZONE_COOKIE)?.value;
+  const tz = resolveTimezone(pickedTz);
+
   const supabase = await createServerClient();
   const { data: jobs } = await supabase
     .from('jobs')
@@ -70,7 +79,7 @@ export default async function ReklamePage() {
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-txt-low">
-                    <span className="font-mono tabular">{new Date(job.created_at).toLocaleString('sr-RS')}</span> ·{' '}
+                    <span className="font-mono tabular">{formatDateTime(job.created_at, tz)}</span> ·{' '}
                     <span className="font-mono tabular">{costLabel(job.status, job.cost)}</span>
                     {job.status === 'error' && job.error ? ` · ${humanError(job.error)}` : ''}
                   </p>

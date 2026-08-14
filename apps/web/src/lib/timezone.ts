@@ -30,6 +30,16 @@ export function isTimezoneId(value: unknown): value is TimezoneId {
 }
 
 /**
+ * The zone to format in, read from the request's cookie. Returns undefined
+ * when unset or when the stored value is not a zone we offer — undefined means
+ * "let Intl use the runtime default", which is the behaviour every page had
+ * before the preference existed.
+ */
+export function resolveTimezone(cookieValue: string | undefined): string | undefined {
+  return isTimezoneId(cookieValue) ? cookieValue : undefined;
+}
+
+/**
  * `sr-Latn-RS`, medium date + short time, in the given zone (or the browser
  * default when no zone is passed).
  *

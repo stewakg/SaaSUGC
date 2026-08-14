@@ -7,7 +7,7 @@
  * this formatter runs on every page that shows a date.
  */
 import { describe, expect, it } from 'vitest';
-import { formatDateTime, isTimezoneId } from './timezone.ts';
+import { formatDateTime, isTimezoneId, resolveTimezone } from './timezone.ts';
 
 describe('isTimezoneId', () => {
   it('accepts a zone from the list', () => {
@@ -16,6 +16,26 @@ describe('isTimezoneId', () => {
 
   it.each(['Mars/Olympus', '', null, 42])('rejects %s', (value) => {
     expect(isTimezoneId(value)).toBe(false);
+  });
+});
+
+describe('resolveTimezone', () => {
+  it('passes a zone from the list through unchanged', () => {
+    expect(resolveTimezone('Europe/Belgrade')).toBe('Europe/Belgrade');
+  });
+
+  it('returns undefined when the cookie is unset', () => {
+    expect(resolveTimezone(undefined)).toBeUndefined();
+  });
+
+  it('returns undefined for a tampered or stale zone — it must never reach Intl', () => {
+    // Intl.DateTimeFormat throws RangeError on an unknown zone; if a stale
+    // cookie value slipped through, every page showing a date would die.
+    expect(resolveTimezone('Mars/Olympus')).toBeUndefined();
+  });
+
+  it('returns undefined for an empty cookie value', () => {
+    expect(resolveTimezone('')).toBeUndefined();
   });
 });
 
