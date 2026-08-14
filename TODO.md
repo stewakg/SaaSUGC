@@ -57,9 +57,9 @@ Trimmed 2026-08-14 by the functional audit: a card links to a wizard ONLY if a p
 | Status | Tool | Note |
 |---|---|---|
 | ✅ | **Video reklame** (`matrix`) | Renamed from "Matrix" 2026-08-13. Real script, real TTS, scene-detect montage, Lambda render |
-| ✅ | **AI slike** (`image_ads`) | kie.ai primary, fal.ai fallback, result copied into our storage |
-| ✅ | **Poboljšaj kvalitet** (`enhance`) | ✅ LIVE 2026-08-14: real Topaz upscale through our own provider, 14.1s. The first call found a real bug — fal's result url must come from `response_url`, because a nested model id 405s (`eaa2da7`) |
-| ✅ | **Skini tekst** (`remove_text`) | ✅ LIVE 2026-08-14, 11.9s. Images only by design — video erasers are negative margin |
+| ✅ | **AI slike** (`image_ads`) | ✅ LIVE through `runPipeline` 2026-08-14: 196.3s, 1.17 MB png on our own url. **kie.ai timed out at 180s and the fal.ai fallback carried it** — the first time that fallback has fired for real. 196s for one image is a bad wait; consider lowering the kie timeout so the fallback starts sooner |
+| ✅ | **Poboljšaj kvalitet** (`enhance`) | ✅ LIVE through the WHOLE pipeline 2026-08-14: 14.6s, 543 KB on our url. The earlier ✅ on this row was overstated — it had only exercised the fal provider, and the ownership copy into R2 was in fact broken for every customer until `81a023b` |
+| ✅ | **Skini tekst** (`remove_text`) | ✅ LIVE through the WHOLE pipeline 2026-08-14: 14.6s, 335 KB on our url. Same correction as the row above — the earlier ✅ covered the provider only. Images by design; video erasers are negative margin |
 | ❌ | **Brzi test · Edit videi · Mix · Prevod** | Wizard exists, pipeline does not. Now badged USKORO instead of linking to a wizard that ends in an error |
 | ✅ | **Preozvuči** (`revoice`) | Reachable since 2026-08-14: the montage switch in step 3 of the Video-reklame wizard sends this job type and quotes its own (cheaper) price |
 
@@ -108,7 +108,7 @@ placeholder text is worse than none because it reads as if it were coverage.
 
 ## 6. Testing
 
-**866 tests** (core 355, web 406, worker 105); `pnpm -r typecheck` clean on all five projects.
+**886 tests** (core 358, web 420, worker 108); `pnpm -r typecheck` clean on all five projects.
 `@adgen/web` can now test COMPONENTS: `jsdom` is a devDependency and `apps/web/vitest.config.ts`
 keeps `node` as the default environment, so a file opts into a DOM with `// @vitest-environment
 jsdom` and the ~300 route tests keep a real `Request`/`Response`. Before this, no component in the
