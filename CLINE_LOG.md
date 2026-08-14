@@ -2,7 +2,14 @@
 
 Append-only, newest at the bottom. One row per Cline run that reached a commit.
 
-**Why this file exists.** The working split is: Claude specs and reviews, Cline (z.ai GLM-5.2)
+**Which model actually ran.** Rows below say GLM-5.2 because that is what the config says. On
+2026-08-14 the endpoint was asked directly and answers `"model": "glm-5.3"` for a `glm-5.2`
+request — a deliberate alias (an invented id is refused with `400 modelCode: does not exist`, and
+`glm-4.6` is served as itself), so runs from at least that day were 5.3. Earlier rows cannot be
+attributed with confidence; the alias could have been repointed at any time without notice. Treat
+the model column of this log as "what we asked for", never as "what answered".
+
+**Why this file exists.** The working split is: Claude specs and reviews, Cline (z.ai GLM)
 writes the code. That only stays trustworthy if every run is audited and the audit is written
 down — `CLAUDE.md` has a seven-bug history behind the rule "never trust Cline's self-report".
 This is the record of what was actually checked, not what was claimed.

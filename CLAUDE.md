@@ -94,8 +94,16 @@ Claude launches Cline **itself** via the `cline` CLI — the owner no longer cop
 prompts. Invocation: `cline --json -P openai-compatible -c "<repo>" "<self-contained task>"` (act mode,
 `--auto-approve` default true; add `--thinking medium|high` for multi-step tasks and
 `-t <sec>` as a safety cap sized to the task; run long tasks in the background).
-Provider is z.ai GLM-5.2 (`~/.cline/data/settings/providers.json` — `cline config` needs
-a TTY, so read that file directly; never print its apiKey). GLM-5.2 is weaker than
+Provider is z.ai (`~/.cline/data/settings/providers.json` — `cline config` needs
+a TTY, so read that file directly; never print its apiKey). **The config says `glm-5.2`
+and z.ai serves `glm-5.3`** — verified 2026-08-14 by asking the endpoint: a request for
+`glm-5.2` comes back with `"model": "glm-5.3"`, a request for `glm-5.3` is served as
+itself, `glm-4.6` is served as itself, and an invented id is refused with
+`400 modelCode: does not exist` — so this is a deliberate alias, not a catch-all
+fallback. `/models` does not list 5.3 yet. Consequence: **the config's model name is not
+proof of what ran.** If a run ever needs to be pinned to a specific version, name it
+explicitly and re-check with the same probe, because an alias can be repointed without
+warning. GLM is weaker than
 Claude → keep each task explicit and mechanical: one clearly-scoped unit, exact file
 paths, full code/commands, and a "definition of done". Cline reports in its FINAL MESSAGE
 only — `CLINE_REPORT.md` is obsolete and `.clinerules` now forbids writing it. Audit every

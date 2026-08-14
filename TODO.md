@@ -31,6 +31,7 @@ all happened since, and all three "known defects" in its §6b had already been f
 | ✅ | **Remotion Lambda** — function + site, `eu-central-1` | — | First real render 26.8s; the mp4 landed in R2 and the AWS copy was deleted |
 | ✅ | **Supabase cloud** — auth, DB, migrations 0001–0006 | — | ⚠️ 0007 is written and NOT applied — see §2 |
 | ❌ ⛔ | **Apply migration 0007 to the live DB** | 👤 | **The credit self-grant hole is open in production until this runs.** One paste into the SQL editor |
+| ❌ ⛔ | **AWS Lambda concurrency quota** | 👤 | Found 2026-08-14 by the first full-chain run: a **ten-second ad — the shortest we sell — could not render at all** (`AWS Concurrency limit reached`). Renders are now capped at 3 Lambdas so they work, but that caps speed too. Ask AWS to raise Service Quotas → Lambda → Concurrent executions, then set `REMOTION_LAMBDA_CONCURRENCY` higher; no deploy needed |
 | ❌ ⛔ | **Domain + DNS** | 👤 | Nothing reserved. Blocks HTTPS, the Supabase auth callback, the Lemon Squeezy webhook URL, a sending address, and the R2 custom domain |
 | 🟡 | **TLS / reverse proxy** | 👤 | **Written and staged** (`bd61c53`): `infra/Caddyfile` + a `caddy` service behind the `tls` compose profile, so nothing starts until asked. Verified on the VPS's real Docker that the profile adds caddy and nothing else changes. Switch-on steps are in the Caddyfile — the one that bites is that `web` must give up `80:3000` first. Still blocked on the domain |
 | ❌ | **Sending email address** | 👤 | Supabase auth mail still goes out on Supabase defaults |
@@ -105,7 +106,7 @@ placeholder text is worse than none because it reads as if it were coverage.
 
 ## 6. Testing
 
-**780 tests** (core 344, web 331, worker 105); `pnpm -r typecheck` clean on all five projects.
+**785 tests** (core 349, web 331, worker 105); `pnpm -r typecheck` clean on all five projects.
 `@adgen/web` can now test COMPONENTS: `jsdom` is a devDependency and `apps/web/vitest.config.ts`
 keeps `node` as the default environment, so a file opts into a DOM with `// @vitest-environment
 jsdom` and the ~300 route tests keep a real `Request`/`Response`. Before this, no component in the
@@ -118,7 +119,8 @@ deliberately broken and the right test had to fail.
 | ✅ | Money path: job admission, charge-on-success, refund-on-failure, rollback, webhook idempotency |
 | ✅ | Security-shaped: SSRF gates, path traversal, cross-customer storage access, the production admin gate |
 | ✅ | Both renderers, all four providers, the billing layer |
-| ❌ | **No end-to-end test** — nothing exercises signup → job → asset against a real stack |
+| ✅ | **The provider chain is exercised end to end** — `apps/worker/scripts/verify-full-pipeline.mts` drives the shipped `runMatrixPipeline` against live OpenRouter, ElevenLabs, Lambda and R2, and refuses to run if anything resolves to a mock. It found a defect on its first run that would have failed every customer job (see the AWS quota row). Costs tens of cents; run it deliberately |
+| ❌ | **Still no signup → job → asset test** — the driver skips the DB and the queue on purpose, so nothing covers the web→DB→BullMQ→worker hop against a real stack |
 | 🟡 | **The PUBLIC pages have now been looked at** — landing, login, signup and the three legal pages, at 375px and desktop, in all three themes. Four defects came out of it that measurement could not see (see `SESSION_LOG.md` 2026-08-14) |
 | ❌ ⛔ | **Nobody has seen the SIGNED-IN screens** — dashboard and all six wizards. I cannot reach them: they are behind auth, and I do not create accounts or type passwords on the owner's behalf. **The owner works remotely from a second machine and cannot log in from the browser pane either**, so this waits until he is at the home machine. One login is enough — after that every page can be walked and screenshotted in one pass |
 | ❌ ⛔ | **No human has clicked a wizard end to end** |
