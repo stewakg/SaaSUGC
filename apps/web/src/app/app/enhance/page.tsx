@@ -68,7 +68,7 @@ export default function EnhancePage() {
       if (!res.ok || !data.id) throw new Error(data.error ?? 'Greška pri pokretanju.');
 
       const job = await pollJob(data.id, { intervalMs: 1200, timeoutMs: 45_000 });
-      if (job.status === 'error') throw new Error(job.error ?? 'Job nije uspeo.');
+      if (job.status === 'error') throw new Error(job.error ?? 'Posao nije uspeo.');
 
       setResultAssets(job.result?.assets ?? []);
       setGenPhase('done');

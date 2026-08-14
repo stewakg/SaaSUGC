@@ -51,7 +51,7 @@ export default async function ReklamePage() {
         <div className="card-gradient p-8 text-center">
           <p className="text-sm text-txt-mid">Još nemaš nijednu reklamu.</p>
           <p className="mt-1 text-sm text-txt-low">
-            Pokreni „Brzi test&rdquo; sa početne da vidiš kako pipeline radi.
+            Napravi prvu — otvori „Video reklame&rdquo; na početnoj strani.
           </p>
         </div>
       ) : (

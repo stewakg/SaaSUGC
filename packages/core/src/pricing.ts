@@ -117,9 +117,9 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     theme: 'teal',
     tier: 'main',
     benefits: [
-      'Ubaciš klipove jednom, dobiješ više vrsta reklama',
+      'Ubaciš više klipova, dobiješ jednu montiranu reklamu',
       'Deo su video reklame sa AI titlovima',
-      'Deo su Edit videi sa AI scenama',
+      'Prelazi i tempo se montiraju automatski',
     ],
   },
   {
@@ -147,7 +147,7 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     benefits: [
       'Prirodan glas, kloniran original',
       'Titlovi u istom stilu kao original',
-      'Ista muzika i koncept reklame',
+      'Isti tempo i koncept reklame',
     ],
   },
   {

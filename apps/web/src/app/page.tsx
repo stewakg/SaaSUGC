@@ -37,8 +37,8 @@ export default function LandingPage() {
               </span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-balance text-base text-txt-mid sm:text-lg lg:mx-0">
-              Zalepi link proizvoda, mi generišemo skriptu, glas, titl, muziku i
-              CTA. Vertikalni video spreman za TikTok, Reels i Shorts — za minute.
+              Zalepi link proizvoda, mi generišemo skriptu, glas, titl i CTA.
+              Vertikalni video spreman za TikTok, Reels i Shorts — za minute.
             </p>
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row lg:justify-start">
               <Link href="/signup" className="btn-primary w-full sm:w-auto">
@@ -105,7 +105,7 @@ export default function LandingPage() {
       {/* Footer-ish note */}
       <section className="container-app pb-16 text-center text-xs text-txt-low">
         <p>
-          Plaćaš pouzećem · Srpski, Bosanski, Hrvatski, Rumunski, Engleski ·
+          Za prodaju pouzećem · Srpski, Bosanski, Hrvatski, Rumunski, Engleski ·
           Tvoj račun, tvoji podaci
         </p>
         {/*

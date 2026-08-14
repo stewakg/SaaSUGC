@@ -1532,7 +1532,7 @@ function GenerateStep({
     return (
       <div className="space-y-3">
         <p className="text-sm text-txt-mid">
-          Renderujem pravi MP4 lokalno (Remotion)… ovo može potrajati minut-dva. ⏳
+          Pravim video… ovo može potrajati minut-dva. ⏳
         </p>
         {/* No elapsed/percentage data exists in this component's state, so the
             fill travels rather than claiming a width it cannot back up. */}
@@ -1559,5 +1559,5 @@ function GenerateStep({
       </div>
     );
   }
-  return <p className="text-sm text-txt-mid">Klikni „Pokreni&rdquo; da renderuješ pravi video lokalno.</p>;
+  return <p className="text-sm text-txt-mid">Klikni „Pokreni&rdquo; da napraviš video.</p>;
 }

@@ -83,7 +83,7 @@ export default async function DashboardPage({
         <div className="mb-4 flex items-end justify-between">
           <div>
             <h2 className="font-display text-xl font-bold sm:text-2xl">Krediti</h2>
-            <p className="mt-1 text-sm text-txt-mid">Dopuni kad ti zatreba. Dev mode = besplatno.</p>
+            <p className="mt-1 text-sm text-txt-mid">Dopuni kad ti zatreba.</p>
           </div>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
