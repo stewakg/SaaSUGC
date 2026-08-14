@@ -84,7 +84,11 @@ placeholder text is worse than none because it reads as if it were coverage.
 
 ## 6. Testing
 
-**~730 tests** (core 337, web 297, worker 90+); `pnpm -r typecheck` clean on all five projects.
+**764 tests** (core 337, web 331, worker 96); `pnpm -r typecheck` clean on all five projects.
+`@adgen/web` can now test COMPONENTS: `jsdom` is a devDependency and `apps/web/vitest.config.ts`
+keeps `node` as the default environment, so a file opts into a DOM with `// @vitest-environment
+jsdom` and the ~300 route tests keep a real `Request`/`Response`. Before this, no component in the
+app had ever been executed by a test.
 All 12 API routes are covered. Every delegated suite was mutation-audited — the implementation was
 deliberately broken and the right test had to fail.
 
