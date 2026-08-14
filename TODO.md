@@ -197,6 +197,20 @@ scp .env root@5.75.154.153:/srv/adgen/.env
 ssh root@5.75.154.153 'cd /srv/adgen && cp .env apps/web/.env && cp .env apps/worker/.env'
 ```
 
+⚠️ **Every `--build` leaves cache behind, and it adds up fast.** Eight rebuilds in one day on
+2026-08-14 left **173 build-cache entries eating 19.82 GB**, taking the 38 GB disk to 72% full.
+Nothing warns you; the box just fills until something fails in a way that looks unrelated. After a
+day of repeated deploys:
+
+```bash
+ssh root@5.75.154.153 'docker builder prune -f && df -h /'
+```
+
+That reclaims cache only — images, containers and the `redis_data` volume are untouched (verify
+with `docker system df`: they should read `0B` reclaimable). The next build is slower and that is
+the whole cost. Do NOT reach for `docker system prune -a`, which would also delete the images the
+running stack was built from.
+
 ⚠️ **One Redis, one queue.** If a worker runs on your laptop AND on the VPS against the same Redis,
 both pull from the same queue and whichever grabs a job answers it. That is how a job once got
 answered with mocks. Run one worker at a time, or point them at different Redis instances.
