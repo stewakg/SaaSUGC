@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { authErrorMessage } from '@/lib/auth-errors';
 
 /**
  * Step 1 of password recovery: ask Supabase to email a recovery link.
@@ -34,7 +35,7 @@ export default function ForgotPasswordPage() {
     });
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setError(authErrorMessage(error.message));
       return;
     }
     setSent(true);

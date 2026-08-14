@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { authErrorMessage } from '@/lib/auth-errors';
 import { PASSWORD_MIN_LENGTH, validatePassword } from '@/lib/password';
 import { PasswordRules } from '@/components/password-rules';
 
@@ -53,7 +54,7 @@ export default function NewPasswordPage() {
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setError(authErrorMessage(error.message));
       return;
     }
     router.push('/app');

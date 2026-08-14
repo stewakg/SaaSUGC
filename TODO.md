@@ -94,7 +94,9 @@ deliberately broken and the right test had to fail.
 | ✅ | Security-shaped: SSRF gates, path traversal, cross-customer storage access, the production admin gate |
 | ✅ | Both renderers, all four providers, the billing layer |
 | ❌ | **No end-to-end test** — nothing exercises signup → job → asset against a real stack |
-| ❌ ⛔ | **No human has clicked the wizard, and no human eye has seen the redesign** — it was verified by measuring contrast and probing the DOM, not by looking |
+| 🟡 | **The PUBLIC pages have now been looked at** — landing, login, signup and the three legal pages, at 375px and desktop, in all three themes. Four defects came out of it that measurement could not see (see `SESSION_LOG.md` 2026-08-14) |
+| ❌ ⛔ | **Nobody has seen the SIGNED-IN screens** — dashboard and all six wizards. I cannot reach them: they are behind auth, and I do not create accounts or type passwords on the owner's behalf. **The owner works remotely from a second machine and cannot log in from the browser pane either**, so this waits until he is at the home machine. One login is enough — after that every page can be walked and screenshotted in one pass |
+| ❌ ⛔ | **No human has clicked a wizard end to end** |
 | ❌ | Signup and password recovery never click-tested (recovery sends a real email) |
 
 **All three "known defects" from the old §6b are fixed** and were verified on 2026-08-14:
@@ -113,7 +115,11 @@ Judgement, not blockers. Cheapest first.
 3. ~~Wire `describeImage`~~ and ~~give `revoice` a UI~~ — both done 2026-08-14.
 4. **Set `ALERT_WEBHOOK_URL`.** The code ships a one-line alert on every failed job; with the
    variable unset it stays silent, which means the first real failure is still found by a customer.
-5. **Measure a real job against a real invoice** — the only number in BUSINESS.md nobody has ever
+5. **One login from the home machine.** Everything behind auth is unreviewed, and a single sign-in
+   in the browser pane converts that from "unknown" to "walked page by page". The public side took
+   one pass and produced four real defects; there is no reason to expect the wizards are cleaner —
+   they are the more complicated half.
+6. **Measure a real job against a real invoice** — the only number in BUSINESS.md nobody has ever
    checked.
 6. **Do the L5 rehearsal on production with a real card** before the link is shared with anyone.
 7. **Only then**: watermark handling, a music library, the expired-asset state, per-job-type worker

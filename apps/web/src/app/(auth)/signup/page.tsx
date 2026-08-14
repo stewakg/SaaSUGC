@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { authErrorMessage } from '@/lib/auth-errors';
 import { PASSWORD_MIN_LENGTH, validatePassword } from '@/lib/password';
 import { PasswordRules } from '@/components/password-rules';
 import { SIGNUP_BONUS_CREDITS } from '@adgen/core/pricing';
@@ -53,7 +54,7 @@ export default function SignupPage() {
     });
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setError(authErrorMessage(error.message));
       return;
     }
     // If email confirmation is enabled, Supabase returns a session-less response.

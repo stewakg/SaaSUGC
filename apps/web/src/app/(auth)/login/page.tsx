@@ -4,6 +4,7 @@ import { Suspense, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
+import { authErrorMessage } from '@/lib/auth-errors';
 
 /**
  * Email/password login. Supabase Auth (local in dev).
@@ -26,7 +27,7 @@ function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(callbackError ? 'Neispravan auth callback.' : null);
+  const [error, setError] = useState<string | null>(callbackError ? 'Link za prijavu nije ispravan ili je istekao. Pokušaj ponovo.' : null);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,7 +37,7 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) {
-      setError(error.message);
+      setError(authErrorMessage(error.message));
       return;
     }
     router.push(next);
