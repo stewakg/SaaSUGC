@@ -69,4 +69,10 @@ RUN test -n "$NEXT_PUBLIC_SUPABASE_URL" || (echo "NEXT_PUBLIC_SUPABASE_URL build
 RUN pnpm build
 
 EXPOSE 3000
+# Left as `pnpm start` on purpose, unlike the worker's Dockerfile, which was
+# changed on 2026-08-14 to put Node at PID 1. There the supervisor sits between
+# Docker's SIGTERM and a render that needs to drain; here the worst a hard kill
+# costs is one in-flight HTTP request, and `next start` has no equally stable
+# direct invocation. Do not "make these two consistent" without that trade in
+# mind.
 CMD ["pnpm", "start"]

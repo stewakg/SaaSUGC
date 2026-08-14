@@ -62,4 +62,19 @@ WORKDIR /app/apps/worker
 
 ENV NODE_ENV=production
 
-CMD ["pnpm", "start"]
+# Node itself is PID 1 — deliberately NOT `pnpm start`.
+#
+# Docker delivers SIGTERM to PID 1 only. With pnpm there, the signal reached a
+# supervisor that forwards it and then reports the run as failed: a live SIGTERM
+# test on 2026-08-14 showed the worker's own handler running ("shutting down",
+# signal SIGTERM) while the container still exited 1 with `ELIFECYCLE Command
+# failed`. That misreports a clean drain as a crash, and it puts a process
+# between Docker and the only thing that knows how to finish an in-flight
+# render — `worker.close()` can only drain jobs for as long as PID 1 stays
+# alive.
+#
+# This is the same command `pnpm start` runs, minus the supervisor:
+# `--env-file-if-exists` is native to Node 22, and `--import tsx` registers the
+# TypeScript loader (verified inside this image before the change). Keep the
+# `start` script in package.json — local dev still uses it.
+CMD ["node", "--env-file-if-exists=.env", "--import", "tsx", "src/index.ts"]
