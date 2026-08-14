@@ -41,6 +41,7 @@ import type { AssetKind, JobType, Json } from '@adgen/db';
 import { detectShots, downloadClip } from './scene-detect.ts';
 import { buildMontage, type PoolShot } from './montage.ts';
 import { approvedScripts, speakerGenderOf } from './approved-scripts.ts';
+import { alertJobFailed } from './alert.ts';
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -859,9 +860,16 @@ async function main() {
   });
 
   worker.on('completed', (bullJob) => consoleLogger.info('job done', { jobId: bullJob.data.jobId }));
-  worker.on('failed', (bullJob, err) =>
-    consoleLogger.error('job failed', { jobId: bullJob?.data.jobId ?? '?', error: err.message }),
-  );
+  worker.on('failed', (bullJob, err) => {
+    consoleLogger.error('job failed', { jobId: bullJob?.data.jobId ?? '?', error: err.message });
+    // Fire-and-forget: never await an alert inside an event handler, where a
+    // rejection would be unhandled. Opt-in via ALERT_WEBHOOK_URL (no-op unset).
+    void alertJobFailed({
+      jobId: bullJob?.data.jobId ?? '?',
+      type: bullJob?.name,
+      error: err.message,
+    });
+  });
   worker.on('error', (err) => consoleLogger.error('connection error', { error: err.message }));
 
   consoleLogger.info('listening', { queue: JOB_QUEUE_NAME, concurrency });
