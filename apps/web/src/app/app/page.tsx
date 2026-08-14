@@ -14,10 +14,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-10">
-      <section>
-        <h1 className="font-display text-2xl font-bold sm:text-3xl">Šta praviš danas?</h1>
-        <p className="mt-1 text-sm text-txt-mid">Izaberi šta praviš, sve ostalo se otvara posle izbora.</p>
-      </section>
+      <h1 className="sr-only">Početna</h1>
 
       <section>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
