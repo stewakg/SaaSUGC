@@ -34,7 +34,7 @@ all happened since, and all three "known defects" in its §6b had already been f
 | ❌ ⛔ | **Domain + DNS** | 👤 | Nothing reserved. Blocks HTTPS, the Supabase auth callback, the Lemon Squeezy webhook URL, a sending address, and the R2 custom domain |
 | ❌ ⛔ | **TLS / reverse proxy** | 🤖 | Caddy in front of the web container; ten minutes of work, blocked entirely on the domain |
 | ❌ | **Sending email address** | 👤 | Supabase auth mail still goes out on Supabase defaults |
-| ❌ | **Error alerting** | 🤖 | Nothing reports a failed job. The worker already logs `job failed`; shipping that line to a webhook is an hour |
+| 🟡 | **Error alerting** | 👤 | Code landed 2026-08-14: a failed job POSTs one line to `ALERT_WEBHOOK_URL`. **Unset = no alerts** — set it to a Discord/Slack/Telegram relay url or nothing is reported |
 | 🟡 | **R2 public URL is still the `r2.dev` dev subdomain** | 👤 then 🤖 | Cloudflare rate-limits it and says not for production. Swap to `cdn.<domain>` once the domain exists |
 
 ## 2. Money
@@ -56,16 +56,16 @@ Trimmed 2026-08-14 by the functional audit: a card links to a wizard ONLY if a p
 |---|---|---|
 | ✅ | **Video reklame** (`matrix`) | Renamed from "Matrix" 2026-08-13. Real script, real TTS, scene-detect montage, Lambda render |
 | ✅ | **AI slike** (`image_ads`) | kie.ai primary, fal.ai fallback, result copied into our storage |
-| 🟡 | **Poboljšaj kvalitet** (`enhance`) | Unblocked now that R2 gives a public URL — **never called against real fal.ai** |
-| 🟡 | **Skini tekst** (`remove_text`) | Images only by design (video erasers are negative margin). Never called for real |
+| ✅ | **Poboljšaj kvalitet** (`enhance`) | ✅ LIVE 2026-08-14: real Topaz upscale through our own provider, 14.1s. The first call found a real bug — fal's result url must come from `response_url`, because a nested model id 405s (`eaa2da7`) |
+| ✅ | **Skini tekst** (`remove_text`) | ✅ LIVE 2026-08-14, 11.9s. Images only by design — video erasers are negative margin |
 | ❌ | **Brzi test · Edit videi · Mix · Prevod** | Wizard exists, pipeline does not. Now badged USKORO instead of linking to a wizard that ends in an error |
-| ❌ 🤖 | **Preozvuči (`revoice`): pipeline exists, NO UI** | The opposite problem — built, tested, unreachable. It is the Matrix wizard with montage off |
+| ✅ | **Preozvuči** (`revoice`) | Reachable since 2026-08-14: the montage switch in step 3 of the Video-reklame wizard sends this job type and quotes its own (cheaper) price |
 
 ## 4. Output quality
 
 | Status | Item | Note |
 |---|---|---|
-| ❌ 🤖 | **The script model cannot see the product** | `describeImage` landed 2026-08-13 and nothing calls it. The wizard already collects product images. Cheapest remaining quality win |
+| ✅ | **The script model sees the product** | Wired 2026-08-14: the first product image is described once per job and appended to the prompt. Degrades to no-extra-context on any failure — a vision hiccup must never fail a paid job |
 | ❌ | **Third-party watermarks in imported clips** | Decision recorded (exclude dirty shots, never erase); nothing built |
 | ❌ | **No music/SFX library** | Bring-your-own only — and the Matrix description no longer claims otherwise |
 | 🟡 | **Script quality** | The blind eval concluded "no model produced broken Serbian", NOT "the cheapest is as good as the best". Re-run scoring each axis if a bad script ever ships |
@@ -84,7 +84,7 @@ placeholder text is worse than none because it reads as if it were coverage.
 
 ## 6. Testing
 
-**717 tests** (core 337, web 297, worker 83); `pnpm -r typecheck` clean on all five projects.
+**~730 tests** (core 337, web 297, worker 90+); `pnpm -r typecheck` clean on all five projects.
 All 12 API routes are covered. Every delegated suite was mutation-audited — the implementation was
 deliberately broken and the right test had to fail.
 
@@ -110,13 +110,11 @@ Judgement, not blockers. Cheapest first.
 2. **Buy the domain.** The single item unblocking the most others: TLS, email, the Lemon Squeezy
    webhook, the R2 custom domain. Being unblocked matters more than the name being perfect — a
    name can be rebranded later, a missing domain blocks five things today.
-3. **Wire `describeImage` into the script prompt.** The images are already collected and the model
-   can already see; this is the biggest quality gain per line of code left, and script quality is
-   what a customer actually judges.
-4. **Give `revoice` a UI.** A finished, tested pipeline nobody can reach is the cheapest feature in
-   the backlog.
-5. **Ship the `job failed` log line to a Telegram or Discord webhook.** Without it, the first real
-   failure is discovered by the customer.
+3. ~~Wire `describeImage`~~ and ~~give `revoice` a UI~~ — both done 2026-08-14.
+4. **Set `ALERT_WEBHOOK_URL`.** The code ships a one-line alert on every failed job; with the
+   variable unset it stays silent, which means the first real failure is still found by a customer.
+5. **Measure a real job against a real invoice** — the only number in BUSINESS.md nobody has ever
+   checked.
 6. **Do the L5 rehearsal on production with a real card** before the link is shared with anyone.
 7. **Only then**: watermark handling, a music library, the expired-asset state, per-job-type worker
    concurrency (cheap tools 4, matrix 1 — BullMQ does it with separate queues).
