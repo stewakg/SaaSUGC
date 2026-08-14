@@ -1,36 +1,10 @@
 import { JOB_DESCRIPTORS, CREDIT_PACKS } from '@adgen/core';
 import { creditsWord } from '@adgen/core/pricing';
-import type { JobType } from '@adgen/db';
 import { AddCreditsButton } from '@/components/add-credits-button';
 import { MainToolCard, UtilityToolCard } from '@/components/tool-cards';
 import { createServerClient } from '@/lib/supabase/server';
 import { isAdminEmail } from '@/lib/admin';
-
-/**
- * Job types that WORK END TO END — a wizard AND a pipeline that produces a real
- * asset. Anything absent here renders with an "USKORO" badge and no link.
- *
- * Trimmed 2026-08-14 after the functional audit. `quick_test`, `edit`, `mix`
- * and `translate` all have a wizard and a card, and none of them has a
- * pipeline: `runPipeline` refuses them with `tool_not_implemented`, which is
- * the correct behaviour (nothing is charged) but a terrible way for a customer
- * to find out. They clicked a card that looked live, filled in three steps, hit
- * Pokreni and got an error. Listing them here was the app promising work it
- * cannot do; the badge tells the truth up front.
- *
- * Put a tool back the moment its pipeline lands — that is the same list the
- * worker's RENDERABLE_COMPOSITIONS guards from the other side.
- */
-const LIVE_TOOL_LINKS: Partial<Record<JobType, string>> = {
-  image_ads: '/app/ai-slike',
-  // Same wizard as matrix: the montage switch in step 3 sends the `revoice` job
-  // type instead. Until 2026-08-14 this pipeline had a price, a descriptor and
-  // full test coverage, and nothing in the app could reach it.
-  revoice: '/app/matrix',
-  matrix: '/app/matrix',
-  enhance: '/app/enhance',
-  remove_text: '/app/remove-text',
-};
+import { LIVE_TOOL_LINKS } from '@/lib/live-tools';
 
 /**
  * Dashboard / Početna. EcomAlati-style two-tier layout: `main` tools get a

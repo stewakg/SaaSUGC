@@ -359,6 +359,21 @@ body {
     outline: 2px solid var(--accent-2);
     outline-offset: 2px;
   }
+  /* `px-4 py-2` on `text-sm` renders a 36px-tall button, and this audience is
+     overwhelmingly on a phone: the landing page's primary CTA measured 36px on
+     a 375px viewport, under the 44px a thumb needs. Gated on a COARSE pointer
+     so the mouse layout is untouched — the fix is for fingers, not a redesign.
+     The swatches get the same treatment; they are 24px squares, right on the
+     WCAG 2.5.8 floor, and they sit next to each other where a miss is easy. */
+  @media (pointer: coarse) {
+    .btn {
+      min-height: 44px;
+    }
+    .theme-swatch-button {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
   /* MIGRATED to tokens */
   .btn-primary {
     @apply btn;
@@ -423,6 +438,18 @@ body {
   }
   .input:disabled {
     opacity: 0.5;
+  }
+  /* iOS Safari zooms the whole page when a focused input's font-size is under
+     16px, and it does not zoom back out — the user is left on a magnified,
+     side-scrolling page after tapping the email field on the LOGIN form. The
+     controls are 14px, so every phone login did this. 16px on a coarse pointer
+     only, so the desktop text size is unchanged; 44px for the same thumb reason
+     as the buttons above. */
+  @media (pointer: coarse) {
+    .input {
+      font-size: 16px;
+      min-height: 44px;
+    }
   }
 
   /* MIGRATED to tokens — progress. `.progress > i` is the fill; width is set

@@ -2,12 +2,19 @@ import Link from 'next/link';
 import { JOB_DESCRIPTORS, SIGNUP_BONUS_CREDITS } from '@adgen/core';
 import { MainToolCard, UtilityToolCard } from '@/components/tool-cards';
 import { ThemeSwitcher } from '@/components/theme-switcher';
+import { isToolSoon } from '@/lib/live-tools';
 
 /**
  * Public landing page — EcomAlati-style hero + tool cards.
  * Reads job descriptors + pricing from @adgen/core (single source of truth).
  * Tool cards reuse MainToolCard/UtilityToolCard from the dashboard so the two
  * screens cannot drift.
+ *
+ * The USKORO badge comes from `isToolSoon`, the same list the dashboard uses.
+ * It used to be hard-coded here as `t.type === 'ai_video'`, which meant this
+ * page — the first thing a stranger sees — advertised `quick_test`, `edit`,
+ * `mix` and `translate` with prices while the dashboard already knew none of
+ * them had a pipeline.
  */
 export default function LandingPage() {
   const mainTools = JOB_DESCRIPTORS.filter((t) => t.tier === 'main');
@@ -76,7 +83,7 @@ export default function LandingPage() {
               label={t.label}
               description={t.description}
               cost={t.cost}
-              soon={t.type === 'ai_video'}
+              soon={isToolSoon(t.type)}
             />
           ))}
         </div>
@@ -89,7 +96,7 @@ export default function LandingPage() {
               label={t.label}
               description={t.description}
               cost={t.cost}
-              soon={t.type === 'ai_video'}
+              soon={isToolSoon(t.type)}
             />
           ))}
         </div>

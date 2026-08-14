@@ -152,7 +152,9 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
   },
   {
     type: 'enhance',
-    label: 'Enhance',
+    // The only English label on a LIVE tool — every other one a customer can
+    // actually click is Serbian. This is the name the docs already used.
+    label: 'Poboljšaj kvalitet',
     description: 'Ubaciš mutan ili komprimovan klip → dobiješ oštar HD do 1080p.',
     cost: JOB_COST.enhance,
     icon: 'sparkles',
@@ -169,7 +171,9 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
   {
     type: 'ai_video',
     label: 'AI influencer',
-    description: 'Upload influencer foto + proizvod → video oglas. (uskoro)',
+    // No "(uskoro)" in the copy: the card already renders an USKORO badge from
+    // LIVE_TOOL_LINKS, so the descriptor saying it too printed it twice.
+    description: 'Upload influencer foto + proizvod → video oglas.',
     cost: JOB_COST.ai_video,
     icon: 'user',
     tier: 'utility',
