@@ -221,9 +221,9 @@ describe('AppShell', () => {
 
     const byEmail = links.find((a) => a.textContent === 'proba@adgen.rs');
     expect(byEmail).toBeInstanceOf(HTMLAnchorElement);
-    expect(byEmail!.getAttribute('title')).toBe('Profil');
+    expect(byEmail!.getAttribute('title')).toBe('Moj profil');
 
-    const inNav = links.find((a) => a.textContent?.includes('Profil'));
+    const inNav = links.find((a) => a.textContent?.includes('Moj profil'));
     expect(inNav).toBeInstanceOf(HTMLAnchorElement);
     expect(inNav!.closest('nav')).not.toBeNull();
   });
@@ -261,6 +261,59 @@ describe('AppShell', () => {
     const hamburgerSvg = container.querySelector('header button svg');
     expect(hamburgerSvg).not.toBeNull();
     expect(hamburgerSvg!.getAttribute('aria-hidden')).toBe('true');
+  });
+
+  /** Finds the desktop collapse toggle by its Serbian aria-label, whatever
+   *  state it is in. Re-querying after each click is the point: the owner's
+   *  requirement is a control that is STILL THERE after you use it. */
+  function findCollapseToggle(container: HTMLElement): HTMLButtonElement {
+    const toggle = [...container.querySelectorAll('header button')].find(
+      (b) =>
+        b.getAttribute('aria-label') === 'Sakrij meni' ||
+        b.getAttribute('aria-label') === 'Prikaži meni',
+    );
+    if (!(toggle instanceof HTMLButtonElement)) {
+      throw new Error('desktop collapse toggle not found in the topbar');
+    }
+    return toggle;
+  }
+
+  it('desktop collapse toggle defaults to expanded: "Sakrij meni", aria-expanded true', () => {
+    const { container } = mountShell();
+    const toggle = findCollapseToggle(container);
+    expect(toggle.type).toBe('button');
+    expect(toggle.getAttribute('aria-label')).toBe('Sakrij meni');
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('collapsing flips the name to "Prikaži meni" and the control STAYS in the document', () => {
+    const { container } = mountShell();
+    const toggle = findCollapseToggle(container);
+    click(toggle);
+    // The exact node the user clicked must still be connected...
+    expect(toggle.isConnected).toBe(true);
+    // ...and it must still announce the opposite action.
+    expect(toggle.getAttribute('aria-label')).toBe('Prikaži meni');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('activating the toggle again restores the expanded state', () => {
+    const { container } = mountShell();
+    click(findCollapseToggle(container));
+    click(findCollapseToggle(container));
+    const restored = findCollapseToggle(container);
+    expect(restored.getAttribute('aria-label')).toBe('Sakrij meni');
+    expect(restored.getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('collapsing does NOT give the sidebar dialog semantics', () => {
+    const { aside, container } = mountShell();
+    click(findCollapseToggle(container));
+    // The mobile overlay is the only modal state; a desktop collapse that
+    // announced role="dialog" would be the two states conflated.
+    expect(aside.getAttribute('role')).toBeNull();
+    expect(aside.getAttribute('aria-modal')).toBeNull();
+    expect(aside.getAttribute('aria-label')).toBeNull();
   });
 });
 

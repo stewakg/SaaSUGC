@@ -10,7 +10,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * Authenticated app shell: left sidebar (Početna, Moje reklame) + topbar with
- * credit balance and account/logout. The sidebar collapses on mobile.
+ * credit balance and account/logout. The sidebar collapses on mobile; on
+ * desktop it can be slid out of view from the topbar toggle.
  */
 export function AppShell({
   email,
@@ -24,6 +25,11 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Deliberately a SEPARATE piece of state: `mobileOpen` is a modal overlay
+  // (dialog semantics, backdrop, Escape), while the desktop collapse just
+  // narrows the layout. Overloading one flag would announce a dialog to a
+  // desktop user who only wanted more room for the tools.
+  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const sidebarRef = useRef<HTMLElement>(null);
 
@@ -58,7 +64,7 @@ export function AppShell({
   }
 
   /**
-   * Profil is in the NAV, not only on the email in the header.
+   * Moj profil is in the NAV, not only on the email in the header.
    *
    * The email link was the single entry point to the account screen, and it
    * lives in a `hidden sm:block` container — so below 640px it does not render
@@ -68,7 +74,7 @@ export function AppShell({
   const nav = [
     { href: '/app', label: 'Početna', icon: 'home' },
     { href: '/app/reklame', label: 'Moje reklame', icon: 'film' },
-    { href: '/app/profil', label: 'Profil', icon: 'user' },
+    { href: '/app/profil', label: 'Moj profil', icon: 'user' },
   ];
 
   return (
@@ -82,8 +88,12 @@ export function AppShell({
         aria-modal={mobileOpen || undefined}
         aria-label={mobileOpen ? 'Meni' : undefined}
         className={cn(
-          'fixed inset-y-0 left-0 z-40 w-64 border-r border-line bg-panel transition-transform lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-40 w-64 border-r border-line bg-panel transition-transform',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          // Desktop: pinned open unless the topbar toggle collapsed it. Without
+          // this line the collapsed sidebar would still be pushed back in by
+          // the lg: override and the toggle would look broken.
+          !desktopCollapsed && 'lg:translate-x-0',
         )}
       >
         <div className="flex h-16 items-center gap-2 px-5">
@@ -152,7 +162,15 @@ export function AppShell({
           min-content, so one wide child (the 6-step wizard rail) was widening
           this whole column past the viewport and scrolling the page sideways
           on a phone. */}
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
+      <div
+        className={cn(
+          'flex min-w-0 flex-1 flex-col',
+          // The sidebar is `fixed`, so its width is bought back with padding —
+          // which is why the collapsed state removes the padding entirely and
+          // the content takes the full width.
+          !desktopCollapsed && 'lg:pl-64',
+        )}
+      >
         {/* Topbar */}
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-ground/80 px-4 backdrop-blur sm:px-6">
           <button
@@ -161,6 +179,21 @@ export function AppShell({
             className="focus-ring rounded-lg border border-line p-2 lg:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Meni"
+          >
+            <NavIcon name="menu" />
+          </button>
+
+          {/* Desktop collapse toggle. It lives in the TOPBAR, not inside the
+              sidebar, precisely so it is still on screen once the sidebar has
+              slid out — a control that disappears when you use it is a one-way
+              door. Hidden below lg, where the hamburger already does this job
+              as a modal overlay. */}
+          <button
+            type="button"
+            aria-expanded={!desktopCollapsed}
+            aria-label={desktopCollapsed ? 'Prikaži meni' : 'Sakrij meni'}
+            className="focus-ring hidden rounded-lg border border-line p-2 lg:block"
+            onClick={() => setDesktopCollapsed((collapsed) => !collapsed)}
           >
             <NavIcon name="menu" />
           </button>
@@ -175,7 +208,7 @@ export function AppShell({
             <div className="hidden text-right sm:block">
               <Link
                 href="/app/profil"
-                title="Profil"
+                title="Moj profil"
                 className="focus-ring block max-w-[160px] truncate rounded text-xs text-txt-mid hover:text-txt-hi"
               >
                 {email}

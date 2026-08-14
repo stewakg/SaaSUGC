@@ -1,9 +1,5 @@
-import { JOB_DESCRIPTORS, CREDIT_PACKS } from '@adgen/core';
-import { creditsWord } from '@adgen/core/pricing';
-import { AddCreditsButton } from '@/components/add-credits-button';
+import { JOB_DESCRIPTORS } from '@adgen/core';
 import { MainToolCard, UtilityToolCard } from '@/components/tool-cards';
-import { createServerClient } from '@/lib/supabase/server';
-import { isAdminEmail } from '@/lib/admin';
 import { LIVE_TOOL_LINKS } from '@/lib/live-tools';
 
 /**
@@ -12,25 +8,9 @@ import { LIVE_TOOL_LINKS } from '@/lib/live-tools';
  * under "Dodatni alati". (F0 note: `ai_video` is the influencer feature,
  * deferred to F7 — shown as a utility row marked "Uskoro".)
  */
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ credited?: string }>;
-}) {
-  const { credited } = await searchParams;
+export default function DashboardPage() {
   const mainTools = JOB_DESCRIPTORS.filter((t) => t.tier === 'main');
   const utilityTools = JOB_DESCRIPTORS.filter((t) => t.tier !== 'main');
-
-  // The instant-credit button mints credits out of nothing. Outside production
-  // anyone signed in may use it (that is what makes local testing painless);
-  // in production it is admins only. This only decides whether to RENDER it —
-  // the route enforces the same rule for itself, because a hidden button is
-  // not a protected one.
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const canGrantCredits = process.env.NODE_ENV !== 'production' || isAdminEmail(user?.email);
 
   return (
     <div className="space-y-10">
@@ -71,33 +51,6 @@ export default async function DashboardPage({
               href={LIVE_TOOL_LINKS[t.type]}
               soon={!LIVE_TOOL_LINKS[t.type]}
             />
-          ))}
-        </div>
-      </section>
-
-      {/* Pricing placeholder + dev add-credits (mock billing) */}
-      {credited && (
-        <p role="status" className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-sm text-ok-text">Krediti dodati!</p>
-      )}
-      <section className="border-t border-line pt-8">
-        <div className="mb-4 flex items-end justify-between">
-          <div>
-            <h2 className="font-display text-xl font-bold sm:text-2xl">Krediti</h2>
-            <p className="mt-1 text-sm text-txt-mid">Dopuni kad ti zatreba.</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {CREDIT_PACKS.map((p) => (
-            <div key={p.id} className="card">
-              {p.popular && <span className="badge mb-2">Popularno</span>}
-              <p className="font-mono tabular text-2xl font-bold text-txt-hi">
-                {p.credits}
-                {p.bonus ? <span className="text-sm font-normal text-accent-text"> +{p.bonus}</span> : null}
-              </p>
-              <p className="text-xs text-txt-mid">{creditsWord(p.credits)}</p>
-              <p className="mt-2 text-sm font-mono tabular text-txt-mid">{p.priceEUR} €</p>
-              {canGrantCredits && <AddCreditsButton packId={p.id} className="mt-4 w-full" />}
-            </div>
           ))}
         </div>
       </section>
