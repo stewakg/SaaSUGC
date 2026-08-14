@@ -1,19 +1,27 @@
 import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
 import { isThemeId, THEME_COOKIE } from '@/lib/theme';
+import { SIGNUP_BONUS_CREDITS, freeVideosLabel } from '@adgen/core/pricing';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'AdGen — AI reklame za COD prodavnice',
+  // Two things were wrong here and both were invisible on screen, which is why
+  // they survived the copy pass: this string is what Google and every link
+  // preview show. It promised MUSIC, which the product has never had (the same
+  // claim was removed from the landing hero and the translate card), and it
+  // hard-coded the signup bonus, so changing SIGNUP_BONUS_CREDITS would have
+  // left the search result advertising the old number in the wrong plural.
   description:
-    'Generiši reklamne slike i videe za Balkan COD e-commerce. Skripta, glas, titl, muzika, CTA — sve u jednom. 3 besplatna videa na registraciji.',
+    `Generiši reklamne slike i videe za Balkan COD e-commerce. Skripta, glas, titl, CTA — sve u jednom. ${freeVideosLabel(SIGNUP_BONUS_CREDITS)} na registraciji.`,
   keywords: [
     'AI reklame',
     'video generator',
     'COD e-commerce',
     'Srbija',
     'Balkan',
-    'Remotion',
+    // 'Remotion' was in this list: our renderer, not a term any Serbian seller
+    // searches for. It told competitors what we run and brought no traffic.
   ],
 };
 

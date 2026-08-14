@@ -7,7 +7,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import { authErrorMessage } from '@/lib/auth-errors';
 import { PASSWORD_MIN_LENGTH, validatePassword } from '@/lib/password';
 import { PasswordRules } from '@/components/password-rules';
-import { SIGNUP_BONUS_CREDITS } from '@adgen/core/pricing';
+import { SIGNUP_BONUS_CREDITS, freeVideosLabel } from '@adgen/core/pricing';
 
 /**
  * Email/password sign-up. The signup-bonus trigger (0001_init_schema.sql)
@@ -73,7 +73,7 @@ export default function SignupPage() {
       <div className="panel w-full max-w-sm p-8 animate-fade-in">
         <h1 className="font-display text-2xl font-bold">Napravi nalog</h1>
         <p className="mt-1 text-sm text-txt-mid">
-          {SIGNUP_BONUS_CREDITS} besplatna videa odmah. Bez kartice.
+          {freeVideosLabel(SIGNUP_BONUS_CREDITS)} odmah. Bez kartice.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">

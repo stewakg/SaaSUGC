@@ -228,3 +228,31 @@ export function creditsWord(n: number): string {
   const endsInOne = abs % 10 === 1 && abs % 100 !== 11;
   return endsInOne ? 'kredit' : 'kredita';
 }
+
+/**
+ * "3 besplatna videa" — the signup offer, on the landing page and the signup
+ * form. It was hard-coded to the plural that happens to be right for the
+ * current value of SIGNUP_BONUS_CREDITS, so changing that constant to 1 or 21
+ * would have printed "1 besplatna videa".
+ *
+ * This one needs THREE forms, unlike `creditsWord`. Serbian splits counted
+ * nouns into one / two-to-four / five-plus; *kredit* happens to collapse the
+ * last two, which is why that helper gets away with a single branch. The
+ * adjective does not collapse, so all three appear here:
+ *
+ *   1 besplatan video    · 21 besplatan video
+ *   2 besplatna videa    · 34 besplatna videa
+ *   5 besplatnih videa   · 11 besplatnih videa · 100 besplatnih videa
+ *
+ * 11–14 take the five-plus form even though they end in 1–4, which is the same
+ * exception `creditsWord` documents.
+ */
+export function freeVideosLabel(n: number): string {
+  const abs = Math.abs(Math.trunc(n));
+  const lastTwo = abs % 100;
+  const last = abs % 10;
+  const teens = lastTwo >= 11 && lastTwo <= 14;
+  if (!teens && last === 1) return `${n} besplatan video`;
+  if (!teens && last >= 2 && last <= 4) return `${n} besplatna videa`;
+  return `${n} besplatnih videa`;
+}

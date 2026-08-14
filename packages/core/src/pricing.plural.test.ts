@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { creditsLabel, creditsWord } from './pricing.ts';
+import { creditsLabel, creditsWord, freeVideosLabel, SIGNUP_BONUS_CREDITS } from './pricing.ts';
 
 describe('creditsWord — Serbian plural for "kredit"', () => {
   it('uses the singular for numbers ending in 1', () => {
@@ -32,5 +32,37 @@ describe('creditsWord — Serbian plural for "kredit"', () => {
     expect(creditsWord(-1)).toBe('kredit');
     expect(creditsWord(-15)).toBe('kredita');
     expect(creditsWord(1.9)).toBe('kredit');
+  });
+});
+
+describe('freeVideosLabel — Serbian plural for the signup offer', () => {
+  it('1 and other numbers ending in 1 take the singular adjective and noun', () => {
+    expect(freeVideosLabel(1)).toBe('1 besplatan video');
+    expect(freeVideosLabel(21)).toBe('21 besplatan video');
+    expect(freeVideosLabel(101)).toBe('101 besplatan video');
+  });
+
+  it('2-4 take the paucal — the form the current copy is hard-coded to', () => {
+    expect(freeVideosLabel(2)).toBe('2 besplatna videa');
+    expect(freeVideosLabel(3)).toBe('3 besplatna videa');
+    expect(freeVideosLabel(4)).toBe('4 besplatna videa');
+    expect(freeVideosLabel(34)).toBe('34 besplatna videa');
+  });
+
+  it('5 and up take the genitive plural', () => {
+    for (const n of [0, 5, 9, 10, 25, 100]) {
+      expect(freeVideosLabel(n)).toBe(`${n} besplatnih videa`);
+    }
+  });
+
+  it('11-14 take the five-plus form despite ending in 1-4', () => {
+    for (const n of [11, 12, 13, 14, 111, 213]) {
+      expect(freeVideosLabel(n)).toBe(`${n} besplatnih videa`);
+    }
+  });
+
+  it('the shipped SIGNUP_BONUS_CREDITS renders correctly today', () => {
+    // The whole point: this must stay right if the constant is ever changed.
+    expect(freeVideosLabel(SIGNUP_BONUS_CREDITS)).toBe(`${SIGNUP_BONUS_CREDITS} besplatna videa`);
   });
 });

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { JOB_DESCRIPTORS, SIGNUP_BONUS_CREDITS } from '@adgen/core';
+import { freeVideosLabel } from '@adgen/core/pricing';
 import { MainToolCard, UtilityToolCard } from '@/components/tool-cards';
 import { ThemeSwitcher } from '@/components/theme-switcher';
 import { isToolSoon } from '@/lib/live-tools';
@@ -49,7 +50,7 @@ export default function LandingPage() {
               </Link>
             </div>
             <p className="mt-4 text-sm text-txt-mid">
-              {SIGNUP_BONUS_CREDITS} besplatna videa na registraciji · Bez kartice
+              {freeVideosLabel(SIGNUP_BONUS_CREDITS)} na registraciji · Bez kartice
             </p>
           </div>
 
