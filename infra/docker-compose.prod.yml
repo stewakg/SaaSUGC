@@ -60,6 +60,25 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    # Liveness = "did the event loop beat recently", not "does the process
+    # exist". The worker writes adgen:worker:heartbeat to Redis every 15s from
+    # inside its own event loop (apps/worker/src/health.ts); a blocked loop or a
+    # dead Redis socket stops the writes and this probe goes unhealthy. Fresh is
+    # < 60s old (HEARTBEAT_STALE_MS), future timestamps count as fresh so clock
+    # skew can't cause a restart loop. Uses node + ioredis, both already in the
+    # image — same no-extra-dependency trick as the web healthcheck below.
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const R=require('ioredis');const c=new R(process.env.REDIS_URL);c.get('adgen:worker:heartbeat').then(v=>{c.quit();process.exit(v&&Date.now()-Number(v)<60000?0:1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   web:
     build:
