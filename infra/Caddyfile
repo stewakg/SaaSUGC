@@ -1,0 +1,62 @@
+# Caddy — TLS termination in front of the web container.
+#
+# INERT UNTIL A DOMAIN EXISTS. Nothing starts this by default: the `caddy`
+# service in docker-compose.prod.yml sits behind the `tls` compose profile, so
+# today's deploy command is unchanged and this file is just sitting here ready.
+#
+# WHY THIS EXISTS BEFORE THE DOMAIN DOES: buying the domain is the single item
+# that unblocks the most others (HTTPS, the Supabase auth callback, the Lemon
+# Squeezy webhook URL, a sending address, the R2 custom domain). On the day it
+# lands, TLS should be one command, not the start of a task.
+#
+# Caddy obtains and renews a Let's Encrypt certificate on its own; there is no
+# certbot, no cron, and no renewal to forget. That is the whole reason it is
+# here rather than nginx.
+#
+# HOW TO TURN IT ON (all three steps, in this order):
+#   1. Point the domain's A record at 5.75.154.153 and WAIT for it to resolve —
+#      Caddy's ACME challenge fails if DNS has not propagated, and repeated
+#      failures hit Let's Encrypt rate limits.
+#   2. In infra/docker-compose.prod.yml, REMOVE the `ports: ['80:3000']` block
+#      from the `web` service. Caddy needs port 80 for the ACME challenge and
+#      will not start while web holds it. Web stays reachable to Caddy over the
+#      compose network by service name; it does not need a published port.
+#   3. On the VPS:
+#        echo "ADGEN_DOMAIN=example.com" >> /srv/adgen/.env
+#        cd /srv/adgen && set -a && . ./.env && set +a
+#        docker compose -f infra/docker-compose.prod.yml -p adgen --profile tls up -d
+#      The `--profile tls` is required on EVERY later deploy too, or compose
+#      stops the caddy service again.
+#
+# Then check: `curl -sI https://example.com` and `docker logs adgen-caddy-prod`.
+
+{$ADGEN_DOMAIN} {
+	# Next.js serves on 3000 inside the compose network. `web` is the service
+	# name, not a hostname anyone outside can reach.
+	reverse_proxy web:3000
+
+	encode gzip zstd
+
+	header {
+		# HSTS. Deliberately WITHOUT `preload` and without `includeSubDomains`:
+		# both are effectively irreversible once submitted, and this domain is
+		# new. Add them once the setup has been stable for a while.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Caddy advertises itself by default; there is no reason to tell the
+		# world which proxy version is in front of the app.
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
+
+# www → apex, so the two do not become separate sites with separate sessions.
+www.{$ADGEN_DOMAIN} {
+	redir https://{$ADGEN_DOMAIN}{uri} permanent
+}

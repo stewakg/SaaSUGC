@@ -123,5 +123,41 @@ services:
       redis:
         condition: service_healthy
 
+  # TLS terminator. Behind the `tls` profile, so it does NOT start with a plain
+  # `docker compose up -d` — today's deploy is byte-for-byte unchanged and this
+  # service simply sits here until there is a domain to serve.
+  #
+  # Turning it on is three steps and they are written down in infra/Caddyfile;
+  # the one that will bite is step 2: `web` must give up its `80:3000` mapping
+  # first, because Caddy needs port 80 for the ACME challenge and will not start
+  # while web holds it.
+  #
+  # Caddy renews its own Let's Encrypt certificate. The two named volumes are
+  # what make that true across restarts — `caddy_data` holds the certificates
+  # and the ACME account key, and losing it means re-issuing every certificate
+  # from scratch, straight into Let's Encrypt's rate limits. Do not prune it.
+  caddy:
+    image: caddy:2-alpine
+    container_name: adgen-caddy-prod
+    restart: unless-stopped
+    profiles: ['tls']
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp' # HTTP/3
+    environment:
+      # Set in /srv/adgen/.env. Caddy reads it as {$ADGEN_DOMAIN}; with it unset
+      # Caddy fails to start rather than serving on a wrong hostname.
+      ADGEN_DOMAIN: ${ADGEN_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+
 volumes:
   redis_data:
+  caddy_data:
+  caddy_config:
