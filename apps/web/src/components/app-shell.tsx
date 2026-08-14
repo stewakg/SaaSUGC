@@ -159,7 +159,13 @@ export function AppShell({
               <span className="text-xs text-txt-mid">{creditsWord(balance)}</span>
             </div>
             <div className="hidden text-right sm:block">
-              <p className="max-w-[160px] truncate text-xs text-txt-mid">{email}</p>
+              <Link
+                href="/app/profil"
+                title="Profil"
+                className="focus-ring block max-w-[160px] truncate rounded text-xs text-txt-mid hover:text-txt-hi"
+              >
+                {email}
+              </Link>
             </div>
           </div>
         </header>

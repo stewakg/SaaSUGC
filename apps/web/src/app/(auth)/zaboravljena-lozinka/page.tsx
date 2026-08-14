@@ -70,7 +70,13 @@ export default function ForgotPasswordPage() {
               />
             </label>
 
-            {error && <p className="rounded-lg bg-err/10 p-3 text-sm text-err-text">{error}</p>}
+            {error && (
+            // role="alert" so a screen reader announces the failure. Without it the
+            // form looked like it did nothing: the message appears visually and
+            // is never read out. The password checklist below already had a live
+            // region, which is what made this look covered when it was not.
+            <p role="alert" className="rounded-lg bg-err/10 p-3 text-sm text-err-text">{error}</p>
+          )}
 
             <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
               {loading ? 'Šaljem…' : 'Pošalji link'}
