@@ -64,9 +64,14 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-ground">
-      {/* Sidebar */}
+      {/* Sidebar. role/aria-modal/aria-label are bound to `mobileOpen`, which
+          only the lg:hidden hamburger can set — the permanent desktop sidebar
+          renders as a plain named-less <aside>, never as a dialog. */}
       <aside
         ref={sidebarRef}
+        role={mobileOpen ? 'dialog' : undefined}
+        aria-modal={mobileOpen || undefined}
+        aria-label={mobileOpen ? 'Meni' : undefined}
         className={cn(
           'fixed inset-y-0 left-0 z-40 w-64 border-r border-line bg-panel transition-transform lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
@@ -182,26 +187,26 @@ function NavIcon({ name }: { name: string }) {
   switch (name) {
     case 'home':
       return (
-        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+        <svg aria-hidden="true" className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
           <path d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V9.5Z" strokeLinejoin="round" />
         </svg>
       );
     case 'film':
       return (
-        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+        <svg aria-hidden="true" className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
           <rect x="3" y="4" width="18" height="16" rx="2" />
           <path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4" />
         </svg>
       );
     case 'logout':
       return (
-        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+        <svg aria-hidden="true" className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     case 'menu':
       return (
-        <svg className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+        <svg aria-hidden="true" className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
           <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
         </svg>
       );

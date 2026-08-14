@@ -82,6 +82,7 @@ export function JobWizard({
               type="button"
               disabled={!reached || !onStepSelect}
               aria-current={i === activeIndex ? 'step' : undefined}
+              aria-label={i < activeIndex ? `${s.label} (završeno)` : undefined}
               onClick={() => onStepSelect?.(i)}
               className={cn(
                 'focus-ring step-chip lg:w-full lg:justify-start lg:gap-3 lg:px-3 lg:py-2.5 lg:text-left',
@@ -114,7 +115,7 @@ export function JobWizard({
           <p className="mb-1 text-xs uppercase tracking-wide text-txt-low">
             Korak {activeIndex + 1}/{steps.length}
           </p>
-          <h2 className="font-display text-xl font-bold text-txt-hi">{step.label}</h2>
+          <h1 className="font-display text-xl font-bold text-txt-hi">{step.label}</h1>
 
           <div className="mt-5">{step.content}</div>
         </div>

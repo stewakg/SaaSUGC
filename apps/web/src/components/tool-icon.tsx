@@ -25,7 +25,7 @@ export function ToolIcon({ icon, className }: { icon?: string; className?: strin
   const Icon = (icon && ICONS[icon]) || Wand2;
   return (
     <div className={cn('icon-chip', className)}>
-      <Icon className="h-5 w-5" strokeWidth={2} />
+      <Icon className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
     </div>
   );
 }

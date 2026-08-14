@@ -59,7 +59,7 @@ export default async function DashboardPage({
       </section>
 
       <section>
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-txt-low">Dodatni alati</p>
+        <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-txt-low">Dodatni alati</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {utilityTools.map((t) => (
             <UtilityToolCard

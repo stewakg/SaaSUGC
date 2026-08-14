@@ -68,7 +68,7 @@ export function MainToolCard({
         <ul className="mt-4 space-y-1.5">
           {benefits.map((b) => (
             <li key={b} className="flex items-start gap-2 text-sm text-txt-mid">
-              <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} />
+              <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} aria-hidden="true" />
               <span>{b}</span>
             </li>
           ))}
