@@ -30,7 +30,17 @@ cline --json -P openai-compatible --thinking medium -c "<repo>" "Read scratchpad
   a bare run uses `lastUsedProvider`, and testing `-P zai` once rewrites that to the empty one.
 - **Never background it with PowerShell `Start-Job`** — each PowerShell call is a fresh process,
   the job dies with it and the task is silently lost. Use the harness's own backgrounding.
-- Never run two Cline tasks against the same files at once; disjoint file sets only.
+- **Run ONE task at a time. Cline runs cannot be parallelised** — measured 2026-08-14, not
+  assumed. Three concurrent invocations produced
+  `{"type":"run_aborted","reason":"external_abort","message":"aborted by another client"}`: a new
+  `cline` process kills a running one, because they share a hub. Two coexisted for a while, which
+  is exactly what makes this look supported until it silently is not. The earlier failures that
+  looked like provider stalls — `"The operation timed out."` at iteration 1 with **zero tokens
+  used** — are almost certainly the same thing wearing a different hat.
+  Symptoms to recognise: a run that dies at iteration 1 having spent nothing, or a completed run
+  whose files never appeared. Check the tail of the `--json` output for `run_aborted` before
+  blaming the model.
+- Even sequentially, never point two tasks at the same files.
 
 ---
 
