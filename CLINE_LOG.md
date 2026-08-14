@@ -76,6 +76,8 @@ cline --json -P openai-compatible --thinking medium -c "<repo>" "Read scratchpad
 
 | 41 | **Code change:** worker SIGTERM + heartbeat + healthcheck + `stalled` | NEW `apps/worker/src/health.{ts,test.ts}` + `index.ts` + `infra/docker-compose.prod.yml` | Mutations: a throwing heartbeat write failed exactly the never-fatal test; treating a future timestamp as stale failed exactly the clock-skew test. 9 tests. Cline also wrote a correct healthcheck one-liner after I deliberately handed it a broken one to fix, and reported the final line. **Then the LIVE test found what no test could**: SIGTERM logged correctly but the container exited 1, because `pnpm` was PID 1 — fixed by hand in `03a3bbc`, re-tested with a real signal, exit 0. | ✅ accepted | `115cb25`, `03a3bbc` |
 
+| 42 | **Code change:** private Lambda render + presigned ownership fetch | `packages/core/src/providers/renderer.lambda.{ts,test.ts}` | Three mutations: reverting to `privacy: 'public'` failed exactly its assertion; fetching the raw `outputFile` failed exactly the test forbidding it; skipping the bucket-segment strip failed the path-style key test and the presign-arguments test. 8 new tests. The spec handed Cline the real `presignUrl` signature read out of the installed 4.0.490 types, so nothing was guessed. **Then I RAN it against live AWS + R2** (`52b7829`) — 21.5s, our url back, 1 079 954 bytes of mp4 — which is what moved this file from CODE-COMPLETE to VERIFIED. | ✅ accepted | `9ec9fb9` |
+
 ## Audits run by Claude, not delegated (2026-08-13)
 
 Two sweeps the owner asked for. Both found real defects, and both are worth repeating whenever the

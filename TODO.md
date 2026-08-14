@@ -32,7 +32,7 @@ all happened since, and all three "known defects" in its §6b had already been f
 | ✅ | **Supabase cloud** — auth, DB, migrations 0001–0006 | — | ⚠️ 0007 is written and NOT applied — see §2 |
 | ❌ ⛔ | **Apply migration 0007 to the live DB** | 👤 | **The credit self-grant hole is open in production until this runs.** One paste into the SQL editor |
 | ❌ ⛔ | **Domain + DNS** | 👤 | Nothing reserved. Blocks HTTPS, the Supabase auth callback, the Lemon Squeezy webhook URL, a sending address, and the R2 custom domain |
-| ❌ ⛔ | **TLS / reverse proxy** | 🤖 | Caddy in front of the web container; ten minutes of work, blocked entirely on the domain |
+| 🟡 | **TLS / reverse proxy** | 👤 | **Written and staged** (`bd61c53`): `infra/Caddyfile` + a `caddy` service behind the `tls` compose profile, so nothing starts until asked. Verified on the VPS's real Docker that the profile adds caddy and nothing else changes. Switch-on steps are in the Caddyfile — the one that bites is that `web` must give up `80:3000` first. Still blocked on the domain |
 | ❌ | **Sending email address** | 👤 | Supabase auth mail still goes out on Supabase defaults |
 | ✅ | **Worker survives a deploy, and a wedged one is detected** | — | Fixed 2026-08-14 (`115cb25`, `03a3bbc`) and **proven with a real SIGTERM to the live container**: exits 0, drains first, and Node is PID 1 so Docker's signal is not filtered through pnpm. Liveness is a Redis heartbeat the compose healthcheck reads — "the loop beat recently", not "the process exists" |
 | 🟡 | **Error alerting** | 👤 | Shipped and deployed 2026-08-14 (`d47815e`, 6 tests): a failed job POSTs one line to `ALERT_WEBHOOK_URL`. **It is unset on the live box, so nothing is reported today** — paste a Discord/Slack/Telegram relay url into `/srv/adgen/.env` and restart the worker. One line, no rebuild |
@@ -79,13 +79,14 @@ Trimmed 2026-08-14 by the functional audit: a card links to a wizard ONLY if a p
 | ❌ ⛔ | Impressum must name the REAL operator | 👤 |
 | ❌ | GDPR / cookie consent | 🤖 after the lawyer |
 | ❌ | 30-day retention | 👤 sets the bucket rule; 🤖 does the expired-asset UI, which would lie until the rule exists |
+| ❌ | **`Storage` has no `delete` method at all** | 🤖 after a 👤 decision. Found 2026-08-14. Retention by R2 lifecycle rule is legitimate and is the plan — but it means the APP cannot delete a file on request, so a GDPR erasure or a "remove this video" button has nothing to call. Decide whether deletion is bucket-only or the app needs the capability before a real user asks. One artifact is already stranded by this: `renders/lambda-dqbz7jwul1.mp4`, ~1 MB, from the live render verification |
 
 Deliberately not drafted by me: this carries real legal weight across DE/RS/EU, and generated
 placeholder text is worse than none because it reads as if it were coverage.
 
 ## 6. Testing
 
-**773 tests** (core 337, web 331, worker 105); `pnpm -r typecheck` clean on all five projects.
+**780 tests** (core 344, web 331, worker 105); `pnpm -r typecheck` clean on all five projects.
 `@adgen/web` can now test COMPONENTS: `jsdom` is a devDependency and `apps/web/vitest.config.ts`
 keeps `node` as the default environment, so a file opts into a DOM with `// @vitest-environment
 jsdom` and the ~300 route tests keep a real `Request`/`Response`. Before this, no component in the
