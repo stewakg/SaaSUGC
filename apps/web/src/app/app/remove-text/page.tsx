@@ -86,7 +86,7 @@ export default function RemoveTextPage() {
             onFiles={handleFiles}
           />
           {uploadPhase === 'uploading' && <p className="text-sm text-txt-mid">Otpremam…</p>}
-          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
+          {uploadError && <p role="alert" className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
           {uploadPhase === 'done' && sourceUrl && (
             <p className="truncate text-sm text-accent-text">Otpremljeno: {sourceName}</p>
           )}
@@ -158,7 +158,7 @@ function GenerateStep({
     return <p className="text-sm text-txt-mid">Uklanjam tekst… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-err-text">{errorMsg}</p>;
+    return <p role="alert" className="text-sm text-err-text">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (

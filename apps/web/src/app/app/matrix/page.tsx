@@ -617,7 +617,7 @@ export default function MatrixPage() {
             onFiles={handleFiles}
           />
           {uploading && <p className="text-sm text-txt-mid">Otpremam…</p>}
-          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
+          {uploadError && <p role="alert" className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
           <div className="border-t border-line pt-4">
             <span className="mb-1 block text-sm text-txt-mid">…ili nalepi link (TikTok / YouTube / Instagram)</span>
             <div className="flex gap-2">
@@ -637,7 +637,7 @@ export default function MatrixPage() {
                 {importingLink ? 'Uvozim…' : 'Uvezi'}
               </button>
             </div>
-            {linkError && <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{linkError}</p>}
+            {linkError && <p role="alert" className="mt-2 rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{linkError}</p>}
           </div>
 
           <div className="border-t border-line pt-4">
@@ -667,7 +667,7 @@ export default function MatrixPage() {
               </button>
             </div>
             {searchError && (
-              <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{searchError}</p>
+              <p role="alert" className="mt-2 rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{searchError}</p>
             )}
             {!searching && !searchError && searchResults.length === 0 && searchQuery.trim() !== '' && (
               <p className="mt-2 text-sm text-txt-low">Nema rezultata za taj upit.</p>
@@ -811,7 +811,7 @@ export default function MatrixPage() {
             </span>
           </label>
 
-          {scrapeError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{scrapeError}</p>}
+          {scrapeError && <p role="alert" className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{scrapeError}</p>}
 
           {images.length > 0 && (
             <div className="flex gap-2 overflow-x-auto">
@@ -1202,7 +1202,7 @@ export default function MatrixPage() {
             </label>
 
             {audioUploading && <p className="mt-2 text-xs text-txt-mid">Otpremam…</p>}
-            {audioError && <p className="mt-2 rounded-control border border-err/30 bg-err/10 p-2 text-xs text-err-text">{audioError}</p>}
+            {audioError && <p role="alert" className="mt-2 rounded-control border border-err/30 bg-err/10 p-2 text-xs text-err-text">{audioError}</p>}
             <p className="mt-2 text-xs text-txt-low">
               Koristi samo muziku na koju imaš prava — otpremljeni zapis ide direktno u gotov oglas.
             </p>
@@ -1257,7 +1257,7 @@ export default function MatrixPage() {
             )}
           </div>
 
-          {scriptError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{scriptError}</p>}
+          {scriptError && <p role="alert" className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{scriptError}</p>}
 
           {/* Silence here means the copy may not match the voice — worth saying,
               because in Serbian that is a broken ad, not a stylistic quibble. */}
@@ -1543,7 +1543,7 @@ function GenerateStep({
     );
   }
   if (phase === 'error') {
-    return <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{errorMsg}</p>;
+    return <p role="alert" className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (

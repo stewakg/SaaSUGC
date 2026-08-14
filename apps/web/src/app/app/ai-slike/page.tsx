@@ -120,7 +120,7 @@ export default function AiSlikePage() {
             </div>
           </label>
 
-          {scrapeError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{scrapeError}</p>}
+          {scrapeError && <p role="alert" className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{scrapeError}</p>}
 
           {scrapePhase === 'done' && (
             <div className="space-y-3">
@@ -279,7 +279,7 @@ function GenerateStep({
     return <p className="text-sm text-txt-mid">Generišem AI slike… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-err-text">{errorMsg}</p>;
+    return <p role="alert" className="text-sm text-err-text">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (

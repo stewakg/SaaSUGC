@@ -62,7 +62,7 @@ export function AddCreditsButton({
       >
         {loading ? '…' : 'Dodaj kredit'}
       </button>
-      {error && <p className="mt-2 text-sm text-err-text">Kupovina trenutno nije moguća.</p>}
+      {error && <p role="alert" className="mt-2 text-sm text-err-text">Kupovina trenutno nije moguća.</p>}
     </>
   );
 }

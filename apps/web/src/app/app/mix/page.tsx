@@ -97,7 +97,7 @@ export default function MixPage() {
             onFiles={handleFiles}
           />
           {uploading && <p className="text-sm text-txt-mid">Otpremam…</p>}
-          {uploadError && <p className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
+          {uploadError && <p role="alert" className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
           {clips.length > 0 && (
             <ul className="space-y-2">
               {clips.map((c, i) => (
@@ -218,7 +218,7 @@ function GenerateStep({
     return <p className="text-sm text-txt-mid">Spajam klipove… ⏳</p>;
   }
   if (phase === 'error') {
-    return <p className="text-sm text-err-text">{errorMsg}</p>;
+    return <p role="alert" className="text-sm text-err-text">{errorMsg}</p>;
   }
   if (phase === 'done') {
     return (

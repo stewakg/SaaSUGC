@@ -175,7 +175,7 @@ export function FileDropzone({
       >
         <span className="text-sm font-medium text-txt-hi">{title}</span>
         {wrongType ? (
-          <span className="text-xs text-err-text">Pogrešan tip fajla.</span>
+          <span role="alert" className="text-xs text-err-text">Pogrešan tip fajla.</span>
         ) : (
           hint && <span className="text-xs text-txt-mid">{hint}</span>
         )}
