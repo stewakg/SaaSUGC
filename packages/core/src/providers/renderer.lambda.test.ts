@@ -11,15 +11,14 @@
  *
  * The single most important property under test is the "take ownership"
  * invariant: the public videoUrl returned to the caller is ALWAYS our Storage
- * url, never the Lambda-managed S3 outputFile. The doc comment on render()
- * lists three independent reasons returning the S3 url is wrong (a permanently
- * world-readable link to a paying customer's video chief among them); that
+ * url, never the Lambda-managed S3 outputFile — which is rendered private and
+ * fetched through a short-lived presigned url (pinned in section I); that
  * branch is asserted in every success path.
  *
  * Isolation notes (same discipline as factory.test.ts):
  *  - The SDK fns are created with vi.hoisted so vi.mock's hoisted factory can
  *    reference them without a temporal-dead-zone error.
- *  - beforeEach installs fake timers, resets the three SDK fns and the faked
+ *  - beforeEach installs fake timers, resets the four SDK fns and the faked
  *    fetch, and spies console.warn. afterEach restores ALL of them — a leaked
  *    fake timer, mocked fetch or warn spy would silently corrupt later files
  *    in the same vitest run.
@@ -27,21 +26,23 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import type { AwsRegion } from '@remotion/lambda-client';
-import { RemotionLambdaRenderer } from './renderer.lambda.ts';
+import { RemotionLambdaRenderer, objectKeyFromOutputUrl } from './renderer.lambda.ts';
 import type { Storage } from '../interfaces.ts';
 
-// vi.mock is hoisted above every import, so the three fns it hands back to the
+// vi.mock is hoisted above every import, so the four fns it hands back to the
 // module under test must already exist at hoist time. vi.hoisted guarantees it.
-const { renderMediaOnLambda, getRenderProgress, deleteRender } = vi.hoisted(() => ({
+const { renderMediaOnLambda, getRenderProgress, deleteRender, presignUrl } = vi.hoisted(() => ({
   renderMediaOnLambda: vi.fn(),
   getRenderProgress: vi.fn(),
   deleteRender: vi.fn(),
+  presignUrl: vi.fn(),
 }));
 
 vi.mock('@remotion/lambda-client', () => ({
   renderMediaOnLambda,
   getRenderProgress,
   deleteRender,
+  presignUrl,
 }));
 
 // ---------------------------------------------------------------------------
@@ -68,8 +69,13 @@ const CONFIG = {
 const STORAGE_URL = 'https://cdn.example.invalid/renders/x.mp4';
 
 // The url Remotion leaves the rendered file at inside its Lambda bucket. Tests
-// assert that this value NEVER reaches the caller.
+// assert that this value NEVER reaches the caller — and, since the output is
+// private, never even reaches fetch() (section I).
 const S3_OUTPUT = 'https://s3.example.invalid/out.mp4';
+
+// The url the mocked presignUrl hands back. The renderer must fetch THIS, not
+// the raw S3_OUTPUT above.
+const SIGNED_URL = 'https://s3.example.invalid/out.mp4?X-Amz-Signature=fake';
 
 /** A faked ok fetch response: ok, with 8 bytes of body. The renderer only reads
  *  res.ok and res.arrayBuffer(), so this is all it needs. */
@@ -110,6 +116,8 @@ beforeEach(() => {
   renderMediaOnLambda.mockReset();
   getRenderProgress.mockReset();
   deleteRender.mockReset();
+  presignUrl.mockReset();
+  presignUrl.mockResolvedValue(SIGNED_URL);
 
   // Default fetch: success. Individual tests override per call for failures.
   fetchMock.mockReset();
@@ -172,14 +180,14 @@ describe('A. Happy path', () => {
 
   it('3. videoUrl is our Storage url, never the S3 outputFile', async () => {
     // THE central assertion of this file (see the render() doc comment): the
-    // returned link must be the one we control, not Lambda's world-readable S3
-    // url to a paying customer's video.
+    // returned link must be the one we control, not Lambda's S3 url to a
+    // paying customer's video.
     const result = await happyRender();
     expect(result.videoUrl).toBe(STORAGE_URL);
     expect(result.videoUrl).not.toMatch(/s3\.example\.invalid/);
   });
 
-  it('4. renderMediaOnLambda is called with the config + composition + props + codec h264', async () => {
+  it('4. renderMediaOnLambda is called with the config + composition + props + codec h264 + privacy private', async () => {
     await happyRender('my-comp', { foo: 'bar' });
     expect(renderMediaOnLambda).toHaveBeenCalledWith({
       region: CONFIG.region,
@@ -188,7 +196,10 @@ describe('A. Happy path', () => {
       composition: 'my-comp',
       inputProps: { foo: 'bar' },
       codec: 'h264',
-      privacy: 'public',
+      // THE point of the private-render change: the exact value is asserted,
+      // because 'public' would make the customer's video world-readable at
+      // its plain S3 url for as long as the object exists.
+      privacy: 'private',
     });
   });
 });
@@ -564,6 +575,103 @@ describe('G. Ownership fetch retry', () => {
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(storage.upload).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H. objectKeyFromOutputUrl — the S3 key is DERIVED from the output url,
+//    never guessed or reconstructed from the renderId
+// ---------------------------------------------------------------------------
+// The output object is private, so it is only reachable through a presigned
+// url for the EXACT object key. getRenderProgress reports a full S3 url in one
+// of two shapes (virtual-host or path-style) and the key must be parsed out of
+// whichever arrives. A key that silently differs from the real one is a 404 at
+// the worst moment, on a render the customer already paid for — so every parse
+// failure throws rather than guessing.
+// ---------------------------------------------------------------------------
+
+describe('H. objectKeyFromOutputUrl', () => {
+  it('22. a virtual-host url gives the key without the bucket', () => {
+    expect(
+      objectKeyFromOutputUrl(
+        'https://my-bucket.s3.eu-central-1.amazonaws.com/renders/abc/out.mp4',
+        'my-bucket',
+      ),
+    ).toBe('renders/abc/out.mp4');
+  });
+
+  it('23. a path-style url gives the key with the bucket segment stripped', () => {
+    expect(
+      objectKeyFromOutputUrl(
+        'https://s3.eu-central-1.amazonaws.com/my-bucket/renders/abc/out.mp4',
+        'my-bucket',
+      ),
+    ).toBe('renders/abc/out.mp4');
+  });
+
+  it('24. a percent-escaped key is decoded', () => {
+    expect(
+      objectKeyFromOutputUrl(
+        'https://my-bucket.s3.eu-central-1.amazonaws.com/renders/ab%20c/out.mp4',
+        'my-bucket',
+      ),
+    ).toBe('renders/ab c/out.mp4');
+  });
+
+  it('25. a malformed url throws, and the message names the renderId and the url', () => {
+    // No fallback, no derived-from-renderId guess — a wrong key is a 404 on a
+    // paid render, so an underivable key must fail loudly.
+    expect(() => objectKeyFromOutputUrl('not a url at all', 'my-bucket', 'r25')).toThrow(
+      /renderId=r25.*not a url at all/,
+    );
+  });
+
+  it('26. a url whose path is only / throws rather than returning an empty key', () => {
+    expect(() =>
+      objectKeyFromOutputUrl(
+        'https://my-bucket.s3.eu-central-1.amazonaws.com/',
+        'my-bucket',
+        'r26',
+      ),
+    ).toThrow(/renderId=r26/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// I. Presigned ownership fetch — a private output is fetched through a
+//    short-lived signed url, never its plain url
+// ---------------------------------------------------------------------------
+
+describe('I. Presigned ownership fetch', () => {
+  it('27. presignUrl is called with the region, bucket, derived key and expiresInSeconds 900', async () => {
+    renderMediaOnLambda.mockResolvedValue({ renderId: 'r27', bucketName: 'remotion-bucket' });
+    // Path-style url on purpose: proves the bucket segment is stripped before
+    // the key is handed to presignUrl (the pairing of section H with the call).
+    getRenderProgress.mockResolvedValueOnce({
+      done: true,
+      outputFile: 'https://s3.eu-central-1.amazonaws.com/remotion-bucket/renders/r27/out.mp4',
+    });
+
+    await renderer.render({ composition: 'comp', props: {} });
+
+    expect(presignUrl).toHaveBeenCalledWith({
+      region: CONFIG.region,
+      bucketName: 'remotion-bucket',
+      objectKey: 'renders/r27/out.mp4',
+      expiresInSeconds: 900,
+    });
+  });
+
+  it('28. the output is fetched through the PRESIGNED url — never the raw outputFile', async () => {
+    // The whole point of privacy: 'private' — the object's plain url must never
+    // even reach fetch(), because it would 403; and under the old
+    // privacy: 'public' it would have been world-readable for the object's
+    // whole lifetime.
+    await happyRender();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(SIGNED_URL);
+    expect(fetchMock).not.toHaveBeenCalledWith(S3_OUTPUT);
   });
 });
 

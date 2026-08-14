@@ -26,6 +26,7 @@ import {
   renderMediaOnLambda,
   getRenderProgress,
   deleteRender,
+  presignUrl,
   type AwsRegion,
 } from '@remotion/lambda-client';
 import type { Renderer, Storage } from '../interfaces.ts';
@@ -48,6 +49,59 @@ const NO_PROGRESS_TIMEOUT_MS = 5 * 60 * 1000;
 // permanent and fails at once — retrying it only delays the inevitable.
 const FETCH_MAX_ATTEMPTS = 3;
 const FETCH_BACKOFF_MS = 500;
+// How long the presigned output url stays valid. 15 minutes is deliberate:
+// long enough to cover the whole retry ladder above (3 attempts + linear
+// backoff) with room to spare, short enough that a leaked signature is
+// worthless by the time anyone could use it.
+const PRESIGN_EXPIRES_IN_SECONDS = 900;
+
+/**
+ * Derive the S3 object key from the `outputFile` url that getRenderProgress
+ * reports. The url arrives in one of two shapes depending on bucket
+ * addressing — virtual-host
+ * (`https://<bucket>.s3.<region>.amazonaws.com/renders/<id>/out.mp4`) or
+ * path-style (`https://s3.<region>.amazonaws.com/<bucket>/renders/<id>/out.mp4`)
+ * — and in both the key is the pathname minus the leading slash and, in the
+ * path-style case, the bucket segment.
+ *
+ * Throws (naming the renderId and the url) when the url does not parse or no
+ * key remains. The key must never be guessed or reconstructed from the
+ * renderId: a key that silently differs from the real one is a 404 at the
+ * worst moment, on a render the customer has already paid for.
+ */
+export function objectKeyFromOutputUrl(
+  outputFile: string,
+  bucketName: string,
+  renderId?: string,
+): string {
+  const cannotDerive = () =>
+    new Error(
+      `could not derive the S3 object key${
+        renderId === undefined ? '' : ` for renderId=${renderId}`
+      } from output url: ${outputFile}`,
+    );
+  let pathname: string;
+  try {
+    pathname = new URL(outputFile).pathname;
+  } catch {
+    throw cannotDerive();
+  }
+  let key = pathname.replace(/^\//, '');
+  if (key.startsWith(`${bucketName}/`)) {
+    key = key.slice(bucketName.length + 1);
+  }
+  try {
+    // A renderId never needs it today, but a silently-mis-decoded key is a
+    // 404 at the worst moment — decode rather than trust percent-escapes.
+    key = decodeURIComponent(key);
+  } catch {
+    throw cannotDerive();
+  }
+  if (!key) {
+    throw cannotDerive();
+  }
+  return key;
+}
 
 export class RemotionLambdaRenderer implements Renderer {
   readonly name = 'remotion-lambda-renderer';
@@ -65,22 +119,20 @@ export class RemotionLambdaRenderer implements Renderer {
   /**
    * Render, then take ownership of the file.
    *
-   * Remotion leaves the output in a Lambda-managed S3 bucket. Returning that
-   * url directly looks like it works and is wrong in three separate ways:
+   * Remotion leaves the output in a Lambda-managed S3 bucket, written with
+   * `privacy: 'private'` so nothing but our own AWS credentials can read it.
+   * Returning that url directly would still be wrong in two separate ways:
    *
-   *  1. `privacy: 'public'` means a permanent, world-readable link to a paying
-   *     customer's video — the exact exposure flagged as a launch blocker for
-   *     R2 (RELEASE_PLAN L1.4), reintroduced through the back door.
-   *  2. The file would sit outside our Storage, so the 30-day retention the
+   *  1. The file would sit outside our Storage, so the 30-day retention the
    *     Terms now promise could not apply to it, and `assets.storageKey` would
    *     be null — nothing could ever find it to delete.
-   *  3. We would pay AWS to store it forever, on top of R2.
+   *  2. We would pay AWS to store it forever, on top of R2.
    *
-   * So: fetch it, put it in our Storage, delete the Lambda copy. The public
-   * window is the few seconds between "done" and the delete, on an unguessable
-   * renderId path. Tightening that further (private output + presignUrl) is
-   * possible and worth doing once someone can actually run this against AWS —
-   * it is not worth guessing at an API shape that has never been executed.
+   * So: presign the output object (15-minute validity — long enough for the
+   * whole fetch-retry ladder, short enough that a leaked signature is
+   * worthless by the time anyone could use it), fetch it through that signed
+   * url, put it in our Storage, delete the Lambda copy. The output object is
+   * never readable at its plain url at any point in its lifetime.
    */
   async render(input: {
     composition: string;
@@ -93,7 +145,7 @@ export class RemotionLambdaRenderer implements Renderer {
       composition: input.composition,
       inputProps: input.props,
       codec: 'h264',
-      privacy: 'public',
+      privacy: 'private',
     });
 
     // The stall clock: reset every time the render advances. `lastProgress`
@@ -158,7 +210,17 @@ export class RemotionLambdaRenderer implements Renderer {
     renderId: string,
     bucketName: string,
   ): Promise<{ videoUrl: string; storageKey: string }> {
-    const res = await this.fetchOutputWithRetry(outputFile, renderId);
+    // The output object is private, so its plain url cannot be fetched —
+    // derive the object key and fetch through a short-lived presigned url
+    // instead (expiry rationale on PRESIGN_EXPIRES_IN_SECONDS).
+    const objectKey = objectKeyFromOutputUrl(outputFile, bucketName, renderId);
+    const signedUrl = await presignUrl({
+      region: this.config.region,
+      bucketName,
+      objectKey,
+      expiresInSeconds: PRESIGN_EXPIRES_IN_SECONDS,
+    });
+    const res = await this.fetchOutputWithRetry(signedUrl, renderId);
     const buffer = Buffer.from(await res.arrayBuffer());
 
     const storageKey = `renders/lambda-${renderId}.mp4`;
