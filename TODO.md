@@ -65,16 +65,18 @@ Trimmed 2026-08-14 by the functional audit: a card links to a wizard ONLY if a p
 
 ## 3b. Profil / podešavanja — MISSING ENTIRELY
 
-Requested by the owner 2026-08-14. Today the email in the app shell is text: clicking it does
-nothing, and there is no account screen anywhere in the product. Everything a portal is expected to
-have is absent.
+Requested by the owner 2026-08-14 and largely built the same day. What is left is listed below;
+the rows marked 🔄 are in progress right now.
 
 | Status | Item | Note |
 |---|---|---|
-| ❌ | **Profile entry point** | Clicking your email in the shell should open account settings — a page or a panel. Nothing happens today |
-| ❌ | **Change password** | The reset-by-email flow exists (`zaboravljena-lozinka` → `nova-lozinka`); changing it while signed in does not. Supabase `updateUser` covers it, and the existing `validatePassword` checklist should be reused rather than re-written |
-| ❌ | **Buy / add credits from the profile** | Credit packs live only on the dashboard. The profile is where a returning customer looks for them |
-| ❌ | **Timezone + time display** | Job timestamps render in whatever the browser guesses. A seller in Frankfurt and one in Belgrade see different times for the same job with nothing saying which zone. Needs a stored preference and one formatting helper everything goes through |
+| ✅ | **Profile entry point** | `/app/profil` shipped 2026-08-14. Reached by clicking the email in the topbar — and ALSO from the sidebar, because the email sits in a `hidden sm:block` container and on a phone there was nothing to click at all |
+| 🔄 | **Rename to "Moj Profil"** | Owner's wording, 2026-08-14. Everywhere it is named: the nav entry, the topbar link title, the page heading |
+| 🔄 | **Credits move off the dashboard into the profile** | Owner's decision, 2026-08-14. The packs currently sit at the bottom of Početna; that is not where a returning customer looks for them, and it pushes the tools down |
+| 🔄 | **Collapsible sidebar** | Owner's request, 2026-08-14. A toggle slides the left nav out of view and stays visible so it can be brought back. Today it is fixed on desktop and only the mobile hamburger can hide it |
+| ✅ | **Change password** | Done 2026-08-14. Reuses the existing `validatePassword` checklist and `PasswordRules`, maps Supabase's English through `authErrorMessage`, and announces both failure and success (`role="alert"` / `role="status"`) |
+| 🔄 | **Buy / add credits from the profile** | In progress — the packs move off Početna entirely. The production admin gate on the instant-credit button has to move WITH them, or every production user gets free credits |
+| ✅ | **Timezone + time display** | Done 2026-08-14, and actually wired: the job list formats through `formatDateTime` with the picked zone, read server-side off the cookie. An unknown zone falls back instead of throwing — `Intl` raises `RangeError`, which would have broken every page showing a date |
 | ❌ | **Account basics** | Email shown, sign out (currently only in the shell), and delete-my-account — the last one is a GDPR obligation, and it collides with `Storage` having no `delete` (see §5): today we could not actually erase the person's videos |
 | ❌ | **Invoices / purchase history** | Lemon Squeezy is a merchant of record and issues the invoice, so this may be a link out rather than a screen we build. Decide before building anything |
 
@@ -106,7 +108,7 @@ placeholder text is worse than none because it reads as if it were coverage.
 
 ## 6. Testing
 
-**785 tests** (core 349, web 331, worker 105); `pnpm -r typecheck` clean on all five projects.
+**866 tests** (core 355, web 406, worker 105); `pnpm -r typecheck` clean on all five projects.
 `@adgen/web` can now test COMPONENTS: `jsdom` is a devDependency and `apps/web/vitest.config.ts`
 keeps `node` as the default environment, so a file opts into a DOM with `// @vitest-environment
 jsdom` and the ~300 route tests keep a real `Request`/`Response`. Before this, no component in the
@@ -121,6 +123,8 @@ deliberately broken and the right test had to fail.
 | ✅ | Both renderers, all four providers, the billing layer |
 | ✅ | **The provider chain is exercised end to end** — `apps/worker/scripts/verify-full-pipeline.mts` drives the shipped `runMatrixPipeline` against live OpenRouter, ElevenLabs, Lambda and R2, and refuses to run if anything resolves to a mock. It found a defect on its first run that would have failed every customer job (see the AWS quota row). Costs tens of cents; run it deliberately |
 | ❌ | **Still no signup → job → asset test** — the driver skips the DB and the queue on purpose, so nothing covers the web→DB→BullMQ→worker hop against a real stack |
+| ✅ | **Every component is covered by tests** — `app-shell`, `job-wizard`, `file-dropzone`, `tool-cards`, `theme-switcher`, `password-rules`. This morning none of them were, because the app had no DOM test environment at all |
+| ✅ | **Accessibility audit of the signed-in app** — 18 findings, all fixed 2026-08-14. The serious one: the open mobile menu was not modal, so Tab walked out of it into content the menu was covering. Also every wizard error was silent to a screen reader, no wizard page had an `h1`, and decorative icons were announced |
 | 🟡 | **The PUBLIC pages have now been looked at** — landing, login, signup and the three legal pages, at 375px and desktop, in all three themes. Four defects came out of it that measurement could not see (see `SESSION_LOG.md` 2026-08-14) |
 | ❌ ⛔ | **Nobody has seen the SIGNED-IN screens** — dashboard and all six wizards. I cannot reach them: they are behind auth, and I do not create accounts or type passwords on the owner's behalf. **The owner works remotely from a second machine and cannot log in from the browser pane either**, so this waits until he is at the home machine. One login is enough — after that every page can be walked and screenshotted in one pass |
 | ❌ ⛔ | **No human has clicked a wizard end to end** |
