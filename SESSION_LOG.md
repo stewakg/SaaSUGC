@@ -91,7 +91,8 @@ not exist. Both are in git now. The web container also gained the healthcheck it
 hung Next process stops reporting as "Up".
 
 **A CRLF trap worth remembering:** the `.env` copied up from Windows carried CRLF, so
-`set -a; . ./.env` produced values with a trailing `` and the build args arrived blank. Stripped
+`set -a; . ./.env` produced values with a trailing `
+` and the build args arrived blank. Stripped
 on the server; the deploy note in TODO.md says to keep it LF.
 
 **Also:** drag-and-drop is now in all six wizards, `/api/upload`'s comment no longer claims Vercel
@@ -100,6 +101,29 @@ scratch** — it was last reviewed 2026-08-10, wrong on nearly every line, point
 and listed three "known defects" that were all already fixed. It now carries an ordered advice
 section and a two-machine section (what does not travel with git, the deploy commands that pull
 from git rather than a laptop, and the warning that two workers on one Redis fight over the queue).
+
+**Later the same day — the two 🟡 tools were finally executed, and the first call found a bug.**
+`enhance` and `remove_text` had been "written, never run" since F5, blocked on R2, which landed
+yesterday. The first real `enhance` call failed at once:
+
+    fal.ai fal-ai/topaz/upscale/image result fetch failed (405)
+
+Submit and status polling were fine; the RESULT fetch built its own url,
+`${base}/${endpointId}/requests/${id}`, which is correct only for a FLAT model id. These endpoints
+are nested — `fal-ai/topaz/upscale/image` is the app `fal-ai/topaz` plus a path — and the queue
+lives under the app, so the guessed url answers 405. fal returns `response_url` for exactly this
+reason, and the status poll three lines earlier was already using its sibling `status_url`.
+**The identical bug sat in `ai.kiefal.ts` twice**; its image endpoint is flat and worked by luck,
+its Veo video endpoint is nested and would have 405'd the first time anyone ran F7. Fixed at all
+three sites (`eaa2da7`).
+
+✅ Re-verified live after the fix: **Topaz upscale 14.1s, text removal 11.9s**, both through our
+own provider with the result landing back as a url. The intermediate failure was informative in
+itself — once the url was right, fal answered with a real validation error (422) for a malformed
+test PNG, which is what a working code path looks like. Cost of finding it: about eight cents.
+
+**Deploy re-verified end to end:** `/` 200, all three legal pages 200, and `/app` correctly 307s to
+`/login?next=%2Fapp` — the auth gate proving itself on the live box rather than in a test.
 
 **Gates:** `pnpm -r typecheck` clean; **724 tests** (core 337, web 297, worker 90). Live stack
 verified after every deploy: web 200 and healthy, worker listening with every provider REAL.
