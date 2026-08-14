@@ -84,6 +84,37 @@ Two things to settle before writing code: whether this is a full page (`/app/pro
 and whether "delete my account" ships in the first version — because promising it and not honouring
 the file deletion is worse than not offering it yet.
 
+## 3c. Homepage — the first thing a stranger sees
+
+Raised by the owner 2026-08-14. Two problems, both measured on the live page.
+
+### A. It shows every tool, half of which do not exist
+The landing renders all 10 cards, and **5 carry an USKORO badge**. A visitor's first impression is
+a catalogue that is half "coming soon", which reads as a product that is not ready — and it buries
+the five that do work. The dashboard is the right place for the full list; the landing is a pitch.
+
+| Option | What it does | Cost of being wrong |
+|---|---|---|
+| **A1 (recommended)** | Show ONLY the tools with a pipeline — the five that work. Drop USKORO from the landing entirely; the dashboard keeps showing them | If a tool ships later, one line adds it back. Nothing is lost — the badge already exists on the dashboard |
+| A2 | Show three headline tools (Video reklame, AI slike, Poboljšaj kvalitet) and a "vidi sve alate" link | Strongest pitch, but hides two working tools from someone who came for them |
+| A3 | Keep all ten, collapse the five USKORO into one line of text under the grid | Least change, still admits half the catalogue is unbuilt on the front page |
+
+A1 needs no new mechanism: `isToolSoon()` already exists and the landing already imports it.
+
+### B. The 9:16 slot is an empty box
+`apps/web/src/app/page.tsx:58` renders a `phone-frame` div containing the text `1080×1920`. It
+occupies the hero's most valuable space and shows a placeholder where the product's actual output
+belongs. **We now have real renders in R2** — the verification runs produced finished mp4s.
+
+| Option | What it does | The catch |
+|---|---|---|
+| **B1 (recommended)** | A poster frame from a real render, with a play control that starts the video on click | No autoplay bandwidth on every visit. `r2.dev` is rate-limited and Cloudflare says not for production, so a 9.6 MB autoplaying file on the landing page is a real risk |
+| B2 | A short muted autoplay loop, 2–4 seconds, re-encoded small (target < 1.5 MB) | Best impression, but needs someone to produce and store that asset, and it still spends `r2.dev` requests on every visit |
+| B3 | Drop the frame; give the hero space to the offer and CTA | Honest and cheapest. Loses the "this is what you get" signal that sells a video product |
+
+Both B1 and B2 depend on **one decision the owner has to make: which render to use as the sample.**
+No code can pick that — it is the shop window.
+
 ## 4. Output quality
 
 | Status | Item | Note |
