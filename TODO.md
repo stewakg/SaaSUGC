@@ -62,6 +62,25 @@ Trimmed 2026-08-14 by the functional audit: a card links to a wizard ONLY if a p
 | ❌ | **Brzi test · Edit videi · Mix · Prevod** | Wizard exists, pipeline does not. Now badged USKORO instead of linking to a wizard that ends in an error |
 | ✅ | **Preozvuči** (`revoice`) | Reachable since 2026-08-14: the montage switch in step 3 of the Video-reklame wizard sends this job type and quotes its own (cheaper) price |
 
+## 3b. Profil / podešavanja — MISSING ENTIRELY
+
+Requested by the owner 2026-08-14. Today the email in the app shell is text: clicking it does
+nothing, and there is no account screen anywhere in the product. Everything a portal is expected to
+have is absent.
+
+| Status | Item | Note |
+|---|---|---|
+| ❌ | **Profile entry point** | Clicking your email in the shell should open account settings — a page or a panel. Nothing happens today |
+| ❌ | **Change password** | The reset-by-email flow exists (`zaboravljena-lozinka` → `nova-lozinka`); changing it while signed in does not. Supabase `updateUser` covers it, and the existing `validatePassword` checklist should be reused rather than re-written |
+| ❌ | **Buy / add credits from the profile** | Credit packs live only on the dashboard. The profile is where a returning customer looks for them |
+| ❌ | **Timezone + time display** | Job timestamps render in whatever the browser guesses. A seller in Frankfurt and one in Belgrade see different times for the same job with nothing saying which zone. Needs a stored preference and one formatting helper everything goes through |
+| ❌ | **Account basics** | Email shown, sign out (currently only in the shell), and delete-my-account — the last one is a GDPR obligation, and it collides with `Storage` having no `delete` (see §5): today we could not actually erase the person's videos |
+| ❌ | **Invoices / purchase history** | Lemon Squeezy is a merchant of record and issues the invoice, so this may be a link out rather than a screen we build. Decide before building anything |
+
+Two things to settle before writing code: whether this is a full page (`/app/profil`) or a panel,
+and whether "delete my account" ships in the first version — because promising it and not honouring
+the file deletion is worse than not offering it yet.
+
 ## 4. Output quality
 
 | Status | Item | Note |

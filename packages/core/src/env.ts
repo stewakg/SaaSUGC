@@ -90,6 +90,10 @@ const EnvSchema = z.object({
   // Distinct from AWS_REGION (the R2/S3 Storage region) — the Lambda function
   // can be deployed in a different AWS region than the storage bucket.
   REMOTION_AWS_REGION: z.string().optional(),
+  // Lambdas per render. Unset = the safe default in renderer.lambda.ts, chosen
+  // to fit under a fresh AWS account's concurrent-execution quota. Raise it
+  // only after that quota is raised.
+  REMOTION_LAMBDA_CONCURRENCY: z.string().optional(),
 
   // --- Billing ---
   LEMONSQUEEZY_API_KEY: z.string().optional(),

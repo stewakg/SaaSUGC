@@ -56,6 +56,30 @@ const FETCH_BACKOFF_MS = 500;
 const PRESIGN_EXPIRES_IN_SECONDS = 900;
 
 /**
+ * How many Lambda functions one render may fan out to.
+ *
+ * FOUND BY THE FIRST FULL-CHAIN LIVE RUN, 2026-08-14: a one-second render
+ * succeeded, and a ten-second one — the SHORTEST length the wizard offers —
+ * died with `AWS Concurrency limit reached (Original Error: Rate Exceeded.)`.
+ * Remotion splits a render into chunks and invokes one Lambda per chunk, so a
+ * longer video means more simultaneous invocations, and a fresh AWS account's
+ * concurrent-execution quota is small. Left unbounded, every real customer job
+ * would have failed exactly this way while the one-second smoke test kept
+ * passing.
+ *
+ * 3 leaves room under a tight quota: Remotion also runs a launcher invocation,
+ * so a render costs about four executions in total. The cost is wall-clock —
+ * fewer workers on the same frames — which is the right trade against a render
+ * that does not happen at all.
+ *
+ * THE REAL FIX IS AN AWS QUOTA INCREASE (Service Quotas → Lambda → Concurrent
+ * executions), which is a support request only the account owner can make.
+ * Once that lands, raise this via REMOTION_LAMBDA_CONCURRENCY rather than
+ * editing the constant — renders get faster with no deploy.
+ */
+const DEFAULT_LAMBDA_CONCURRENCY = 3;
+
+/**
  * Derive the S3 object key from the `outputFile` url that getRenderProgress
  * reports. The url arrives in one of two shapes depending on bucket
  * addressing — virtual-host
@@ -111,6 +135,8 @@ export class RemotionLambdaRenderer implements Renderer {
       functionName: string;
       serveUrl: string;
       region: AwsRegion;
+      /** Lambdas per render. Omitted → DEFAULT_LAMBDA_CONCURRENCY; see that constant. */
+      concurrency?: number;
     },
     /** Where the finished video is copied to. Same role as in LocalRemotionRenderer. */
     private readonly storage: Storage,
@@ -146,6 +172,9 @@ export class RemotionLambdaRenderer implements Renderer {
       inputProps: input.props,
       codec: 'h264',
       privacy: 'private',
+      // Bounded on purpose — see DEFAULT_LAMBDA_CONCURRENCY. Unbounded, a
+      // ten-second ad fans out past a fresh account's quota and fails.
+      concurrency: this.config.concurrency ?? DEFAULT_LAMBDA_CONCURRENCY,
     });
 
     // The stall clock: reset every time the render advances. `lastProgress`

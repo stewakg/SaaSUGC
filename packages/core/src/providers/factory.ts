@@ -191,6 +191,18 @@ function createStorageProvider(env: ReturnType<typeof loadEnv>): Storage {
  * check AWS creds without a network call) — a bad/missing credential
  * surfaces as a clear error from the actual render call instead.
  */
+/**
+ * Env vars arrive as strings. A misconfigured one must fall back to the code's
+ * own default rather than reaching the SDK as NaN — `concurrency: NaN` is the
+ * kind of value that fails deep inside someone else's library with a message
+ * that names nothing useful.
+ */
+function positiveIntOrUndefined(raw: string | undefined): number | undefined {
+  if (raw === undefined) return undefined;
+  const n = Number(raw);
+  return Number.isInteger(n) && n > 0 ? n : undefined;
+}
+
 function createRendererProvider(env: ReturnType<typeof loadEnv>, storage: Storage): Renderer {
   if (!hasKey(env, 'REMOTION_LAMBDA_FUNCTION_NAME')) return new MockRenderer();
   if (!hasKey(env, 'REMOTION_SERVE_URL')) {
@@ -204,6 +216,10 @@ function createRendererProvider(env: ReturnType<typeof loadEnv>, storage: Storag
       functionName: env.REMOTION_LAMBDA_FUNCTION_NAME!,
       serveUrl: env.REMOTION_SERVE_URL!,
       region: (env.REMOTION_AWS_REGION ?? 'eu-central-1') as AwsRegion,
+      // Raise this AFTER the AWS concurrent-execution quota is raised, not
+      // before — see DEFAULT_LAMBDA_CONCURRENCY in renderer.lambda.ts. Anything
+      // unparseable or <= 0 falls back to the safe default rather than to NaN.
+      concurrency: positiveIntOrUndefined(env.REMOTION_LAMBDA_CONCURRENCY),
     },
     storage,
   );

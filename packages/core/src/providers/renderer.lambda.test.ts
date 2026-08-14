@@ -200,6 +200,11 @@ describe('A. Happy path', () => {
       // because 'public' would make the customer's video world-readable at
       // its plain S3 url for as long as the object exists.
       privacy: 'private',
+      // Bounded fan-out, asserted by value. The first full-chain live run died
+      // on `AWS Concurrency limit reached` for a ten-second ad — the shortest
+      // the wizard offers — while the one-second smoke test kept passing. An
+      // unbounded render is one that works in testing and fails for customers.
+      concurrency: 3,
     });
   });
 });
