@@ -34,6 +34,7 @@ all happened since, and all three "known defects" in its §6b had already been f
 | ❌ ⛔ | **Domain + DNS** | 👤 | Nothing reserved. Blocks HTTPS, the Supabase auth callback, the Lemon Squeezy webhook URL, a sending address, and the R2 custom domain |
 | ❌ ⛔ | **TLS / reverse proxy** | 🤖 | Caddy in front of the web container; ten minutes of work, blocked entirely on the domain |
 | ❌ | **Sending email address** | 👤 | Supabase auth mail still goes out on Supabase defaults |
+| ✅ | **Worker survives a deploy, and a wedged one is detected** | — | Fixed 2026-08-14 (`115cb25`, `03a3bbc`) and **proven with a real SIGTERM to the live container**: exits 0, drains first, and Node is PID 1 so Docker's signal is not filtered through pnpm. Liveness is a Redis heartbeat the compose healthcheck reads — "the loop beat recently", not "the process exists" |
 | 🟡 | **Error alerting** | 👤 | Shipped and deployed 2026-08-14 (`d47815e`, 6 tests): a failed job POSTs one line to `ALERT_WEBHOOK_URL`. **It is unset on the live box, so nothing is reported today** — paste a Discord/Slack/Telegram relay url into `/srv/adgen/.env` and restart the worker. One line, no rebuild |
 | 🟡 | **R2 public URL is still the `r2.dev` dev subdomain** | 👤 then 🤖 | Cloudflare rate-limits it and says not for production. Swap to `cdn.<domain>` once the domain exists |
 
@@ -84,7 +85,7 @@ placeholder text is worse than none because it reads as if it were coverage.
 
 ## 6. Testing
 
-**764 tests** (core 337, web 331, worker 96); `pnpm -r typecheck` clean on all five projects.
+**773 tests** (core 337, web 331, worker 105); `pnpm -r typecheck` clean on all five projects.
 `@adgen/web` can now test COMPONENTS: `jsdom` is a devDependency and `apps/web/vitest.config.ts`
 keeps `node` as the default environment, so a file opts into a DOM with `// @vitest-environment
 jsdom` and the ~300 route tests keep a real `Request`/`Response`. Before this, no component in the
