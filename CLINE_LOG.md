@@ -41,6 +41,14 @@ cline --json -P openai-compatible --thinking medium -c "<repo>" "Read scratchpad
   whose files never appeared. Check the tail of the `--json` output for `run_aborted` before
   blaming the model.
 - Even sequentially, never point two tasks at the same files.
+- **A run can exit 0 having done nothing.** On 2026-08-14 a task was handed the usual
+  "read `<abs path>` and follow it"; the model announced it could not find
+  `C:\Users\thomashardy\...\research_20250615.md` — a path from somewhere in its own head, never
+  in the prompt — and stopped. The file it was actually given existed the whole time (verified
+  immediately after). The CLI reported success. **So exit 0 is not evidence a task ran**: check
+  `git status` and the final message, and if the run was read-only, check that the report exists at
+  all. Re-running the identical command worked, as it did for the earlier silent no-op on
+  2026-08-05.
 
 ---
 
