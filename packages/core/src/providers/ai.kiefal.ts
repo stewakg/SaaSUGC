@@ -27,7 +27,19 @@ const KIE_BASE = 'https://api.kie.ai';
 const FAL_QUEUE_BASE = 'https://queue.fal.run';
 
 const IMAGE_POLL_INTERVAL_MS = 2000;
-const IMAGE_MAX_WAIT_MS = 3 * 60 * 1000; // nano-banana-class images finish in seconds-to-~1min
+// Two SEPARATE image maxima. Do NOT merge them back into one constant.
+//
+// They were one `IMAGE_MAX_WAIT_MS` until 2026-08-14, when a live image_ads run
+// took 196.3s for one image: kie.ai (the PRIMARY) sat in its poll loop for the
+// full 3 minutes before giving up, and only then did the customer get handed to
+// fal.ai — which answered in ~15s. One number was doing two jobs with opposite
+// requirements:
+//  - the PRIMARY should give up EARLY, because giving up is cheap: the fallback
+//    is right there and, on the day this was measured, faster than the wait;
+//  - the FALLBACK should be PATIENT, because when IT gives up the job fails and
+//    the customer gets nothing.
+const KIE_IMAGE_MAX_WAIT_MS = 60_000; // nano-banana-class images finish in seconds-to-~1min, so a run past 60s is an outlier and waiting longer buys nothing the fallback cannot deliver faster
+const FAL_IMAGE_MAX_WAIT_MS = 3 * 60 * 1000; // unchanged behaviour: a timeout here is a FAILED job, so the fallback keeps the full window
 const VIDEO_POLL_INTERVAL_MS = 5000;
 const VIDEO_MAX_WAIT_MS = 10 * 60 * 1000; // Veo-class generation commonly takes minutes
 
@@ -153,8 +165,8 @@ export class KieAIFalRouter implements AIProvider {
       if (data.state === 'fail') {
         throw new Error(`kie.ai image generation failed: ${data.failMsg ?? 'unknown error'}`);
       }
-      if (Date.now() - start > IMAGE_MAX_WAIT_MS) {
-        throw new Error(`kie.ai task ${taskId} timed out after ${IMAGE_MAX_WAIT_MS / 1000}s`);
+      if (Date.now() - start > KIE_IMAGE_MAX_WAIT_MS) {
+        throw new Error(`kie.ai task ${taskId} timed out after ${KIE_IMAGE_MAX_WAIT_MS / 1000}s`);
       }
       await new Promise((r) => setTimeout(r, IMAGE_POLL_INTERVAL_MS));
     }
@@ -193,8 +205,8 @@ export class KieAIFalRouter implements AIProvider {
           `fal.ai request ${submitJson.request_id} failed with status "${statusJson.status}"`,
         );
       }
-      if (Date.now() - start > IMAGE_MAX_WAIT_MS) {
-        throw new Error(`fal.ai request ${submitJson.request_id} timed out after ${IMAGE_MAX_WAIT_MS / 1000}s`);
+      if (Date.now() - start > FAL_IMAGE_MAX_WAIT_MS) {
+        throw new Error(`fal.ai request ${submitJson.request_id} timed out after ${FAL_IMAGE_MAX_WAIT_MS / 1000}s`);
       }
       await new Promise((r) => setTimeout(r, IMAGE_POLL_INTERVAL_MS));
     }

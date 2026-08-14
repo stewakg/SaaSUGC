@@ -34,13 +34,21 @@ import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } fr
 import { KieAIFalRouter } from './ai.kiefal.ts';
 
 // ---------------------------------------------------------------------------
-// Timing constant — this MIRRORS the private IMAGE_POLL_INTERVAL_MS in
-// ai.kiefal.ts (2000). It is not exported, so it is duplicated here. If the
-// module changes it, this test must be updated in lockstep; there is no way to
-// assert against the real value without exporting it, which the task rules
-// forbid.
+// Timing constants — these MIRROR private constants in ai.kiefal.ts. They are
+// not exported, so they are duplicated here. If the module changes them, these
+// tests must be updated in lockstep; there is no way to assert against the
+// real values without exporting them, which the task rules forbid.
 // ---------------------------------------------------------------------------
 const IMAGE_POLL_INTERVAL_MS = 2000;
+
+// The two image maxima, mirrored for the timeout-split tests below. They MUST
+// be two different constants in the module: kie.ai is the PRIMARY (giving up
+// early is cheap — the fallback is right there), fal.ai is the FALLBACK (a
+// timeout there is a failed job). Collapsing them back into one number is the
+// 2026-08-14 regression these tests guard (196.3s for one image because the
+// primary was given the fallback's patience).
+const KIE_IMAGE_MAX_WAIT_MS = 60_000;
+const FAL_IMAGE_MAX_WAIT_MS = 3 * 60 * 1000;
 
 const KIE_KEY = 'KIEKEY';
 const FAL_KEY = 'FALKEY';
@@ -318,6 +326,89 @@ describe('polling loop', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(3); // createTask + 2x recordInfo
     expect(result).toEqual({ url: 'https://img.example/p.png' });
+  });
+});
+
+// ===========================================================================
+// Image timeout split — the kie (primary) and fal (fallback) image poll loops
+// have DIFFERENT maxima on purpose. Kie gives up early (60s) because the
+// fallback is cheap; fal is patient (180s) because its timeout fails the job.
+// Fake-timer-driven like test 11.
+// ===========================================================================
+describe('image timeout split — kie gives up early, fal stays patient', () => {
+  it('15. kie image poll gives up at the KIE constant, not the fal one — the timeout error names 60s', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ code: 200, msg: 'ok', data: { taskId: 't15' } }))
+      .mockImplementation(() => Promise.resolve(jsonResponse({ data: { state: 'processing' } }))); // forever-pending polls
+
+    // No fal key, so the kie timeout (caught by generateImage) surfaces as the
+    // fallback warn — the same `[ai-router] … timed out after 60s` line the
+    // 2026-08-14 incident was diagnosed from — followed by the no-key throw.
+    const router = new KieAIFalRouter({ kieApiKey: KIE_KEY });
+    const assertion = expect(router.generateImage({ prompt: 'p' })).rejects.toThrow(/no FAL_API_KEY/);
+
+    // The check is `elapsed > 60_000`, so the throw lands on the poll one
+    // interval past the boundary, at t=62s.
+    await vi.advanceTimersByTimeAsync(KIE_IMAGE_MAX_WAIT_MS + IMAGE_POLL_INTERVAL_MS);
+    await assertion;
+
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('kie.ai task t15 timed out after 60s'));
+  });
+
+  it('16. after kie times out at 60s, fal still gets its FULL window — it polls pending well past 60s and succeeds', async () => {
+    let falStart = 0;
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = String(input);
+      if (url.includes('jobs/createTask')) return jsonResponse({ code: 200, msg: 'ok', data: { taskId: 't16' } });
+      if (url.includes('jobs/recordInfo')) return jsonResponse({ data: { state: 'processing' } }); // kie never finishes
+      if (url.endsWith('fal-ai/nano-banana-2')) {
+        falStart = Date.now(); // fal's window opens only when the fallback actually starts
+        return jsonResponse({ request_id: 'r16', status_url: 'https://queue.fal.run/status/r16' });
+      }
+      if (url.includes('/status/r16')) {
+        // Pending until 170s of fal elapsed — far past kie's 60s, still inside fal's 180s.
+        return jsonResponse({ status: Date.now() - falStart >= 170_000 ? 'COMPLETED' : 'IN_PROGRESS' });
+      }
+      return jsonResponse({ images: [{ url: FAL_IMG_URL }] }); // fal result fetch
+    });
+
+    const router = new KieAIFalRouter({ kieApiKey: KIE_KEY, falApiKey: FAL_KEY });
+    const p = router.generateImage({ prompt: 'p' });
+
+    // Kie exhausts its 60s and hands off…
+    await vi.advanceTimersByTimeAsync(KIE_IMAGE_MAX_WAIT_MS + IMAGE_POLL_INTERVAL_MS);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('timed out after 60s'));
+
+    // …then fal polls pending for 170s — if it had inherited kie's 60s window,
+    // it would have timed out long before COMPLETED.
+    await vi.advanceTimersByTimeAsync(170_000 + IMAGE_POLL_INTERVAL_MS);
+    const result = await p;
+
+    expect(result).toEqual({ url: FAL_IMG_URL });
+  });
+
+  it('17. fal image poll times out at the FAL constant — the timeout error names 180s, not 60s', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ request_id: 'r17', status_url: 'https://queue.fal.run/status/r17' }))
+      .mockImplementation(() => Promise.resolve(jsonResponse({ status: 'IN_PROGRESS' }))); // forever-pending polls
+
+    const router = new KieAIFalRouter({ falApiKey: FAL_KEY }); // no kie key — fal is the only path
+    const assertion = expect(router.generateImage({ prompt: 'p' })).rejects.toThrow(
+      'fal.ai request r17 timed out after 180s',
+    );
+
+    await vi.advanceTimersByTimeAsync(FAL_IMAGE_MAX_WAIT_MS + IMAGE_POLL_INTERVAL_MS);
+    await assertion;
+  });
+
+  it('18. KIE and FAL image max-wait constants are different values — collapsing them back into one is the regression', () => {
+    // Mirrored from ai.kiefal.ts (see the constants block at the top of this
+    // file). The behavioural guards are tests 15–17; this one pins the intent
+    // itself: the primary must be eager, the fallback patient, never one number
+    // for both. A single shared constant is exactly the 2026-08-14 bug.
+    expect(KIE_IMAGE_MAX_WAIT_MS).not.toBe(FAL_IMAGE_MAX_WAIT_MS);
+    expect(KIE_IMAGE_MAX_WAIT_MS).toBe(60_000);
+    expect(FAL_IMAGE_MAX_WAIT_MS).toBe(180_000);
   });
 });
 
