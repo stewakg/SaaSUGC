@@ -336,10 +336,27 @@ describe('MatrixPage', () => {
     // Montage off: the total must move to the revoice price…
     expect(container.textContent).toContain(REVOICE_LABEL);
     expect(container.textContent).not.toContain(MATRIX_LABEL);
-    // …but PINNED as-rendered: the unit hint "(5 × 15)" is HARDCODED. The
-    // revoice unit is 8, so this line is wrong the moment the switch is off.
-    // Pinned so that fixing it changes this test loudly. See the report.
-    expect(container.textContent).toContain('(5 × 15)');
+    // …and the unit hint must follow: the per-video figure for the CURRENT
+    // job type, derived from @adgen/core/pricing — a literal 15 here would
+    // reproduce the bug this suite was written to prevent.
+    expect(container.textContent).toContain(`(5 × ${computeJobCost('revoice')})`);
+  });
+
+  it('with the montage switch OFF, the breakdown quotes the revoice unit and a total that matches it', async () => {
+    const container = mountPage();
+    await flush();
+    railTo(container, 'Glas, titlovi i varijante');
+
+    click(findSwitch(container)); // montage off → the job type is revoice
+
+    // The exact combination that used to be wrong: the total said 40 while
+    // the breakdown said (5 × 15). Both figures now come from the same
+    // source the page reads.
+    const unit = computeJobCost('revoice');
+    expect(container.textContent).toContain(`(5 × ${unit})`);
+    expect(container.textContent).toContain(creditsLabel(unit * 5));
+    // The wrong pair (matrix total against the revoice count) must be gone.
+    expect(container.textContent).not.toContain(MATRIX_LABEL);
   });
 
   it('a failed upload shows its message in a role=alert and starts no job', async () => {

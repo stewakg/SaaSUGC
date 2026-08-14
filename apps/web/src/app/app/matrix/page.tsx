@@ -344,6 +344,9 @@ export default function MatrixPage() {
    */
   const jobType: JobType = montage ? 'matrix' : 'revoice';
   const cost = computeJobCost(jobType, effectiveCount);
+  // The per-video unit for the SAME job type the total is computed from — the
+  // breakdown hint must never quote a figure the total is not built on.
+  const unitCost = computeJobCost(jobType);
   const captionStyle = `cap:${captionFont}:${captionAnim}:${captionColor}`;
 
   async function handleFiles(files: File[]) {
@@ -1510,7 +1513,7 @@ export default function MatrixPage() {
         costLabel={
           <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
             Cena: <span className="font-mono tabular font-semibold">{creditsLabel(cost)}</span>{' '}
-            <span className="font-mono tabular">({effectiveCount} × 15)</span>
+            <span className="font-mono tabular">({effectiveCount} × {unitCost})</span>
             {phase === 'done' ? ' · naplaćeno' : ''}
           </p>
         }
