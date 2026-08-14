@@ -34,7 +34,7 @@ all happened since, and all three "known defects" in its §6b had already been f
 | ❌ ⛔ | **Domain + DNS** | 👤 | Nothing reserved. Blocks HTTPS, the Supabase auth callback, the Lemon Squeezy webhook URL, a sending address, and the R2 custom domain |
 | ❌ ⛔ | **TLS / reverse proxy** | 🤖 | Caddy in front of the web container; ten minutes of work, blocked entirely on the domain |
 | ❌ | **Sending email address** | 👤 | Supabase auth mail still goes out on Supabase defaults |
-| 🟡 | **Error alerting** | 👤 | Code landed 2026-08-14: a failed job POSTs one line to `ALERT_WEBHOOK_URL`. **Unset = no alerts** — set it to a Discord/Slack/Telegram relay url or nothing is reported |
+| 🟡 | **Error alerting** | 👤 | Shipped and deployed 2026-08-14 (`d47815e`, 6 tests): a failed job POSTs one line to `ALERT_WEBHOOK_URL`. **It is unset on the live box, so nothing is reported today** — paste a Discord/Slack/Telegram relay url into `/srv/adgen/.env` and restart the worker. One line, no rebuild |
 | 🟡 | **R2 public URL is still the `r2.dev` dev subdomain** | 👤 then 🤖 | Cloudflare rate-limits it and says not for production. Swap to `cdn.<domain>` once the domain exists |
 
 ## 2. Money
