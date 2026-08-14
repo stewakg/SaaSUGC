@@ -120,10 +120,15 @@ Raised by run 9 and worth fixing, but deliberately not folded into a test commit
   (Claude, with tests) — the ceiling is now `NO_PROGRESS_TIMEOUT_MS`: the stall clock resets every
   time `overallProgress` advances, so only a genuinely stuck render is failed. Tests 16-17 pin
   both halves (advancing render never fails; frozen render still does). Still unrun against AWS.
-- **The public-S3 window widens if the worker dies** between `done` and the delete: the
-  world-readable link then stays up indefinitely. `privacy: 'private'` plus a presigned fetch is
-  the real fix, and it needs a live AWS run to get right. **STILL OPEN — deliberately left for the
-  owner's AWS run** (RELEASE_PLAN L2.3); blind edits to never-run AWS auth code are the exact trap.
+- ~~**The public-S3 window widens if the worker dies** between `done` and the delete.~~ **Fixed @
+  `9ec9fb9`** (run 42). The reason this stayed open — "needs a live AWS run, and guessing at a
+  never-executed API is the worse risk" — expired when Lambda went live on 2026-08-13. Renders are
+  `privacy: 'private'` and ownership is taken through a 15-minute presigned url, so the object is
+  never readable at its plain url at any point. The key is DERIVED from the url Remotion reports
+  (`objectKeyFromOutputUrl`, both addressing styles, throws rather than guessing) and the
+  `presignUrl` signature was read out of the installed 4.0.490 type definitions first. 8 new tests.
+  **Still never executed against AWS** — the presign path is CODE-COMPLETE like everything else
+  here until a real render runs through it.
 - ~~**No retry on the ownership `fetch`.**~~ **Fixed @ `d28a20f`** (Claude, with tests) — the fetch
   retries up to 3× with linear backoff on a 5xx or a network error; a 4xx stays permanent and
   fails at once; exhausting the retries still fails the job (never falls back to S3). Tests 18-21.
