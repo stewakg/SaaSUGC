@@ -212,10 +212,20 @@ describe('AppShell', () => {
 
   it('the email is a link to /app/profil, not plain text', () => {
     const { container } = mountShell({ email: 'proba@adgen.rs' });
-    const profile = container.querySelector('a[href="/app/profil"]');
-    expect(profile).toBeInstanceOf(HTMLAnchorElement);
-    expect(profile!.textContent).toBe('proba@adgen.rs');
-    expect(profile!.getAttribute('title')).toBe('Profil');
+    // TWO routes to the account screen, deliberately. The email lives in a
+    // `hidden sm:block` container, so on a phone it does not render at all —
+    // the nav entry is what keeps the profile reachable there. Assert both, or
+    // dropping either one goes unnoticed.
+    const links = [...container.querySelectorAll('a[href="/app/profil"]')];
+    expect(links).toHaveLength(2);
+
+    const byEmail = links.find((a) => a.textContent === 'proba@adgen.rs');
+    expect(byEmail).toBeInstanceOf(HTMLAnchorElement);
+    expect(byEmail!.getAttribute('title')).toBe('Profil');
+
+    const inNav = links.find((a) => a.textContent?.includes('Profil'));
+    expect(inNav).toBeInstanceOf(HTMLAnchorElement);
+    expect(inNav!.closest('nav')).not.toBeNull();
   });
 
   it('balance 1 reads "kredit" — the Serbian singular', () => {
@@ -240,11 +250,11 @@ describe('AppShell', () => {
 
   it('nav icons are aria-hidden — their text labels stand next to them', () => {
     const { container } = mountShell();
-    // Every svg in the sidebar nav (Početna, Moje reklame) and the
+    // Every svg in the sidebar nav (Početna, Moje reklame, Profil) and the
     // hamburger itself must be hidden from the a11y tree; each has its own
     // visible text or aria-label.
     const svgs = container.querySelectorAll('aside nav svg');
-    expect(svgs).toHaveLength(2);
+    expect(svgs).toHaveLength(3);
     svgs.forEach((svg) => {
       expect(svg.getAttribute('aria-hidden')).toBe('true');
     });

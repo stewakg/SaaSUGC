@@ -57,9 +57,18 @@ export function AppShell({
     router.refresh();
   }
 
+  /**
+   * Profil is in the NAV, not only on the email in the header.
+   *
+   * The email link was the single entry point to the account screen, and it
+   * lives in a `hidden sm:block` container — so below 640px it does not render
+   * at all and the profile was simply unreachable on a phone. For an audience
+   * that is mostly on a phone, that is the whole feature missing.
+   */
   const nav = [
     { href: '/app', label: 'Početna', icon: 'home' },
     { href: '/app/reklame', label: 'Moje reklame', icon: 'film' },
+    { href: '/app/profil', label: 'Profil', icon: 'user' },
   ];
 
   return (
@@ -196,6 +205,13 @@ function NavIcon({ name }: { name: string }) {
         <svg aria-hidden="true" className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
           <rect x="3" y="4" width="18" height="16" rx="2" />
           <path d="M7 4v16M17 4v16M3 9h4M17 9h4M3 15h4M17 15h4" />
+        </svg>
+      );
+    case 'user':
+      return (
+        <svg aria-hidden="true" className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" strokeLinecap="round" />
         </svg>
       );
     case 'logout':
