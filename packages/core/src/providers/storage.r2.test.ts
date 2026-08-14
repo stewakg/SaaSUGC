@@ -10,7 +10,9 @@
  * What is NOT covered, and cannot be here: whether Cloudflare actually accepts
  * these signatures. That needs a real bucket (RELEASE_PLAN L1.3).
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { Readable } from 'node:stream';
 import {
   S3CompatibleStorage,
   SIGNED_UPLOAD_TTL_SECONDS,
@@ -112,5 +114,53 @@ describe('signedUploadUrl', () => {
       new URL(asHtml).searchParams.get('X-Amz-Signature'),
     );
     expect(new URL(asVideo).searchParams.get('X-Amz-SignedHeaders')).toContain('content-type');
+  });
+});
+
+describe('upload — ContentLength on the PUT (the streamed-body signing fix)', () => {
+  /**
+   * upload() sends through its own S3Client, so the command is captured at the
+   * prototype seam — no socket is opened, and the REAL PutObjectCommand (the
+   * exact input the SDK would sign) is what gets inspected.
+   */
+  /** Typed via the factory so `send` carries the real MockInstance type. */
+  function createSendSpy() {
+    return vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({} as never);
+  }
+  let send: ReturnType<typeof createSendSpy>;
+  beforeEach(() => {
+    send = createSendSpy();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('passes ContentLength when one is given with a STREAM body — and the command is otherwise unchanged', async () => {
+    const stream = Readable.from([Buffer.from('abc')]);
+    const { url } = await storage().upload('enhance/1.png', stream, 'image/png', 3);
+
+    const cmd = send.mock.calls[0][0] as PutObjectCommand;
+    expect(cmd.input.ContentLength).toBe(3);
+    expect(cmd.input.Bucket).toBe('adgen-test');
+    expect(cmd.input.Key).toBe('enhance/1.png');
+    expect(cmd.input.ContentType).toBe('image/png');
+    expect(cmd.input.Body).toBe(stream);
+    expect(url).toBe('https://cdn.example.test/enhance/1.png');
+  });
+
+  it('does NOT set ContentLength when the body is a Buffer — a Buffer carries its own length', async () => {
+    await storage().upload('uploads/u/1.mp4', Buffer.from('abc'), 'video/mp4', 3);
+    const cmd = send.mock.calls[0][0] as PutObjectCommand;
+    expect(cmd.input.ContentLength).toBeUndefined();
+    expect(cmd.input.Bucket).toBe('adgen-test');
+    expect(cmd.input.Key).toBe('uploads/u/1.mp4');
+  });
+
+  it('does not invent a ContentLength when none was given — stream or Buffer', async () => {
+    await storage().upload('a/b.png', Readable.from([Buffer.from('x')]), 'image/png');
+    expect((send.mock.calls[0][0] as PutObjectCommand).input.ContentLength).toBeUndefined();
+
+    await storage().upload('a/c.png', Buffer.from('x'), 'image/png');
+    expect((send.mock.calls[1][0] as PutObjectCommand).input.ContentLength).toBeUndefined();
   });
 });

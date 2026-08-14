@@ -52,15 +52,33 @@ export class S3CompatibleStorage implements Storage {
     });
   }
 
-  async upload(key: string, data: Buffer | NodeJS.ReadableStream, contentType: string): Promise<{ url: string }> {
+  async upload(
+    key: string,
+    data: Buffer | NodeJS.ReadableStream,
+    contentType: string,
+    contentLength?: number,
+  ): Promise<{ url: string }> {
     // The Storage interface types streams as the broad `NodeJS.ReadableStream`
     // interface, but the AWS SDK's `Body` wants Node's `Readable` class (which
     // implements that interface). Every real producer in this repo passes
     // either a Buffer or a Node `Readable` (e.g. fs.createReadStream), so this
     // narrowing is sound at runtime — no `any` cast.
-    const body: Buffer | Readable = Buffer.isBuffer(data) ? data : (data as Readable);
+    const isBuffer = Buffer.isBuffer(data);
+    const body: Buffer | Readable = isBuffer ? data : (data as Readable);
     await this.client.send(
-      new PutObjectCommand({ Bucket: this.config.bucket, Key: key, Body: body, ContentType: contentType }),
+      new PutObjectCommand({
+        Bucket: this.config.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        // A streamed body has no measurable length, and SigV4 cannot sign
+        // what it cannot measure — without ContentLength the SDK signs
+        // `x-amz-decoded-content-length: undefined` and R2/S3 rejects the PUT.
+        // So a caller that knows the byte count (e.g. from the provider's
+        // content-length) states it here. A Buffer already carries its own
+        // length; do not override it.
+        ...(isBuffer || contentLength === undefined ? {} : { ContentLength: contentLength }),
+      }),
     );
     return { url: this.getUrl(key) };
   }

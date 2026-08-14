@@ -132,6 +132,10 @@ export class MockStorage implements Storage {
     key: string,
     data: Buffer | NodeJS.ReadableStream,
     _contentType: string,
+    // Length of a streamed body when the caller knows it (see the Storage
+    // interface). Local disk does not need it — the stream is piped straight
+    // to a file — so it is accepted to match the interface and ignored.
+    _contentLength?: number,
   ): Promise<{ url: string }> {
     const fs = await import('node:fs');
     const path = await import('node:path');

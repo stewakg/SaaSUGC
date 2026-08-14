@@ -95,6 +95,14 @@ const matrixRenderer =
  * Failure here fails the job on purpose. Falling back to the provider url would
  * "succeed", charge the user, and quietly hand them the same expiring link.
  */
+
+/**
+ * Hard ceiling on persistRemoteAsset's buffered fallback, in bytes (200 MB).
+ * Exported so the tests assert against the real number instead of a copy of
+ * it drifting out of sync.
+ */
+export const PERSIST_BUFFERED_FALLBACK_CAP_BYTES = 200 * 1024 * 1024;
+
 export async function persistRemoteAsset(
   remoteUrl: string,
   keyPrefix: string,
@@ -121,19 +129,66 @@ export async function persistRemoteAsset(
 
   const storageKey = `${keyPrefix}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-  /**
-   * Streamed, not buffered. `Buffer.from(await res.arrayBuffer())` held the
-   * WHOLE file in memory before a byte was written — fine for a 2 MB image, a
-   * multi-hundred-megabyte spike for an upscaled video, and with several jobs
-   * running at once that spike is what gets the worker killed by the kernel
-   * rather than any single job failing.
-   *
-   * Storage already accepts a Node stream (S3CompatibleStorage narrows it for
-   * the AWS SDK), so this needs no change on the storage side.
-   */
   if (!res.body) throw new Error(`empty response body for ${keyPrefix}`);
-  const body = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]);
-  const { url } = await storage.upload(storageKey, body, contentType);
+
+  /**
+   * Streamed when the provider tells us the size; buffered (bounded) when it
+   * does not.
+   *
+   * Streaming is the default because `Buffer.from(await res.arrayBuffer())`
+   * holds the WHOLE file in memory before a byte is written — fine for a 2 MB
+   * image, a multi-hundred-megabyte spike for an upscaled video, and with
+   * several jobs running at once that spike is what gets the worker killed by
+   * the kernel rather than any single job failing.
+   *
+   * But a Node stream has no known length, and the AWS SDK cannot sign a
+   * PutObject body it cannot measure — R2 rejects it with `Invalid value
+   * "undefined" for header "x-amz-decoded-content-length"`, which is exactly
+   * how image_ads / enhance / remove_text all died in production. So the
+   * stream is only usable when the provider sent a `content-length`; it is
+   * passed through as the 4th upload argument so storage can set
+   * `ContentLength` on the command.
+   */
+  const contentLengthHeader = res.headers.get('content-length');
+  const contentLength =
+    contentLengthHeader !== null && Number.isFinite(Number(contentLengthHeader))
+      ? Number(contentLengthHeader)
+      : undefined;
+
+  if (contentLength !== undefined) {
+    const body = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]);
+    const { url } = await storage.upload(storageKey, body, contentType, contentLength);
+    return { url, storageKey };
+  }
+
+  /**
+   * BUFFERED FALLBACK — exists because the provider answered with a CHUNKED
+   * response (no content-length header). That is legal HTTP and some providers
+   * do it, and a plain PutObject cannot stream a body of unknown length. So we
+   * buffer after all — but bounded, so an unbounded provider response cannot
+   * decide the worker's memory: anything over 200 MB is refused with an error
+   * naming the key prefix instead of being pulled into RAM. The warn makes the
+   * slower path visible in the logs rather than silently slower.
+   *
+   * Do not "simplify" this away: removing it brings back either the signing
+   * failure (stream with no length) or the OOM kill (unbounded buffer).
+   */
+  consoleLogger.warn(
+    `persistRemoteAsset: provider sent no content-length for ${keyPrefix} — taking the buffered fallback (chunked response), capped at ${
+      PERSIST_BUFFERED_FALLBACK_CAP_BYTES / (1024 * 1024)
+    } MB`,
+    { keyPrefix, remoteUrl },
+  );
+  const raw = await res.arrayBuffer();
+  if (raw.byteLength > PERSIST_BUFFERED_FALLBACK_CAP_BYTES) {
+    throw new Error(
+      `provider result for "${keyPrefix}" is ${Math.ceil(raw.byteLength / (1024 * 1024))} MB but arrived ` +
+        `with no content-length (chunked response) — over the ${
+          PERSIST_BUFFERED_FALLBACK_CAP_BYTES / (1024 * 1024)
+        } MB buffered-fallback cap, refusing to hold it in worker memory`,
+    );
+  }
+  const { url } = await storage.upload(storageKey, Buffer.from(raw), contentType);
   return { url, storageKey };
 }
 

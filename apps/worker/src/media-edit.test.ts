@@ -16,7 +16,12 @@
  * any provider call, so the job fails honestly and is never charged.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { persistRemoteAsset, runMediaEditPipeline } from './index.ts';
+import { consoleLogger } from '@adgen/core';
+import {
+  persistRemoteAsset,
+  PERSIST_BUFFERED_FALLBACK_CAP_BYTES,
+  runMediaEditPipeline,
+} from './index.ts';
 
 // ---------------------------------------------------------------------------
 // Global fetch — persistRemoteAsset reads the bare global, so the suite owns it
@@ -39,30 +44,48 @@ afterEach(() => {
 
 /**
  * A fetch Response with a REAL web ReadableStream body. persistRemoteAsset reads
- * `res.ok`, `res.status`, `res.headers.get('content-type')`, and `res.body`
- * (piped via `Readable.fromWeb`), so the body must be a genuine web stream for
- * the pipe to succeed — `hasBody:false` yields null to exercise the guard.
+ * `res.ok`, `res.status`, `res.headers.get('content-type')` /
+ * `res.headers.get('content-length')`, `res.body` (piped via
+ * `Readable.fromWeb`) and — on the no-content-length buffered fallback —
+ * `res.arrayBuffer()`, so the body must be a genuine web stream for the pipe
+ * to succeed, and arrayBuffer() must return the same bytes the stream carries
+ * — `hasBody:false` yields null to exercise the guard.
  */
 function fetchResponse(opts: {
   ok?: boolean;
   status?: number;
   contentType?: string | null;
+  /** Present ⇒ the response advertises exactly this content-length. */
+  contentLength?: number;
   hasBody?: boolean;
+  bytes?: Uint8Array;
 }): Response {
+  const bytes = opts.bytes ?? new Uint8Array([1, 2, 3]);
   const body =
     opts.hasBody === false
       ? null
       : new ReadableStream<Uint8Array>({
           start(c) {
-            c.enqueue(new Uint8Array([1, 2, 3]));
+            c.enqueue(bytes);
             c.close();
           },
         });
   return {
     ok: opts.ok ?? true,
     status: opts.status ?? 200,
-    headers: { get: (h: string) => (h.toLowerCase() === 'content-type' ? (opts.contentType ?? null) : null) },
+    headers: {
+      get: (h: string) => {
+        const name = h.toLowerCase();
+        if (name === 'content-type') return opts.contentType ?? null;
+        if (name === 'content-length')
+          return opts.contentLength === undefined ? null : String(opts.contentLength);
+        return null;
+      },
+    },
     body,
+    // The buffered fallback reads arrayBuffer() only when no content-length
+    // was sent; it returns the same bytes the stream above would deliver.
+    arrayBuffer: async () => bytes.slice().buffer,
   } as unknown as Response;
 }
 
@@ -116,7 +139,8 @@ describe('persistRemoteAsset', () => {
   });
 
   it('derives the extension from the content-type and uploads (key, stream, contentType)', async () => {
-    fetchMock.mockResolvedValue(fetchResponse({ contentType: 'image/png' }));
+    // content-length present ⇒ this stays on the STREAMED path, as the title says.
+    fetchMock.mockResolvedValue(fetchResponse({ contentType: 'image/png', contentLength: 3 }));
     const storage = makeFakeStorage();
     const result = await persistRemoteAsset('https://x/y', 'enhance', storage);
 
@@ -144,6 +168,56 @@ describe('persistRemoteAsset', () => {
     const storage = makeFakeStorage();
     const result = await persistRemoteAsset('https://x/y', 'x', storage);
     expect(result.storageKey).toMatch(new RegExp(`^x/\\d+-[a-z0-9]{6}\\.${ext}$`));
+  });
+
+  it('a response WITH content-length streams and passes the exact number through to upload', async () => {
+    fetchMock.mockResolvedValue(fetchResponse({ contentType: 'video/mp4', contentLength: 1048576 }));
+    const storage = makeFakeStorage();
+    const result = await persistRemoteAsset('https://x/y', 'enhance', storage);
+
+    expect(storage.upload).toHaveBeenCalledTimes(1);
+    const [key, body, contentType, contentLength] = storage.upload.mock.calls[0];
+    expect(key).toBe(result.storageKey);
+    expect(Buffer.isBuffer(body)).toBe(false); // streamed, not buffered
+    expect(contentType).toBe('video/mp4');
+    expect(contentLength).toBe(1048576); // the exact value off the header
+  });
+
+  it('a response WITHOUT content-length still uploads via the buffered fallback, and the data arrives intact', async () => {
+    const bytes = new Uint8Array([9, 8, 7, 6]);
+    fetchMock.mockResolvedValue(fetchResponse({ contentType: 'image/png', bytes }));
+    const warn = vi.spyOn(consoleLogger, 'warn').mockImplementation(() => {});
+    const storage = makeFakeStorage();
+    const result = await persistRemoteAsset('https://x/y', 'enhance', storage);
+
+    const [key, body, contentType, contentLength] = storage.upload.mock.calls[0];
+    expect(key).toBe(result.storageKey);
+    expect(Buffer.isBuffer(body)).toBe(true); // buffered fallback
+    expect((body as Buffer).equals(Buffer.from(bytes))).toBe(true); // bytes intact
+    expect(contentType).toBe('image/png');
+    expect(contentLength).toBeUndefined(); // nothing to state — length was unknown
+    expect(result.url).toBe('https://our.example/stored');
+    // The fallback must be visible in the logs, not silently slower.
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/no content-length/), expect.anything());
+  });
+
+  it('a response without content-length that exceeds the cap throws, names the prefix, and never uploads', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => null }, // no content-type, no content-length
+      // A body still exists (the empty-body guard must not fire)…
+      body: new ReadableStream<Uint8Array>({ start(c) { c.close(); } }),
+      // …but buffering it would demand more than the 200 MB cap.
+      arrayBuffer: async () => new ArrayBuffer(PERSIST_BUFFERED_FALLBACK_CAP_BYTES + 1),
+    } as unknown as Response);
+    vi.spyOn(consoleLogger, 'warn').mockImplementation(() => {});
+    const storage = makeFakeStorage();
+
+    await expect(persistRemoteAsset('https://x/y', 'enhance', storage)).rejects.toThrow(
+      /"enhance"[\s\S]*200 MB/,
+    );
+    expect(storage.upload).not.toHaveBeenCalled();
   });
 });
 

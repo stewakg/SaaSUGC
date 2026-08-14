@@ -117,6 +117,14 @@ export interface Storage {
     key: string,
     data: Buffer | NodeJS.ReadableStream,
     contentType: string,
+    /**
+     * Byte length of `data` when it is a STREAM and the caller knows it. The
+     * AWS SDK cannot sign a streamed PutObject body it cannot measure —
+     * without this it emits `x-amz-decoded-content-length: undefined` and
+     * R2/S3 rejects the PUT. A Buffer carries its own length; implementations
+     * must NOT override it for buffers.
+     */
+    contentLength?: number,
   ): Promise<{ url: string }>;
   getUrl(key: string): string;
 }
