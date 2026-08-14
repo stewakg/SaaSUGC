@@ -61,7 +61,7 @@ Trimmed 2026-08-14 by the functional audit: a card links to a wizard ONLY if a p
 | ✅ | **Poboljšaj kvalitet** (`enhance`) | ✅ LIVE through the WHOLE pipeline 2026-08-14: 14.6s, 543 KB on our url. The earlier ✅ on this row was overstated — it had only exercised the fal provider, and the ownership copy into R2 was in fact broken for every customer until `81a023b` |
 | ✅ | **Skini tekst** (`remove_text`) | ✅ LIVE through the WHOLE pipeline 2026-08-14: 14.6s, 335 KB on our url. Same correction as the row above — the earlier ✅ covered the provider only. Images by design; video erasers are negative margin |
 | ❌ | **Brzi test · Edit videi · Mix · Prevod** | Wizard exists, pipeline does not. Now badged USKORO instead of linking to a wizard that ends in an error |
-| ✅ | **Preozvuči** (`revoice`) | Reachable since 2026-08-14: the montage switch in step 3 of the Video-reklame wizard sends this job type and quotes its own (cheaper) price |
+| ✅ | **Preozvuči** (`revoice`) | ✅ LIVE through the WHOLE pipeline 2026-08-14: 90.7s, 9.6 MB mp4 on our own url (`ttsCharacters 185`, `renderSeconds 81.4`). Reachable via the montage switch in step 3 of the Video-reklame wizard, which sends this job type and quotes its own cheaper price. **All five working tools have now been run end to end through `runPipeline`** |
 
 ## 3b. Profil / podešavanja — MISSING ENTIRELY
 
@@ -77,7 +77,7 @@ the rows marked 🔄 are in progress right now.
 | ✅ | **Change password** | Done 2026-08-14. Reuses the existing `validatePassword` checklist and `PasswordRules`, maps Supabase's English through `authErrorMessage`, and announces both failure and success (`role="alert"` / `role="status"`) |
 | 🔄 | **Buy / add credits from the profile** | In progress — the packs move off Početna entirely. The production admin gate on the instant-credit button has to move WITH them, or every production user gets free credits |
 | ✅ | **Timezone + time display** | Done 2026-08-14, and actually wired: the job list formats through `formatDateTime` with the picked zone, read server-side off the cookie. An unknown zone falls back instead of throwing — `Intl` raises `RangeError`, which would have broken every page showing a date |
-| ❌ | **Account basics** | Email shown, sign out (currently only in the shell), and delete-my-account — the last one is a GDPR obligation, and it collides with `Storage` having no `delete` (see §5): today we could not actually erase the person's videos |
+| 🟡 | **Account basics** | Email and sign-out shipped 2026-08-14. **Delete-my-account is the one still missing**, and it is blocked on a decision rather than on work: `Storage` has no `delete` (see §5), so we could not actually erase the person's videos, and a GDPR obligation half-honoured is worse than one not yet offered |
 | ❌ | **Invoices / purchase history** | Lemon Squeezy is a merchant of record and issues the invoice, so this may be a link out rather than a screen we build. Decide before building anything |
 
 Two things to settle before writing code: whether this is a full page (`/app/profil`) or a panel,
