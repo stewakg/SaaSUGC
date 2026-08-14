@@ -30,13 +30,14 @@ import type { JobType } from '@adgen/db';
 // number — derive every expected cost below from computeJobCost(type, count).
 const type = 'matrix' satisfies JobType;
 
-const { getUser, profileSingle, insertSingle, insertSpy, rateLimitMock, queueAdd } = vi.hoisted(() => ({
+const { getUser, profileSingle, insertSingle, insertSpy, rateLimitMock, queueAdd, queueNames } = vi.hoisted(() => ({
   getUser: vi.fn(),
   profileSingle: vi.fn(),
   insertSingle: vi.fn(),
   insertSpy: vi.fn(),
   rateLimitMock: vi.fn(),
   queueAdd: vi.fn(),
+  queueNames: [] as string[],
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -57,10 +58,24 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: rateLimitMock }));
-vi.mock('bullmq', () => ({ Queue: class { add = queueAdd; } }));
-vi.mock('@adgen/core/queue', () => ({
+// The constructor records the queue NAME. Without this the mock swallowed the
+// one argument that decides whether a render runs alone or four at a time.
+vi.mock('bullmq', () => ({
+  Queue: class {
+    add = queueAdd;
+    constructor(name: string) {
+      queueNames.push(name);
+    }
+  },
+}));
+// Only the Redis connection is faked. `queueNameForJobType` comes from the
+// REAL module on purpose: which lane a job lands in is now part of what this
+// route decides, and a stubbed router would let the route enqueue a render
+// onto the light queue — four Remotion renders on one box — while this file
+// reported green.
+vi.mock('@adgen/core/queue', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@adgen/core/queue')>()),
   createRedisConnection: () => ({}),
-  JOB_QUEUE_NAME: 'adgen-jobs',
 }));
 
 import { POST } from './route.ts';
@@ -238,6 +253,10 @@ describe('POST /api/jobs — enqueue and insert-failure ordering', () => {
     expect(await res.json()).toEqual({ id: 'job1' });
     expect(queueAdd).toHaveBeenCalledTimes(1);
     expect(queueAdd).toHaveBeenCalledWith(type, { jobId: 'job1' });
+    // `matrix` renders video, so it must land on the HEAVY lane. Getting this
+    // wrong is not a slow job — it is four Remotion renders on one box.
+    expect(queueNames).toContain('adgen-jobs');
+    expect(queueNames).not.toContain('adgen-jobs-light');
   });
 
   it('14. insert failure ⇒ 500 and NOTHING is enqueued (no orphan worker job)', async () => {

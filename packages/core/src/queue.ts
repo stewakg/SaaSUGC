@@ -7,7 +7,33 @@
  */
 import IORedis from 'ioredis';
 
-export const JOB_QUEUE_NAME = 'adgen-jobs';
+/** Queue for jobs that render video on Lambda. Keeps the original name — see below. */
+export const HEAVY_QUEUE_NAME = 'adgen-jobs';
+/** Queue for jobs that are one provider call and a copy. */
+export const LIGHT_QUEUE_NAME = 'adgen-jobs-light';
+
+/**
+ * Job types that render video. Everything else is light.
+ *
+ * A type NOT listed here goes to the light queue, which is the safe default in
+ * one direction only: a light job on the heavy queue merely waits, while a
+ * heavy job on the light queue could put four Remotion renders on one box and
+ * OOM it. So when a new video-producing type is added it MUST be added here.
+ */
+export const HEAVY_JOB_TYPES: ReadonlySet<string> = new Set(['matrix', 'revoice']);
+
+/** Which queue a job type belongs on — the producer and consumer both call this. */
+export function queueNameForJobType(type: string): string {
+  return HEAVY_JOB_TYPES.has(type) ? HEAVY_QUEUE_NAME : LIGHT_QUEUE_NAME;
+}
+
+/**
+ * Alias of HEAVY_QUEUE_NAME. Prefer `queueNameForJobType` — the single queue
+ * this named is now only one of two lanes.
+ *
+ * @deprecated Import `queueNameForJobType` (or the specific queue constant) instead.
+ */
+export const JOB_QUEUE_NAME = HEAVY_QUEUE_NAME;
 
 /** Payload carried on the BullMQ job — just a pointer to the `jobs` row. */
 export interface JobQueueData {

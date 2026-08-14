@@ -12,7 +12,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { Queue } from 'bullmq';
 import { computeJobCost, JOB_COST } from '@adgen/core/pricing';
-import { createRedisConnection, JOB_QUEUE_NAME, type JobQueueData } from '@adgen/core/queue';
+import { createRedisConnection, queueNameForJobType, type JobQueueData } from '@adgen/core/queue';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
 import type { JobType } from '@adgen/db';
@@ -22,13 +22,18 @@ import { toAdSeconds } from '@adgen/core';
 // user's way (the credit balance check already gates actual cost).
 const RATE_LIMIT = { max: 20, windowSeconds: 60 };
 
-// Lazy singleton: constructing a Queue opens a Redis connection immediately,
+// Lazy singletons: constructing a Queue opens a Redis connection immediately,
 // which would fire during `next build`'s route analysis (no Redis running
-// then) if created at module load. Created on first request instead, reused
-// across requests in the same server process after that.
-let queue: Queue<JobQueueData> | null = null;
-function getQueue(): Queue<JobQueueData> {
-  queue ??= new Queue<JobQueueData>(JOB_QUEUE_NAME, { connection: createRedisConnection() });
+// then) if created at module load. Created on first request instead, and
+// memoised one instance PER QUEUE NAME — a fresh Queue per request would open
+// a fresh Redis connection per request and leak them until Redis refuses.
+const queues = new Map<string, Queue<JobQueueData>>();
+function getQueue(name: string): Queue<JobQueueData> {
+  let queue = queues.get(name);
+  if (!queue) {
+    queue = new Queue<JobQueueData>(name, { connection: createRedisConnection() });
+    queues.set(name, queue);
+  }
   return queue;
 }
 
@@ -107,7 +112,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'insert_failed' }, { status: 500 });
   }
 
-  await getQueue().add(type, { jobId: job.id });
+  await getQueue(queueNameForJobType(type)).add(type, { jobId: job.id });
 
   return NextResponse.json({ id: job.id });
 }
