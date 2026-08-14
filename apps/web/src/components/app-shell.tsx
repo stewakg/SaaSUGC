@@ -63,18 +63,9 @@ export function AppShell({
     router.refresh();
   }
 
-  /**
-   * Moj profil is in the NAV, not only on the email in the header.
-   *
-   * The email link was the single entry point to the account screen, and it
-   * lives in a `hidden sm:block` container — so below 640px it does not render
-   * at all and the profile was simply unreachable on a phone. For an audience
-   * that is mostly on a phone, that is the whole feature missing.
-   */
   const nav = [
     { href: '/app', label: 'Početna', icon: 'home' },
     { href: '/app/reklame', label: 'Moje reklame', icon: 'film' },
-    { href: '/app/profil', label: 'Moj profil', icon: 'user' },
   ];
 
   return (
@@ -122,6 +113,24 @@ export function AppShell({
           })}
         </nav>
         <div className="absolute inset-x-0 bottom-0 p-3">
+          {/*
+            Moj profil lives down HERE, beside Izloguj se — the account
+            controls — not only on the email in the header.
+
+            The email link was the single entry point to the account screen,
+            and it lives in a `hidden sm:block` container — so below 640px it
+            does not render at all and the profile was simply unreachable on a
+            phone. For an audience that is mostly on a phone, that is the whole
+            feature missing.
+          */}
+          <Link
+            href="/app/profil"
+            onClick={() => setMobileOpen(false)}
+            className="focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-txt-mid transition hover:bg-panel-2 hover:text-txt-hi"
+          >
+            <NavIcon name="user" />
+            Moj profil
+          </Link>
           <button
             onClick={handleLogout}
             className="focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-txt-mid transition hover:bg-panel-2 hover:text-txt-hi"

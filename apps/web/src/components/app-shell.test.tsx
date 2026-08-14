@@ -214,7 +214,7 @@ describe('AppShell', () => {
     const { container } = mountShell({ email: 'proba@adgen.rs' });
     // TWO routes to the account screen, deliberately. The email lives in a
     // `hidden sm:block` container, so on a phone it does not render at all —
-    // the nav entry is what keeps the profile reachable there. Assert both, or
+    // the sidebar entry is what keeps the profile reachable there. Assert both, or
     // dropping either one goes unnoticed.
     const links = [...container.querySelectorAll('a[href="/app/profil"]')];
     expect(links).toHaveLength(2);
@@ -223,9 +223,20 @@ describe('AppShell', () => {
     expect(byEmail).toBeInstanceOf(HTMLAnchorElement);
     expect(byEmail!.getAttribute('title')).toBe('Moj profil');
 
-    const inNav = links.find((a) => a.textContent?.includes('Moj profil'));
-    expect(inNav).toBeInstanceOf(HTMLAnchorElement);
-    expect(inNav!.closest('nav')).not.toBeNull();
+    const sidebarEntry = links.find((a) => a.textContent?.includes('Moj profil'));
+    expect(sidebarEntry).toBeInstanceOf(HTMLAnchorElement);
+    // PLACEMENT, pinned: the profile link sits in the BOTTOM block beside
+    // Izloguj se — NOT in the <nav> list with the work navigation. Without
+    // this, someone can quietly move it back into the list and nothing
+    // complains.
+    expect(sidebarEntry!.closest('nav')).toBeNull();
+    const signOut = [...container.querySelectorAll('aside button')].find(
+      (b) => b.textContent === 'Izloguj se',
+    );
+    expect(signOut).toBeInstanceOf(HTMLButtonElement);
+    expect(sidebarEntry!.parentElement).toBe(signOut!.parentElement);
+    // Immediately above its neighbour, not just anywhere in the block.
+    expect(sidebarEntry!.compareDocumentPosition(signOut!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('balance 1 reads "kredit" — the Serbian singular', () => {
@@ -250,12 +261,22 @@ describe('AppShell', () => {
 
   it('nav icons are aria-hidden — their text labels stand next to them', () => {
     const { container } = mountShell();
-    // Every svg in the sidebar nav (Početna, Moje reklame, Profil) and the
-    // hamburger itself must be hidden from the a11y tree; each has its own
-    // visible text or aria-label.
+    // Every svg in the sidebar nav (Početna, Moje reklame) and the hamburger
+    // itself must be hidden from the a11y tree; each has its own visible
+    // text or aria-label.
     const svgs = container.querySelectorAll('aside nav svg');
-    expect(svgs).toHaveLength(3);
+    expect(svgs).toHaveLength(2);
     svgs.forEach((svg) => {
+      expect(svg.getAttribute('aria-hidden')).toBe('true');
+    });
+    // The third icon (user) moved to the bottom block with Moj profil —
+    // assert it landed there beside the logout icon so it cannot go missing
+    // in the move. Direct children only: the ThemeSwitcher shares the block.
+    const bottomSvgs = container.querySelectorAll(
+      'aside div.absolute.inset-x-0.bottom-0 > a svg, aside div.absolute.inset-x-0.bottom-0 > button svg',
+    );
+    expect(bottomSvgs).toHaveLength(2);
+    bottomSvgs.forEach((svg) => {
       expect(svg.getAttribute('aria-hidden')).toBe('true');
     });
     const hamburgerSvg = container.querySelector('header button svg');
