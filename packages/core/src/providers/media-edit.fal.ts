@@ -91,6 +91,12 @@ export interface RemoveTextOptions {
 interface FalSubmitResponse {
   request_id?: string;
   status_url?: string;
+  /**
+   * Where the RESULT lives. fal returns this for a reason, and constructing it
+   * instead is what broke the first live call — see the comment at the result
+   * fetch below.
+   */
+  response_url?: string;
 }
 
 interface FalStatusResponse {
@@ -233,7 +239,24 @@ export class FalMediaEditProvider {
       await new Promise((r) => setTimeout(r, pollIntervalMs));
     }
 
-    const resultRes = await fetch(`${FAL_QUEUE_BASE}/${endpointId}/requests/${requestId}`, {
+    /**
+     * Use fal's own `response_url`, not a constructed one.
+     *
+     * FOUND BY THE FIRST LIVE CALL, 2026-08-14: constructing
+     * `${base}/${endpointId}/requests/${id}` is only right for a FLAT model id.
+     * These endpoints are nested — `fal-ai/topaz/upscale/image` is the app
+     * `fal-ai/topaz` plus the path `upscale/image` — and the queue lives under
+     * the APP, so the constructed url pointed at
+     * `…/fal-ai/topaz/upscale/image/requests/<id>`, which answers **405**. The
+     * submit response already carries the correct address; the status poll above
+     * was reading its `status_url` and working, while the result fetch three
+     * lines later ignored the sibling field and guessed.
+     *
+     * The constructed form stays as a fallback for a response that omits it,
+     * which is exactly the flat-id case where it happens to be correct.
+     */
+    const resultUrl = submitJson.response_url ?? `${FAL_QUEUE_BASE}/${endpointId}/requests/${requestId}`;
+    const resultRes = await fetch(resultUrl, {
       headers: { Authorization: authHeader },
     });
     if (!resultRes.ok) {

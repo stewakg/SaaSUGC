@@ -180,7 +180,7 @@ export class KieAIFalRouter implements AIProvider {
     if (!submitRes.ok) {
       throw new Error(`fal.ai submit failed (${submitRes.status}): ${await submitRes.text().catch(() => '')}`);
     }
-    const submitJson = (await submitRes.json()) as { request_id: string; status_url: string };
+    const submitJson = (await submitRes.json()) as { request_id: string; status_url: string; response_url?: string };
 
     const start = Date.now();
     while (true) {
@@ -199,7 +199,16 @@ export class KieAIFalRouter implements AIProvider {
       await new Promise((r) => setTimeout(r, IMAGE_POLL_INTERVAL_MS));
     }
 
-    const resultRes = await fetch(`${FAL_QUEUE_BASE}/${model}/requests/${submitJson.request_id}`, {
+    // fal's own response_url, not a constructed one: a NESTED model id (the
+    // video endpoint `fal-ai/veo3.1/image-to-video` is the app `fal-ai/veo3.1`
+    // plus a path) does not live at `${base}/${model}/requests/<id>`, and that
+    // url answers 405. Proven on the media-edit provider by its first live call
+    // on 2026-08-14; this file has the identical shape and the same latent bug.
+    // The constructed form stays as the fallback, which is the flat-id case
+    // where it is correct — and the one the tests exercise.
+    const resultUrl =
+      submitJson.response_url ?? `${FAL_QUEUE_BASE}/${model}/requests/${submitJson.request_id}`;
+    const resultRes = await fetch(resultUrl, {
       headers: { Authorization: `Key ${apiKey}` },
     });
     if (!resultRes.ok) throw new Error(`fal.ai result fetch failed (${resultRes.status})`);
@@ -295,7 +304,7 @@ export class KieAIFalRouter implements AIProvider {
     if (!submitRes.ok) {
       throw new Error(`fal.ai submit failed (${submitRes.status}): ${await submitRes.text().catch(() => '')}`);
     }
-    const submitJson = (await submitRes.json()) as { request_id: string; status_url: string };
+    const submitJson = (await submitRes.json()) as { request_id: string; status_url: string; response_url?: string };
 
     const start = Date.now();
     while (true) {
@@ -314,7 +323,16 @@ export class KieAIFalRouter implements AIProvider {
       await new Promise((r) => setTimeout(r, VIDEO_POLL_INTERVAL_MS));
     }
 
-    const resultRes = await fetch(`${FAL_QUEUE_BASE}/${model}/requests/${submitJson.request_id}`, {
+    // fal's own response_url, not a constructed one: a NESTED model id (the
+    // video endpoint `fal-ai/veo3.1/image-to-video` is the app `fal-ai/veo3.1`
+    // plus a path) does not live at `${base}/${model}/requests/<id>`, and that
+    // url answers 405. Proven on the media-edit provider by its first live call
+    // on 2026-08-14; this file has the identical shape and the same latent bug.
+    // The constructed form stays as the fallback, which is the flat-id case
+    // where it is correct — and the one the tests exercise.
+    const resultUrl =
+      submitJson.response_url ?? `${FAL_QUEUE_BASE}/${model}/requests/${submitJson.request_id}`;
+    const resultRes = await fetch(resultUrl, {
       headers: { Authorization: `Key ${apiKey}` },
     });
     if (!resultRes.ok) throw new Error(`fal.ai result fetch failed (${resultRes.status})`);
