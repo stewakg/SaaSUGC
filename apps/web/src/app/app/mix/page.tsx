@@ -92,7 +92,7 @@ export default function MixPage() {
             accept="video/mp4,video/quicktime,video/webm"
             multiple
             disabled={uploading}
-            title="Klikni ili prevuci video ovde"
+            title={clips.length === 0 ? 'Klikni ili prevuci video ovde' : 'Klikni ili prevuci još klipova'}
             hint="MP4, MOV ili WEBM · do 200MB"
             onFiles={handleFiles}
           />

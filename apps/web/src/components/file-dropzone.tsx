@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface FileDropzoneProps {
@@ -13,6 +13,30 @@ interface FileDropzoneProps {
   title: string;
   /** Small line under it, e.g. the accepted formats and size cap. */
   hint?: string;
+}
+
+/**
+ * Matches a File against an `accept` attribute using the same rules a browser
+ * applies in the file-picker dialog (the attribute does NOT filter drops):
+ * - a comma-separated list; an entry matches if ANY of them matches,
+ * - `video/mp4` matches an equal `file.type` (case-insensitive),
+ * - `video/*` matches any type starting with `video/`,
+ * - `.mp4` matches a file NAME ending with it (lowercased both sides),
+ * - an empty/missing list accepts everything.
+ */
+export function fileMatchesAccept(file: File, accept: string): boolean {
+  const entries = accept
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+  if (entries.length === 0) return true;
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return entries.some((entry) => {
+    if (entry.startsWith('.')) return name.endsWith(entry);
+    if (entry.endsWith('/*')) return type.startsWith(entry.slice(0, -1));
+    return type === entry;
+  });
 }
 
 /**
@@ -37,10 +61,39 @@ export function FileDropzone({
   hint,
 }: FileDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const dropRef = useRef<HTMLButtonElement>(null);
   // enter/leave fire for every nested element, so we count crossings rather
   // than trusting a single dragleave (see the class comment above).
   const dragDepth = useRef(0);
   const [dragging, setDragging] = useState(false);
+  const [wrongType, setWrongType] = useState(false);
+
+  // A drop that MISSES the dropzone falls through to the browser default:
+  // the tab navigates to the file, destroying the whole wizard. Blocking the
+  // default on `document` neutralises those near-misses. Only events aimed at
+  // a dropzone are left alone — a dropzone's own handlers (which preventDefault
+  // themselves, when enabled) must keep working.
+  useEffect(() => {
+    function guard(e: DragEvent) {
+      // Skip ANY dropzone, not just this one. Checking `dropRef.current` alone
+      // was wrong the moment two dropzones are mounted together: zone A's guard
+      // saw an event aimed at zone B as "outside" and prevented it. That is
+      // invisible for an enabled B, whose own handler prevents anyway — but for
+      // a DISABLED B, whose handler deliberately returns without preventing so
+      // the cursor shows "no drop", A's guard silently re-enabled the drop
+      // cursor over an area that then swallows the file. Found by the test that
+      // uses a disabled zone as the discriminator; the old comment here claimed
+      // several mounted dropzones were harmless, and it was wrong.
+      if (e.target instanceof Element && e.target.closest('[data-dropzone]')) return;
+      e.preventDefault();
+    }
+    document.addEventListener('dragover', guard);
+    document.addEventListener('drop', guard);
+    return () => {
+      document.removeEventListener('dragover', guard);
+      document.removeEventListener('drop', guard);
+    };
+  }, []);
 
   function openPicker() {
     if (disabled) return;
@@ -49,7 +102,10 @@ export function FileDropzone({
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
-    if (files.length > 0) onFiles(files);
+    if (files.length > 0) {
+      setWrongType(false);
+      onFiles(files);
+    }
     // Reset so choosing the SAME file again still fires a change event.
     e.target.value = '';
   }
@@ -58,6 +114,7 @@ export function FileDropzone({
     if (disabled) return;
     e.preventDefault();
     dragDepth.current += 1;
+    setWrongType(false);
     setDragging(true);
   }
 
@@ -81,15 +138,29 @@ export function FileDropzone({
     e.preventDefault();
     dragDepth.current = 0;
     setDragging(false);
-    const files = Array.from(e.dataTransfer.files).filter(
+    const dropped = Array.from(e.dataTransfer.files).filter(
       (entry): entry is File => entry instanceof File,
     );
-    if (files.length > 0) onFiles(files);
+    if (dropped.length === 0) return;
+    // The `accept` attribute only filters the picker dialog — drops must be
+    // checked here, or the file is uploaded only to be rejected by the server.
+    const accepted = dropped.filter((file) => fileMatchesAccept(file, accept));
+    if (accepted.length === 0) {
+      setWrongType(true);
+      return;
+    }
+    setWrongType(false);
+    onFiles(accepted);
   }
 
   return (
     <>
+      {/* `data-dropzone` is read by the document-level guard above, which has
+          to recognise EVERY dropzone, not only the one that installed the
+          listener. */}
       <button
+        ref={dropRef}
+        data-dropzone=""
         type="button"
         onClick={openPicker}
         onDragEnter={handleDragEnter}
@@ -103,7 +174,11 @@ export function FileDropzone({
         )}
       >
         <span className="text-sm font-medium text-txt-hi">{title}</span>
-        {hint && <span className="text-xs text-txt-mid">{hint}</span>}
+        {wrongType ? (
+          <span className="text-xs text-err-text">Pogrešan tip fajla.</span>
+        ) : (
+          hint && <span className="text-xs text-txt-mid">{hint}</span>
+        )}
       </button>
       {/* Sibling, not a child: nesting <input> inside <button> is invalid HTML. */}
       <input
