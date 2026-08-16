@@ -270,3 +270,54 @@ describe('POST /api/jobs — enqueue and insert-failure ordering', () => {
   });
 });
 
+describe('POST /api/jobs — foreign asset url guard (SSRF)', () => {
+  it('15. sourceVideoUrls containing the Hetzner metadata address ⇒ 400 invalid_asset_url, nothing inserted or enqueued', async () => {
+    // The exact attack this guard exists for: aim the worker — the process
+    // holding the service-role key — at cloud metadata from the VPS.
+    const res = await POST(
+      req({
+        type,
+        count: 1,
+        params: {
+          sourceVideoUrls: ['/api/storage/uploads/u1/1.mp4', 'http://169.254.169.254/hetzner/v1/metadata'],
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'invalid_asset_url' });
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(queueAdd).not.toHaveBeenCalled();
+  });
+
+  it('16. sourceUrl on a foreign origin ⇒ 400 invalid_asset_url, nothing inserted or enqueued', async () => {
+    const res = await POST(req({ type, count: 1, params: { sourceUrl: 'https://evil.example/x.mp4' } }));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'invalid_asset_url' });
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(queueAdd).not.toHaveBeenCalled();
+  });
+
+  it('17. relative /api/storage/... sourceVideoUrls are still accepted (the guard did not break the normal path)', async () => {
+    const sourceVideoUrls = ['/api/storage/uploads/u1/1.mp4', '/api/storage/uploads/u1/2.mp4'];
+    const res = await POST(req({ type, count: 1, params: { sourceVideoUrls } }));
+
+    expect(res.status).toBe(200);
+    expect(insertSpy).toHaveBeenCalledTimes(1);
+    expect(queueAdd).toHaveBeenCalledTimes(1);
+    const row = insertSpy.mock.calls[0][0];
+    expect(row.params.sourceVideoUrls).toEqual(sourceVideoUrls);
+  });
+
+  it('18. third-party sourceImages alone are still accepted — the worker never fetches those', async () => {
+    // sourceImages come from scraping a real shop page (third-party by
+    // design) and are fetched by the script provider, not the worker.
+    const res = await POST(req({ type, count: 1, params: { sourceImages: ['https://someshop.example/p.jpg'] } }));
+
+    expect(res.status).toBe(200);
+    expect(insertSpy).toHaveBeenCalledTimes(1);
+    expect(queueAdd).toHaveBeenCalledTimes(1);
+  });
+});
+

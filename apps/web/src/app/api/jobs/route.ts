@@ -15,6 +15,7 @@ import { computeJobCost, JOB_COST } from '@adgen/core/pricing';
 import { createRedisConnection, queueNameForJobType, type JobQueueData } from '@adgen/core/queue';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
+import { findForeignAssetUrl } from '@/lib/asset-url';
 import type { JobType } from '@adgen/db';
 import { toAdSeconds } from '@adgen/core';
 
@@ -85,6 +86,15 @@ export async function POST(request: NextRequest) {
     targetSeconds: toAdSeconds(rawParams.targetSeconds),
     count,
   };
+
+  // The worker fetches these urls itself, so a foreign one is an outbound
+  // request made by the most privileged process we run (see asset-url.ts).
+  // Rejected here, at the only place that writes a `jobs` row.
+  const foreignUrl = findForeignAssetUrl(params);
+  if (foreignUrl !== null) {
+    console.warn(`[jobs] rejected foreign asset url from user ${user.id}: ${foreignUrl}`);
+    return NextResponse.json({ error: 'invalid_asset_url' }, { status: 400 });
+  }
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
