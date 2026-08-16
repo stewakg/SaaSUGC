@@ -57,7 +57,15 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Match all paths except static assets, Next internals, and api webhooks.
+     * Match all paths except static assets and Next internals.
+     *
+     * This used to claim it also excluded "api webhooks". It never did — there
+     * is no `/api` term in the pattern below, so every API route runs through
+     * this middleware. Harmless, because the middleware only redirects on
+     * `/login`, `/signup` and `/app/*` and touches nothing else, and every API
+     * route authenticates itself with its own `getUser()` call. Corrected
+     * rather than "fixed": adding the exclusion now would change what runs on
+     * paths nobody has tested that way.
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css|js|map)$).*)',
   ],

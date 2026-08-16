@@ -135,7 +135,7 @@ Wait for the completion notification, then edit.
 
 ## Baseline gates
 `pnpm -r typecheck`, `pnpm -r test` (vitest in `@adgen/core`, `@adgen/worker` and now
-`@adgen/web` — **705 tests as of 2026-08-13** (core 326, web 296, worker 83) — including EVERY API route (12/12), covering the montage chain, caption/cost
+`@adgen/web` — **979 tests as of 2026-08-16** (core 365, web 495, worker 119) — including EVERY API route (12/12), covering the montage chain, caption/cost
 logic, approved scripts, the OpenRouter provider, the matrix pipeline end to end with a fake
 renderer, R2 signed-URL generation, the SSRF guard and admin identification, the ad-length cost ceiling, the yt-dlp search parser + the shell-free `runYtDlp` argv contract, the password checklist, the rate limiter's fail-open behaviour, the provider factory including `mockProviderSlots()`, the Lambda renderer's ownership transfer + its progress-aware timeout and fetch-retry, the LOCAL Remotion renderer's ownership + temp-cleanup contract, the worker's voice-id fallback + image-ads prompt builder, asset ownership (persistRemoteAsset) + the enhance/remove_text fail-not-charge guards, the tool dispatch and its mock-renderer money guard, the ElevenLabs voice provider, the RealScraper heuristics + SSRF redirect guard, the kie.ai/fal.ai router fallback contract, and the worker job state machine's charge/refund/rollback), and
 `pnpm --filter @adgen/web build` must pass before calling anything done.
