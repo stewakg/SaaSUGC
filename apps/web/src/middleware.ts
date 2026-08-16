@@ -5,6 +5,14 @@
  *
  * NOTE: middleware runs in the edge runtime, so it only uses the public anon key
  * (never the service-role key).
+ *
+ * On top of the session logic it attaches a security header set to EVERY response
+ * it returns — redirects included: a per-request nonce Content-Security-Policy
+ * plus the three headers Caddy owns once it runs (nosniff, frame denial, referrer
+ * policy). Caddy sits behind the `tls` compose profile and does not run yet (no
+ * domain), so today this middleware is the only component that can send them —
+ * and a nonce has to be minted per request anyway, which a static Caddyfile
+ * cannot do.
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
@@ -15,8 +23,79 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 type CookieEntry = { name: string; value: string; options?: CookieOptions };
 
+/**
+ * Stamp the security headers on whatever response the middleware is about to
+ * return. Every return path goes through here — the two redirects included —
+ * so a redirect is never the one uncovered path.
+ *
+ * Deliberately NO Strict-Transport-Security: the site is served over plain HTTP
+ * today (no domain yet, so the `tls` compose profile with Caddy does not run),
+ * and browsers ignore HSTS on an http origin anyway. Once a domain and TLS
+ * exist, that max-age commitment belongs on the proxy that terminates TLS, not
+ * hardcoded in an app that cannot know when that switch happens.
+ */
+function withSecurityHeaders(response: NextResponse, csp: string) {
+  response.headers.set('Content-Security-Policy', csp);
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  return response;
+}
+
+/*
+ * The policy below is `default-src 'self'` plus a few deliberate loosenings.
+ * Every directive looser than 'self', and why:
+ *
+ * - `https:` on img-src / media-src — R2 assets reach the browser as a redirect
+ *   from /api/storage to a signed URL on the bucket host, so images and media
+ *   must allow https origins, not just 'self'.
+ * - `https:` on connect-src — Supabase (auth + DB) is a different origin the
+ *   browser talks to directly, and the presigned PUT goes straight from the
+ *   browser to the bucket host.
+ * - `'unsafe-inline'` on style-src — Next injects the critical CSS as an inline
+ *   <style> and there is no nonce hook for it. Inline styles are NOT the same
+ *   risk as inline scripts: they cannot execute logic on their own.
+ * - `'unsafe-inline'` in script-src exists ONLY as the fallback for old
+ *   browsers with no nonce support. Modern browsers IGNORE it whenever a nonce
+ *   is present, so keeping it does not make scripts unrestricted for anyone
+ *   current. Do not "clean it up" — removing it breaks old clients, while
+ *   keeping it costs nothing where the nonce is honoured.
+ */
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next({ request });
+  // A fresh nonce per request. `crypto` is the Web Crypto global, available in
+  // the middleware runtime — do not import node:crypto here.
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+
+  const csp = [
+    `default-src 'self'`,
+    // `strict-dynamic` lets a nonced script load the chunks it needs, which is
+    // how Next's own bootstrap works; without it every lazy chunk is blocked.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https: 'unsafe-inline'`,
+    // 'unsafe-inline' for styles is deliberate and NOT the same risk as it is
+    // for scripts: Next injects inline <style> for the critical CSS, and there
+    // is no nonce hook for it.
+    `style-src 'self' 'unsafe-inline'`,
+    // R2 assets arrive as a redirect from /api/storage to a signed url on the
+    // bucket host, so media and images must allow https, not just 'self'.
+    `img-src 'self' blob: data: https:`,
+    `media-src 'self' blob: https:`,
+    `font-src 'self' data:`,
+    // Supabase (auth + DB) is a different origin, and the browser talks to it
+    // directly; the presigned PUT goes straight to the bucket host.
+    `connect-src 'self' https:`,
+    `frame-ancestors 'none'`,
+    `base-uri 'self'`,
+    `form-action 'self'`,
+    `object-src 'none'`,
+  ].join('; ');
+
+  // The nonce rides on the forwarded request too: Next reads it from the
+  // request header and puts it on its own injected scripts, so the app's
+  // request must carry the same x-nonce the policy was built with.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
@@ -41,17 +120,17 @@ export async function middleware(request: NextRequest) {
 
   // Redirect authenticated users away from auth pages.
   if (user && (pathname === '/login' || pathname === '/signup')) {
-    return NextResponse.redirect(new URL('/app', request.url));
+    return withSecurityHeaders(NextResponse.redirect(new URL('/app', request.url)), csp);
   }
 
   // Protect /app/* — require a session.
   if (!user && pathname.startsWith('/app')) {
     const redirect = new URL('/login', request.url);
     redirect.searchParams.set('next', pathname);
-    return NextResponse.redirect(redirect);
+    return withSecurityHeaders(NextResponse.redirect(redirect), csp);
   }
 
-  return response;
+  return withSecurityHeaders(response, csp);
 }
 
 export const config = {
