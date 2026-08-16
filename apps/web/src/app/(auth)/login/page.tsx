@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { authErrorMessage } from '@/lib/auth-errors';
+import { safeNextPath } from '@/lib/safe-redirect';
 
 /**
  * Email/password login. Supabase Auth (local in dev).
@@ -21,7 +22,7 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get('next') ?? '/app';
+  const next = safeNextPath(params.get('next'));
   const callbackError = params.get('error') === 'callback';
 
   const [email, setEmail] = useState('');
