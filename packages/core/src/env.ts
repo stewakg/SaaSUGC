@@ -96,6 +96,18 @@ const EnvSchema = z.object({
   REMOTION_LAMBDA_CONCURRENCY: z.string().optional(),
 
   // --- Billing ---
+  /**
+   * Which payment provider is ACTIVE. Absent (the default) means none — the
+   * billing slot resolves to the mock and production refuses to serve checkout.
+   *
+   * Added 2026-08-16 when Lemon Squeezy was put to sleep: the operator became a
+   * Wyoming LLC, which removed the merchant-of-record reason for choosing it,
+   * and Stripe goes in once the company is confirmed. Keys alone must no longer
+   * be enough to wake a provider — the layer had already been deleted once and
+   * restored three days later, and a stray env var reviving a dormant payment
+   * path is not a mistake worth leaving available.
+   */
+  BILLING_PROVIDER: z.enum(['lemonsqueezy']).optional(),
   LEMONSQUEEZY_API_KEY: z.string().optional(),
   LEMONSQUEEZY_STORE_ID: z.string().optional(),
   LEMONSQUEEZY_WEBHOOK_SECRET: z.string().optional(),

@@ -232,6 +232,28 @@ function createRendererProvider(env: ReturnType<typeof loadEnv>, storage: Storag
  * warning instead, the same posture as createStorageProvider.
  */
 function createBillingProvider(env: ReturnType<typeof loadEnv>): Billing {
+  /**
+   * DORMANT SINCE 2026-08-16 unless explicitly woken.
+   *
+   * Lemon Squeezy is no longer the launch provider: the operator became a
+   * Wyoming LLC, which removed the merchant-of-record reason it was chosen for,
+   * and Stripe lands once the company is confirmed. The code stays — this layer
+   * was deleted on 2026-08-10 and restored on 2026-08-13 at the cost of a full
+   * re-wire, and deleting it a second time would buy a third build.
+   *
+   * So it sleeps behind an explicit switch instead: having keys in the
+   * environment is deliberately NOT enough. Set BILLING_PROVIDER=lemonsqueezy
+   * to wake it. With no provider selected the slot is the mock, and production
+   * refuses to serve checkout at all (503) rather than handing out free credits.
+   */
+  if (env.BILLING_PROVIDER !== 'lemonsqueezy') {
+    if (hasKey(env, 'LEMONSQUEEZY_API_KEY')) {
+      console.warn(
+        '[core] LEMONSQUEEZY_API_KEY is set but BILLING_PROVIDER is not "lemonsqueezy" — billing stays mocked. This is deliberate: keys alone no longer wake a payment provider.',
+      );
+    }
+    return new MockBilling();
+  }
   if (!hasKey(env, 'LEMONSQUEEZY_API_KEY')) return new MockBilling();
   try {
     return new LemonSqueezyBilling({

@@ -77,6 +77,11 @@ const PROVIDER_KEYS = [
   'REMOTION_SERVE_URL',
   'REMOTION_AWS_REGION',
   'LOCAL_STORAGE_DIR',
+  'BILLING_PROVIDER',
+  'LEMONSQUEEZY_API_KEY',
+  'LEMONSQUEEZY_STORE_ID',
+  'LEMONSQUEEZY_WEBHOOK_SECRET',
+  'LEMONSQUEEZY_VARIANT_MAP',
 ] as const;
 
 /** Stable `name` strings exposed by every mock class in mocks.ts. */
@@ -462,5 +467,58 @@ describe('H. Overrides win over env', () => {
     // The code uses `!== undefined` on purpose: an explicit null must NOT
     // fall through to building a real FalMediaEditProvider.
     expect(p.mediaEdit).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// I. Billing is dormant
+// ---------------------------------------------------------------------------
+
+/**
+ * Lemon Squeezy sleeps behind BILLING_PROVIDER as of 2026-08-16 — the operator
+ * became a Wyoming LLC, which removed the merchant-of-record reason it was
+ * chosen for, and Stripe lands once the company is confirmed. The code was kept
+ * rather than deleted (it had already been deleted once and restored three days
+ * later), so what these tests pin is that KEEPING it cannot accidentally
+ * ACTIVATE it: a full set of valid keys with no BILLING_PROVIDER must still
+ * resolve to the mock.
+ */
+describe('I. Billing stays asleep unless BILLING_PROVIDER says otherwise', () => {
+  const FULL_KEYS = {
+    LEMONSQUEEZY_API_KEY: 'test-key',
+    LEMONSQUEEZY_STORE_ID: '12345',
+    LEMONSQUEEZY_WEBHOOK_SECRET: 'test-secret',
+    LEMONSQUEEZY_VARIANT_MAP: '{"starter":"1"}',
+  };
+
+  it('21. no keys and no BILLING_PROVIDER ⇒ mock billing', async () => {
+    const { createProviders } = await withEnv({});
+    expect(createProviders().billing.name).toBe('mock-billing');
+  });
+
+  it('22. a COMPLETE key set with no BILLING_PROVIDER still resolves to the mock', async () => {
+    // The whole point of the dormancy: keys alone must not wake a payment path.
+    const { createProviders } = await withEnv(FULL_KEYS);
+    expect(createProviders().billing.name).toBe('mock-billing');
+  });
+
+  it('23. BILLING_PROVIDER=lemonsqueezy with the keys wakes the real provider', async () => {
+    const { createProviders } = await withEnv({ ...FULL_KEYS, BILLING_PROVIDER: 'lemonsqueezy' });
+    expect(createProviders().billing.name).not.toBe('mock-billing');
+  });
+
+  it('24. BILLING_PROVIDER=lemonsqueezy WITHOUT keys falls back to the mock instead of throwing', async () => {
+    // Same forgiving posture as every other slot: a half-configured provider
+    // must not crash the process at module load.
+    const { createProviders } = await withEnv({ BILLING_PROVIDER: 'lemonsqueezy' });
+    expect(createProviders().billing.name).toBe('mock-billing');
+  });
+
+  it('25. keys without the switch warn, so a dormant provider is visible in the log', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { createProviders } = await withEnv(FULL_KEYS);
+    createProviders();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('BILLING_PROVIDER'));
+    warn.mockRestore();
   });
 });
