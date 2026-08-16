@@ -110,9 +110,11 @@ export default function LandingPage() {
           Tvoj račun, tvoji podaci
         </p>
         {/*
-          Legal links belong on every page a visitor can reach, and in Germany
-          the Impressum specifically must be reachable in two clicks from
-          anywhere. This is the landing page only — the app shell still needs
+          Legal links belong on every page a visitor can reach. The two-clicks
+          rule they were placed for was Germany's Impressum duty, which no
+          longer applies — the operator is a Wyoming LLC since 2026-08-16 — but
+          the placement stays: a customer in Serbia or the EU still has to be
+          able to find who is selling to them without hunting. This is the landing page only — the app shell still needs
           the same links before launch.
         */}
         <p className="mt-3 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
@@ -125,7 +127,7 @@ export default function LandingPage() {
           </Link>
           <span aria-hidden>·</span>
           <Link href="/impressum" className="focus-ring rounded hover:text-txt-mid">
-            Impressum
+            Podaci o firmi
           </Link>
         </p>
         {/* Logged-out visitors get the same theme control as signed-in ones. */}

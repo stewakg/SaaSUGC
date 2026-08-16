@@ -1,76 +1,85 @@
-export const metadata = { title: 'Impressum — AdGen' };
+export const metadata = { title: 'Podaci o pružaocu usluge — AdGen' };
 
 /**
- * ⚠️ Every value on this page is a STATUTORY DECLARATION, not marketing copy.
- * In Germany an Impressum is required by §5 DDG and a wrong or missing one is
- * an actionable offence (Abmahnung). Nothing here may be guessed: the legal
- * name, address, register entry and VAT id must come from the owner's actual
- * Gewerbe/registration documents.
+ * Provider-identification page.
  *
- * That is why this file ships as a skeleton of labelled blanks rather than
- * plausible-looking sample data. A realistic-but-invented Impressum is worse
- * than an obviously incomplete one, because it looks finished and nobody goes
- * back to fix it.
+ * ⚠️ RE-FOUNDED 2026-08-16. This page used to be a GERMAN Impressum: it cited
+ * § 5 DDG, USt-IdNr under § 27a UStG and the § 19 UStG small-business rule,
+ * because the plan at the time was an EU/German operation. That plan is gone —
+ * the operator is a **Wyoming LLC** — so every German statute reference has
+ * been removed rather than translated. Citing a statute that does not apply to
+ * you is worse than citing none.
+ *
+ * Why the page still exists at all, and still lives at /impressum: a US company
+ * has no Impressum duty, but a trader selling to consumers in Serbia and the EU
+ * still has to say plainly WHO is selling and how to reach them — and the path
+ * is linked from the landing footer and the app shell, so it stays put.
+ *
+ * The values below are STATEMENTS OF FACT about a real company. They are left
+ * as labelled blanks on purpose: an invented address on a page like this is
+ * worse than an obviously unfinished one, because it looks finished and nobody
+ * comes back to fix it. Fill them from the LLC's formation documents.
  */
 export default function ImpressumPage() {
   return (
     <>
-      <h1 className="text-2xl font-semibold text-txt-hi">Impressum</h1>
-      <p className="text-txt-mid">Podaci u skladu sa § 5 DDG.</p>
+      <h1 className="text-2xl font-semibold text-txt-hi">Podaci o pružaocu usluge</h1>
+      <p className="text-txt-mid">Ko stoji iza sajta i kako da nas kontaktiraš. Poslednja izmena: 16. 8. 2026.</p>
 
       <div className="rounded-xl border border-err/40 bg-err/10 p-4 text-sm text-err-text">
-        <p className="font-semibold">Ništa na ovoj stranici nije popunjeno izmišljenim podacima — namerno.</p>
+        <p className="font-semibold">Podaci ispod još nisu popunjeni.</p>
         <p className="mt-1 text-err-text">
-          Impressum je zvanična izjava, ne marketinški tekst. Pogrešan ili izmišljen podatak je prekršaj i osnov za
-          opomenu (Abmahnung). Svaka vrednost mora doći iz stvarnih dokumenata o registraciji delatnosti.
+          Ova stranica je zvanična izjava o tome ko pruža uslugu, a ne marketinški tekst. Ništa ovde nije popunjeno
+          izmišljenim podacima — vrednosti moraju doći iz osnivačkih dokumenata firme.
         </p>
       </div>
 
-      <h2 className="text-lg font-semibold text-txt-hi">Nosilac delatnosti</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">Pružalac usluge</h2>
       <p>
-        [[POPUNITI: ime i prezime nosioca Gewerbe-a ili pun naziv firme]]
+        [[POPUNITI: pun pravni naziv firme, npr. „Primer LLC”]]
         <br />
-        [[POPUNITI: ulica i broj]]
+        [[POPUNITI: ulica i broj sedišta / registrovanog agenta]]
         <br />
-        [[POPUNITI: poštanski broj i grad]]
+        [[POPUNITI: grad, država (Wyoming), poštanski broj]]
         <br />
-        [[POPUNITI: država]]
+        Sjedinjene Američke Države
+      </p>
+
+      <h2 className="text-lg font-semibold text-txt-hi">Pravni oblik i registracija</h2>
+      <p>
+        Društvo sa ograničenom odgovornošću (Limited Liability Company) osnovano u državi Vajoming, SAD.
+        <br />
+        Registarski broj: [[POPUNITI: Filing ID iz Wyoming Secretary of State]]
+        <br />
+        Registrovani agent: [[POPUNITI: naziv i adresa registrovanog agenta]]
       </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">Kontakt</h2>
       <p>
-        Email: [[POPUNITI: email adresa]]
+        Email: [[POPUNITI: kontakt email adresa]]
         <br />
-        Telefon: [[POPUNITI: broj telefona — obavezan podatak]]
+        Na poruke odgovaramo u roku od 5 radnih dana.
       </p>
-
-      <h2 className="text-lg font-semibold text-txt-hi">Poreski podaci</h2>
-      <p>
-        Poreski identifikacioni broj (USt-IdNr) po § 27a UStG: [[POPUNITI: USt-IdNr ili napomena da mali preduzetnik
-        po § 19 UStG ne iskazuje PDV]]
-      </p>
-
-      <h2 className="text-lg font-semibold text-txt-hi">Registracija</h2>
-      <p>
-        [[POPUNITI: registar i broj upisa, ako postoji. Za Gewerbe bez upisa u registar — izostaviti ovaj odeljak, ne
-        izmišljati broj.]]
+      <p className="text-txt-mid">
+        Email je jedini zvanični kanal za reklamacije, zahteve u vezi sa podacima i raskid naloga. Poruke poslate
+        društvenim mrežama ne smatraju se primljenim.
       </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">Odgovoran za sadržaj</h2>
-      <p>[[POPUNITI: ime i adresa odgovornog lica — po pravilu isto lice kao nosilac delatnosti]]</p>
+      <p>[[POPUNITI: ime i prezime odgovornog lica]], na adresi navedenoj iznad.</p>
 
       <h2 className="text-lg font-semibold text-txt-hi">Rešavanje sporova</h2>
       <p>
-        Nismo obavezni niti spremni da učestvujemo u postupku za mirno rešavanje sporova pred telom za rešavanje
-        potrošačkih sporova.
+        Reklamaciju prvo pošalji na email iznad — najveći deo nesporazuma rešava se tako, bez ikakvog postupka.
       </p>
-      <p className="text-txt-mid">
-        [[PROVERITI: ovo je uobičajena izjava za malog preduzetnika i obe varijante su dozvoljene — ali izjava mora
-        odgovarati stvarnoj nameri. Ako se opredeliš za učešće, mora se navesti i konkretno nadležno telo.]]
-      </p>
-      <p className="text-txt-mid">
-        [[PROVERITI: raniji tekst je upućivao na ODR platformu Evropske komisije. Ta platforma je ugašena tokom 2025.
-        godine, pa je upućivanje uklonjeno — potvrditi pre objave da obaveza upućivanja više ne postoji.]]
+      <p>
+        Nismo obavezni niti spremni da učestvujemo u postupku pred telom za vansudsko rešavanje potrošačkih sporova.
+        Ako si potrošač, to te ne lišava prava koja ti daju prinudni propisi države u kojoj imaš uobičajeno boravište
+        — vidi tačku 13.{' '}
+        <a href="/uslovi" className="focus-ring rounded text-accent-text hover:underline">
+          Uslova korišćenja
+        </a>
+        .
       </p>
     </>
   );

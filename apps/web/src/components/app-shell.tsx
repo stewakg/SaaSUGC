@@ -140,8 +140,11 @@ export function AppShell({
           </button>
           <ThemeSwitcher className="mt-3 px-3" />
           {/*
-            The Impressum has to be reachable in two clicks from anywhere, not
-            just from the marketing page a signed-in user never sees again.
+            Provider identity has to be reachable from anywhere, not just from
+            the marketing page a signed-in user never sees again. The label was
+            "Impressum" while the plan was a German operation; the operator is a
+            Wyoming LLC since 2026-08-16, so the page is now "Podaci o firmi" —
+            the /impressum PATH stays so no existing link breaks.
             Deliberately understated — these are obligations, not navigation.
           */}
           <p className="mt-2 flex flex-wrap gap-x-2 gap-y-1 px-3 text-[11px] text-txt-low">
@@ -152,7 +155,7 @@ export function AppShell({
               Privatnost
             </Link>
             <Link href="/impressum" className="focus-ring rounded hover:text-txt-mid">
-              Impressum
+              Podaci o firmi
             </Link>
           </p>
         </div>

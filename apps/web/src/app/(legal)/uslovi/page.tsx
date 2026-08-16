@@ -15,8 +15,13 @@ export default function UsloviPage() {
 
       <h2 className="text-lg font-semibold text-txt-hi">1. Ko pruža uslugu</h2>
       <p>
-        Uslugu pruža [[POPUNITI: pun pravni naziv]], [[POPUNITI: adresa]] (u daljem tekstu „mi”). Korišćenjem sajta
-        prihvataš ove uslove. Ako se sa njima ne slažeš, nemoj koristiti uslugu.
+        Uslugu pruža [[POPUNITI: pun pravni naziv firme]], društvo sa ograničenom odgovornošću (LLC) osnovano u
+        državi Vajoming, SAD, sa sedištem na adresi [[POPUNITI: adresa]] (u daljem tekstu „mi”). Puni podaci o
+        firmi i kontakt nalaze se na stranici{' '}
+        <a href="/impressum" className="focus-ring rounded text-accent-text hover:underline">
+          Podaci o pružaocu usluge
+        </a>
+        . Korišćenjem sajta prihvataš ove uslove. Ako se sa njima ne slažeš, nemoj koristiti uslugu.
       </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">2. Šta usluga radi</h2>
@@ -30,6 +35,16 @@ export default function UsloviPage() {
       <p>
         Za korišćenje je potreban nalog. Odgovoran si za tačnost email adrese i za čuvanje lozinke. Jedan nalog
         koristi jedno lice ili jedna firma — deljenje pristupa sa trećim licima nije dozvoljeno.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Uzrast.</strong> Nalog može otvoriti samo lice sa navršenih 18 godina, ili
+        lice koje ugovor zaključuje u ime firme. Usluga se plaća i proizvodi sadržaj namenjen oglašavanju, pa nije
+        namenjena maloletnicima. Ako saznamo da nalog koristi maloletno lice, nalog ćemo ugasiti.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Zatvaranje naloga.</strong> Nalog možete zatvoriti u svakom trenutku, porukom
+        na kontakt email. Zatvaranjem naloga brišu se i preostali neiskorišćeni krediti — oni se ne isplaćuju u
+        novcu. Preuzmi sve što ti treba pre zahteva za zatvaranje.
       </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">4. Krediti i plaćanje</h2>
@@ -56,6 +71,20 @@ export default function UsloviPage() {
       <p className="text-txt-mid">
         Poslednja stavka nije formalnost: bez izričite potvrde na koraku plaćanja, pravilo „kupovina je konačna” ne
         proizvodi dejstvo prema potrošaču u EU.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Kada se posao smatra uspešno isporučenim.</strong> Posao je isporučen kada
+        sistem napravi rezultat i učini ga dostupnim za preuzimanje na tvom nalogu. Krediti se naplaćuju za tu
+        isporuku, a ne za tvoje zadovoljstvo rezultatom — veštačka inteligencija svaki put daje drugačiji rezultat i
+        procena da li je „dobar” je subjektivna. Ako rezultat ne odgovara, lek je ponovno pokretanje sa izmenjenim
+        podacima, ne povraćaj kredita. Tehnički neuspeh je nešto drugo i pokriven je pravilom iznad: ako posao ne
+        uspe, ne naplaćuje se.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Izmena cena.</strong> Cene alata možemo menjati. O izmeni obaveštavamo
+        emailom najmanje 14 dana unapred, a nova cena važi tek za poslove pokrenute posle tog roka. Krediti koje si
+        već kupio zadržavaju vrednost — izmena cene menja koliko kredita jedan alat troši ubuduće, a ne oduzima ti
+        ništa što je već na nalogu.
       </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">5. Materijal koji otpremaš</h2>
@@ -85,9 +114,16 @@ export default function UsloviPage() {
 
       <h2 className="text-lg font-semibold text-txt-hi">7. Rezultat</h2>
       <p>
-        Prava na gotovu reklamu pripadaju tebi i možeš je koristiti komercijalno, u granicama tačke 5 i 6. Rezultat
-        pravi veštačka inteligencija, pa može sadržati greške u tekstu, izgovoru ili prikazu proizvoda. Ne garantujemo
-        da će reklama biti tačna, prikladna ni uspešna. Pregled pre objave je tvoja obaveza.
+        Prava na gotovu reklamu pripadaju tebi i možeš je koristiti komercijalno, u granicama tačke 5 i 6. U meri u
+        kojoj bi nama pripadalo bilo kakvo pravo na rezultatu, to pravo prenosimo na tebe, bez naknade i bez
+        vremenskog ograničenja. Rezultat pravi veštačka inteligencija, pa može sadržati greške u tekstu, izgovoru ili
+        prikazu proizvoda. Ne garantujemo da će reklama biti tačna, prikladna ni uspešna.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Pregled pre objave je tvoja obaveza</strong> — i to ne samo zbog grešaka.
+        Reklama koju objaviš mora da poštuje pravila platforme na kojoj se objavljuje (TikTok, Meta, YouTube i
+        slično) i propise o oglašavanju u zemlji u kojoj se prikazuje. Ta pravila ne poznajemo umesto tebe i ne
+        proveravamo ih.
       </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">8. Koliko dugo čuvamo rezultat</h2>
@@ -106,9 +142,17 @@ export default function UsloviPage() {
         <li>Lik ili glas stvarne osobe bez njenog pristanka.</li>
         <li>Tuđi žig ili brend na način koji navodi na zabludu o poreklu proizvoda.</li>
         <li>Automatizovano preopterećenje servisa ili zaobilaženje ograničenja broja zahteva.</li>
-        <li>Preprodaja pristupa nalogu.</li>
+        <li>Preprodaja pristupa nalogu, iznajmljivanje naloga ili deljenje pristupa bez naše pisane saglasnosti.</li>
+        <li>
+          Automatizovano preuzimanje sadržaja sa sajta (scraping), pokušaj rekonstrukcije koda ili modela iza usluge,
+          i zaobilaženje naplate ili ograničenja kredita na bilo koji način.
+        </li>
       </ul>
-      <p>Nalog koji krši ova pravila možemo ograničiti ili ukinuti.</p>
+      <p>
+        Posledice idu redom: prvo upozorenje, pa privremeno ograničenje naloga, pa ukidanje. Kod ozbiljnog kršenja —
+        naročito zaobilaženja naplate, preprodaje pristupa i protivzakonitog sadržaja — nalog ukidamo odmah, a
+        preostali krediti se gube i ne isplaćuju.
+      </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">10. Dostupnost</h2>
       <p>
@@ -142,13 +186,23 @@ export default function UsloviPage() {
 
       <h2 className="text-lg font-semibold text-txt-hi">13. Merodavno pravo i nadležnost</h2>
       <p>
-        Na ovaj ugovor primenjuje se pravo države sedišta pružaoca usluge navedenog u tački 1, uz isključenje kolizionih
-        normi i Bečke konvencije o ugovorima o međunarodnoj prodaji robe.
+        Na ovaj ugovor primenjuje se pravo države Vajoming, SAD, uz isključenje kolizionih normi i Bečke konvencije o
+        ugovorima o međunarodnoj prodaji robe.
       </p>
       <p>
         <strong className="text-txt-hi">Ako si potrošač</strong>, ovo te ne lišava zaštite koju ti daju prinudni propisi
-        države tvog uobičajenog boravišta, i možeš tužiti i biti tužen pred sudom te države. Ako ugovor zaključuješ kao
-        privredni subjekt, isključivo je nadležan sud sedišta pružaoca usluge.
+        države tvog uobičajenog boravišta, i možeš tužiti i biti tužen pred sudom te države. To važi bez obzira na
+        prethodni stav — prodajemo potrošačima u Srbiji i Evropskoj uniji, a ta zaštita se ugovorom ne može isključiti.
+        Ako ugovor zaključuješ kao privredni subjekt, isključivo je nadležan sud u državi Vajoming, SAD.
+      </p>
+
+      <h2 className="text-lg font-semibold text-txt-hi">14. Kontakt</h2>
+      <p>
+        [[POPUNITI: pun pravni naziv firme]]
+        <br />
+        [[POPUNITI: adresa]], Vajoming, SAD
+        <br />
+        Email: [[POPUNITI: kontakt email adresa]]
       </p>
     </>
   );
