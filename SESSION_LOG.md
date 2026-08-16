@@ -115,6 +115,27 @@ ledger above.
   CSP, the free-script allowance the server cannot enforce, GDPR export/delete, the unbounded
   search-clips cache, and the 200 MB buffering on upload/import.
 
+**Then it was deployed, and the deploy found the bug the whole day had been building toward.**
+The owner applied 0008 and asked me to do the deploy, so I pulled `/srv/adgen` and rebuilt both
+images over SSH. Containers came up healthy — and `GET /api/storage/...` answered **Next's own 404
+page**. Not our `not_found`, not a 401: the route did not exist in the image at all.
+`.next/server/app/api` in the running container listed nine routes and `storage` was not one of
+them. `.dockerignore` carried `**/storage` to keep the LOCAL_STORAGE_DIR working directory out of
+the build context, and that pattern also matches `apps/web/src/app/api/storage/` — so **no web
+image ever built has contained that route.** It cost nothing for months, because production served
+assets straight from R2's public base url and this route only mattered to MockStorage in dev; the
+route's own doc comment said production never reaches it, which was true for the wrong reason. It
+became fatal the moment `upload()` started returning `/api/storage/<key>`. Fixed with anchored
+patterns at `2741dba` (`/storage`, `apps/*/storage`), rebuilt, and verified on the box: the route
+is present, an anonymous request gets `401 {"error":"unauthenticated"}`, and — the discriminator —
+a traversal payload ALSO returns 401 rather than `400 invalid_path`, which proves the signing
+branch is the live one rather than the local-disk branch. Worker logs `storage: s3-storage`. Build
+cache pruned after two rebuilds: 4.88 GB, disk 46% → 35%.
+
+The lesson worth carrying: **the deploy was the test.** Every gate in this repo passed on code
+that could not answer a single asset request in production, because no test and no typecheck
+looks at what the image actually contains.
+
 **Docs corrected** (`INFRASTRUCTURE.md`, `CLAUDE.md`, `middleware.ts`): F6 no longer claims there
 is no payment provider, the R2 decision item records what was decided and what is still owed, the
 "stale generated type" note was itself stale (the type has four args), the legal pages exist and
