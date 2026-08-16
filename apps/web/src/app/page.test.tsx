@@ -88,4 +88,20 @@ describe('landing page — what a stranger is shown', () => {
     expect(markup).toContain('/impressum');
     expect(markup).toContain('Bez kartice');
   });
+
+  it('every tool card links to /signup', () => {
+    const live = JOB_DESCRIPTORS.filter((t) => !isToolSoon(t.type));
+    // The hero CTA (and any other static copy) also points at /signup, so the
+    // page legitimately holds MORE /signup anchors than there are cards. An
+    // exact count would break the moment the hero gains a second CTA, so this
+    // asserts >= the number of live tools: each one must be a link somewhere.
+    const signupAnchors = html().split('href="/signup"').length - 1;
+    expect(signupAnchors).toBeGreaterThanOrEqual(live.length);
+  });
+
+  it('no card links into /app — a signed-out visitor belongs on /signup', () => {
+    // A stranger sent to a wizard gets bounced to login, which is a worse
+    // first experience than the signup page they were going to need anyway.
+    expect(html()).not.toContain('href="/app');
+  });
 });

@@ -96,6 +96,9 @@ export default function LandingPage() {
         */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {mainTools.map((t) => (
+            // Every card — main and utility alike — points at /signup: a
+            // signed-out visitor cannot open a wizard, so the card is an
+            // advert for the tool rather than a way into it.
             <MainToolCard
               key={t.type}
               icon={t.icon}
@@ -105,6 +108,7 @@ export default function LandingPage() {
               benefits={t.benefits}
               theme={t.theme}
               showCost={false}
+              href="/signup"
               className="xl:col-span-2"
             />
           ))}
@@ -119,6 +123,7 @@ export default function LandingPage() {
               description={t.description}
               cost={t.cost}
               showCost={false}
+              href="/signup"
             />
           ))}
         </div>
