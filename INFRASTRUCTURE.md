@@ -67,7 +67,7 @@
 |---|---|---|
 | Frontend/shell | **Next.js 15 (App Router) + TypeScript + Tailwind**, on **Vercel** | fresh scaffold; harvest patterns from Open-AI-UGC |
 | DB + Auth | **Supabase** (Postgres + Auth) | local via Supabase CLI in dev, cloud in F5 |
-| Worker | **Node.js + TypeScript**, **BullMQ + Redis**, **Docker** | runs on user's existing **Hetzner VPS** (shared w/ "aikutak"), own container |
+| Worker | **Node.js + TypeScript**, **BullMQ + Redis**, **Docker** | its OWN Hetzner VPS `adgenwebsaas` — **not** shared with "aikutak" (corrected 2026-08-16, measured) |
 | Render | **Remotion** → **AWS Lambda** in prod, **local render** in dev | render call abstracted |
 | AI aggregator | **kie.ai primary + fal.ai fallback** | ⚠️ must quality/reliability test before finalizing routing |
 | Voice | **ElevenLabs** (`eleven_v3`, params `stability`, `voice_id`, `speed`) | direct |
