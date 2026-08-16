@@ -13,6 +13,15 @@ interface ToolCardProps {
   soon?: boolean;
   /** Identity hue from the tool descriptor — see toolToneClass below. */
   theme?: string;
+  /**
+   * Whether to show the credit price on the card. True on the dashboard, where
+   * the visitor already has a balance and the number is the thing they are
+   * deciding with. FALSE on the landing page: a stranger who has never seen a
+   * price list reads "8 kredita" as a number with no unit, and the first
+   * question a landing page has to answer is what the tool does, not what it
+   * costs in an internal currency. Pricing gets its own place.
+   */
+  showCost?: boolean;
 }
 
 /**
@@ -50,6 +59,7 @@ export function MainToolCard({
   href,
   soon,
   theme,
+  showCost = true,
   className,
 }: ToolCardProps & { benefits?: string[]; className?: string }) {
   const card = (
@@ -58,9 +68,9 @@ export function MainToolCard({
         <ToolIcon icon={icon} />
         {soon ? (
           <span className="badge badge--muted shrink-0">USKORO</span>
-        ) : (
+        ) : showCost ? (
           <span className="badge shrink-0">{creditsLabel(cost)}</span>
-        )}
+        ) : null}
       </div>
       <h3 className="font-display mt-4 text-xl font-bold text-txt-hi">{label}</h3>
       <p className="mt-1 text-sm text-txt-mid">{description}</p>
@@ -91,7 +101,15 @@ export function MainToolCard({
  * "Utility tier" dashboard card — same neutral `.card` as the main tier, just
  * laid out as a compact horizontal row for a denser grid.
  */
-export function UtilityToolCard({ icon, label, description, cost, href, soon }: ToolCardProps) {
+export function UtilityToolCard({
+  icon,
+  label,
+  description,
+  cost,
+  href,
+  soon,
+  showCost = true,
+}: ToolCardProps) {
   const card = (
     <div className={cn('card flex items-center gap-4', href && 'card--lift', soon && 'opacity-80')}>
       <ToolIcon icon={icon} />
@@ -101,9 +119,9 @@ export function UtilityToolCard({ icon, label, description, cost, href, soon }: 
       </div>
       {soon ? (
         <span className="badge badge--muted shrink-0">USKORO</span>
-      ) : (
+      ) : showCost ? (
         <span className="badge shrink-0">{creditsLabel(cost)}</span>
-      )}
+      ) : null}
     </div>
   );
 

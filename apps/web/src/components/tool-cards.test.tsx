@@ -161,5 +161,39 @@ describe('UtilityToolCard', () => {
     expect(html).not.toContain('USKORO');
     expect(html).toContain('15 kredita');
   });
+
+  /**
+   * `showCost={false}` is what the LANDING page passes: a stranger who has
+   * never seen a price list reads "15 kredita" as a number with no unit.
+   * The dashboard keeps the price, because there the reader has a balance.
+   */
+  it('showCost=false hides the credit badge on the utility card', () => {
+    const html = renderCard(<UtilityToolCard {...BASE} href="/app/x" showCost={false} />);
+    expect(html).not.toContain('15 kredita');
+    expect(html).not.toContain('kredit');
+    expect(html).toContain('<a ');
+  });
+
+  it('showCost=false hides the credit badge on the main card too, and keeps the benefits', () => {
+    const html = renderCard(
+      <MainToolCard {...BASE} href="/app/x" showCost={false} benefits={['Prva korist']} />,
+    );
+    expect(html).not.toContain('kredit');
+    expect(html).toContain('Prva korist');
+  });
+
+  it('showCost=false does NOT suppress USKORO — an unbuilt tool still says so', () => {
+    // The two flags answer different questions: "is this ready" must survive
+    // "are we quoting a price here". A silent card for a tool with no pipeline
+    // is the failure that sent customers through three wizard steps to an error.
+    const html = renderCard(<MainToolCard {...BASE} soon showCost={false} />);
+    expect(html).toContain('USKORO');
+    expect(html).not.toContain('kredit');
+  });
+
+  it('the default is unchanged: no showCost prop still shows the price', () => {
+    const html = renderCard(<MainToolCard {...BASE} href="/app/x" />);
+    expect(html).toContain('15 kredita');
+  });
 });
 

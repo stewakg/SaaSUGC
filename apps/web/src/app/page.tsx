@@ -18,8 +18,17 @@ import { isToolSoon } from '@/lib/live-tools';
  * them had a pipeline.
  */
 export default function LandingPage() {
-  const mainTools = JOB_DESCRIPTORS.filter((t) => t.tier === 'main');
-  const utilityTools = JOB_DESCRIPTORS.filter((t) => t.tier !== 'main');
+  /**
+   * ONLY the tools that work. Owner's call 2026-08-16, and it is the second
+   * half of a fix started on 2026-08-14: the badge stopped lying then, but the
+   * page still opened with ten cards of which five said USKORO, so a stranger's
+   * first impression was a half-built catalogue — with the five that DO work
+   * buried among them. The dashboard still shows everything, badge and all;
+   * that is where a signed-in user should see what is coming.
+   */
+  const liveTools = JOB_DESCRIPTORS.filter((t) => !isToolSoon(t.type));
+  const mainTools = liveTools.filter((t) => t.tier === 'main');
+  const utilityTools = liveTools.filter((t) => t.tier !== 'main');
 
   return (
     <main className="relative min-h-screen">
@@ -76,7 +85,16 @@ export default function LandingPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {/*
+          Same grid shape as the dashboard (two wide cards per row), and the
+          same props — `theme` for the colour wash and `benefits` for the
+          check-marked lines. Both already exist on every descriptor; the
+          landing simply never passed them, which is why the two screens looked
+          like different products while sharing one component.
+
+          `showCost` is off on purpose: see the prop's comment in tool-cards.
+        */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {mainTools.map((t) => (
             <MainToolCard
               key={t.type}
@@ -84,7 +102,10 @@ export default function LandingPage() {
               label={t.label}
               description={t.description}
               cost={t.cost}
-              soon={isToolSoon(t.type)}
+              benefits={t.benefits}
+              theme={t.theme}
+              showCost={false}
+              className="xl:col-span-2"
             />
           ))}
         </div>
@@ -97,7 +118,7 @@ export default function LandingPage() {
               label={t.label}
               description={t.description}
               cost={t.cost}
-              soon={isToolSoon(t.type)}
+              showCost={false}
             />
           ))}
         </div>
