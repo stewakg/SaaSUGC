@@ -56,7 +56,8 @@ all happened since, and all three "known defects" in its §6b had already been f
 |---|---|---|---|
 | ✅ | **Billing layer restored** — Lemon Squeezy | — | Idempotent webhook (order id → `add_credits_idempotent`), paid-variant cross-check, redirect back to the app, production refusal when billing resolves to the mock. 24 tests |
 | 🟡 ⛔ | **Never called with a real Lemon Squeezy key** | 👤 | Needs a store, one variant per pack, and `LEMONSQUEEZY_VARIANT_MAP`. Blocked on the entity below |
-| ❌ ⛔ | **Whose company takes the money** | 👤 | The owner operates from Frankfurt on his own cards; the plan is a friend's LLC. **No euro may be taken and no real user onboarded before that entity exists and Lemon Squeezy is in its name** — otherwise the operator, the taxpayer and the GDPR controller are all him. A German Steuerberater should see the US-LLC-managed-from-Germany question before the company is formed |
+| ❌ ⛔ | **Whose company takes the money — DECIDED 2026-08-16: an LLC, owner Serbian and resident in Serbia** | 👤 | **This project no longer has a German angle.** Everything written before today that reasons from Frankfurt, a Gewerbe, a Steuerberater or EU VAT on a Serbian entity is superseded by this row. What has NOT changed: **no euro may be taken and no real user onboarded until the entity exists and the payment account is in its name** — otherwise the operator, the taxpayer and the data controller are all the owner personally. Waiting on LLC confirmation |
+| ❌ ⛔ | **Remove Lemon Squeezy (again), and open Stripe once the LLC is confirmed** | 🤖 removes, 👤 opens Stripe | Owner's decision 2026-08-16: Lemon Squeezy is out, Stripe goes in after LLC confirmation. It was chosen as a merchant of record because that carried EU VAT for a Serbian entity — the reasoning the new structure replaces. ⚠️ **Read this before deleting anything: this exact layer was deleted on 2026-08-10 and restored on 2026-08-13**, and the restore cost a full re-wiring plus re-hardening (webhook variant cross-check, mock refusal in production, opaque 500). Deleting it a second time means a third build when Stripe lands, and a Stripe webhook is not shaped like Lemon Squeezy's anyway. **The cheaper shape is to leave the code dormant behind the provider factory and delete only the env vars and the checkout entry point** — one line in the factory keeps it unreachable. Owner's call; recorded here rather than done, because the deletion is not reversible from the app's side |
 | ✅ | **Migration 0007 + 0009 (credit self-grant)** | — | `profiles_update_own` let any logged-in user set their own `balance` and spend it on real provider calls. **Both applied and verified 2026-08-16** — see the row in §1 for why 0009 exists: 0007's column-level revoke was a no-op against a table-level grant, so the second lock only landed with 0009 |
 | ❌ | **Refunds / chargebacks (L3.6)** | 👤 then 🤖 | Needs a decision first: a reversal arriving after the credits were SPENT → negative balance, clamp at zero, or freeze the account |
 | 🟡 | **Credit reservation is a check, not a lock** | 🤖 | Half-fixed 2026-08-16 (`35bdf4c`): the balance now has to cover queued+running work too, so the "fifteen jobs, one balance, fourteen unpaid provider calls" case is closed. What is left is the narrow one — two requests in the same millisecond read the same in-flight set. Closing it properly means a database-side hold (reserve at enqueue, convert or release at charge), which is a new migration and an RPC. Not urgent at current traffic; do not let it be forgotten |
@@ -140,14 +141,18 @@ No code can pick that — it is the shop window.
 
 | Status | Item | Who |
 |---|---|---|
-| ❌ ⛔ | Uslovi / Privatnost / Impressum reviewed by a lawyer | 👤 |
-| ❌ ⛔ | Impressum must name the REAL operator | 👤 |
+| ❌ ⛔ | **All three legal pages were written for the OLD structure — re-scope them for the LLC** | 👤 then 🤖 | Decided 2026-08-16: the operator is an LLC whose owner is Serbian and resident in Serbia, and this project has no German angle any more. Every page that assumed otherwise is now wrong at the top, not just unreviewed: `/uslovi` names a governing law and forum, `/impressum` is built around **§5 DDG, a German statute**, and `/privatnost` names the controller. Which of the three is even required, and under whose law, is a question for whoever advises the LLC — I will not guess a jurisdiction into a statutory page |
+| ❌ ⛔ | Uslovi / Privatnost reviewed by a lawyer | 👤 |
+| ❌ ⛔ | Impressum: decide whether it applies at all under the new structure, THEN name the real operator | 👤 | The page ships as labelled blanks (`[[POPUNITI: …]]`) with a red warning, deliberately — an invented Impressum is an offence and, worse, looks finished. That was the right call and it still is; what changed is that the statute it cites may no longer be the applicable one |
 | ❌ | GDPR / cookie consent | 🤖 after the lawyer |
 | ❌ | 30-day retention | 👤 sets the bucket rule; 🤖 does the expired-asset UI, which would lie until the rule exists |
 | ❌ | **`Storage` has no `delete` method at all** | 🤖 after a 👤 decision. Found 2026-08-14. Retention by R2 lifecycle rule is legitimate and is the plan — but it means the APP cannot delete a file on request, so a GDPR erasure or a "remove this video" button has nothing to call. Decide whether deletion is bucket-only or the app needs the capability before a real user asks. One artifact is already stranded by this: `renders/lambda-dqbz7jwul1.mp4`, ~1 MB, from the live render verification |
 
-Deliberately not drafted by me: this carries real legal weight across DE/RS/EU, and generated
-placeholder text is worse than none because it reads as if it were coverage.
+Deliberately not drafted by me: this carries real legal weight, and generated placeholder text is
+worse than none because it reads as if it were coverage. **Updated 2026-08-16:** the cross-border
+question is no longer DE/RS/EU but LLC/RS/EU — and note that GDPR does not follow the company's
+address: it follows the customers, so selling to buyers in the EU keeps those obligations whatever
+the entity is. Do not let "we are not in Germany any more" be read as "GDPR no longer applies".
 
 ## 6. Testing
 

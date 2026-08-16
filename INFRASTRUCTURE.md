@@ -73,7 +73,7 @@
 | Voice | **ElevenLabs** (`eleven_v3`, params `stability`, `voice_id`, `speed`) | direct |
 | Script | **Anthropic Claude (Opus)** | direct |
 | Storage | **Cloudflare R2** (free egress) or S3 | abstracted |
-| Billing | **Lemon Squeezy** (merchant of record) | restored 2026-08-13 after the 2026-08-10 deletion; never called with a real key |
+| Billing | **Stripe, once the LLC is confirmed** | Lemon Squeezy is OUT as of 2026-08-16 (operator is an LLC, owner Serbian/in Serbia — the MoR-for-EU-VAT reason is gone). Its code still ships, unreached; nothing has been called with a real key of any kind |
 
 **Reference repos (MIT) — copy modules, do NOT fork wholesale:**
 - Open-AI-UGC (`github.com/Anil-matcha/Open-AI-UGC`) — credits/Stripe patterns, image-to-video reference for the influencer feature.
@@ -407,6 +407,10 @@ the source file's doc-comments are richer than the copy ever was.
 
 ### F6 — Billing + launch 🟡
 > **STALE BULLET BELOW — corrected 2026-08-16.** Lemon Squeezy was RESTORED on 2026-08-13 (owner
+> ⚠️ **AND SUPERSEDED AGAIN 2026-08-16: Lemon Squeezy is out.** The operator will be an LLC whose
+> owner is Serbian and resident in Serbia, the German angle is gone, and Stripe goes in once the
+> LLC is confirmed (`TODO.md` §2). The code below still exists and nothing has been deleted; only
+> the "launch provider" decision changed. The 2026-08-13 note, kept for the history:
 > chose it as the launch provider: a merchant of record carries the EU VAT a Serbian entity
 > otherwise would). `billing.lemonsqueezy.ts`, both billing routes, the four `LEMONSQUEEZY_*` env
 > vars and 24 tests all exist again, hardened over the deleted version (the webhook cross-checks the
@@ -422,7 +426,7 @@ the source file's doc-comments are richer than the copy ever was.
   even runs. Fine on a self-hosted Node server (no such limit); if Vercel is the final call, the real fix is a
   presigned-URL upload straight from the browser to Storage, not a retrofit of this route.
 - [x] Production hardening: per-user **rate limiting** (Redis-backed fixed-window, fails open if Redis is down — `apps/web/src/lib/rate-limit.ts`, applied to `/api/jobs`, `/api/upload`, `/api/billing/checkout`), **structured logging** (`consoleLogger` now emits one JSON line per entry instead of a human-oriented string — moved out of `providers/mocks.ts` since it isn't a mock with a "real" counterpart, into its own `packages/core/src/logger.ts`; wired into the worker, replacing every ad-hoc `console.*` call). — *code-complete + typechecked; rate limiter's Redis behavior not live-tested (no Redis running in this environment) but the fail-open path means a Redis outage degrades gracefully either way.* **Not done / reconsidered:** "worker endpoints authenticated by verified Supabase JWT" — moot as originally worded: the worker has no HTTP endpoints of its own (BullMQ pulls jobs via Redis; job status is read through `/api/jobs/:id` in apps/web, which is already Supabase-session-authenticated) — there's no shared-secret-shaped surface to close here, unlike the competitor's `?pw=` pattern this rule was written to avoid. Error alerting (e.g. Sentry) and cost dashboards still open — both need a real account/service to be worth wiring (same class of blocker as Supabase cloud).
-- [~] Legal pages (Uslovi/Privatnost/Impressum under the Gewerbe holder), cookie/consent (privacy-first). — **Corrected 2026-08-16: the three pages EXIST** (`apps/web/src/app/uslovi`, `privatnost`, `impressum`) with substantive, provider-accurate content — the privacy page's processor list is assembled from the providers actually wired. What stands is the caveat, not the absence: this was written by an LLM and has had no legal review, and there is still no cookie/consent flow and no user-facing GDPR export/delete. Original note: *Deliberately NOT drafted: these carry real legal weight (GDPR-relevant, cross-border DE/RS/EU) and fabricating placeholder legal text risks the user mistaking it for real coverage. Needs your Steuerberater/a real legal review, not generated boilerplate.*
+- [~] Legal pages (Uslovi/Privatnost/Impressum), cookie/consent (privacy-first). — ⚠️ **2026-08-16: written for a structure that no longer applies.** They assumed a German Gewerbe holder; the operator will be an LLC with a Serbian owner resident in Serbia. `/impressum` is built around **§5 DDG**, a German statute, and `/uslovi` names a governing law and forum — both need re-scoping by whoever advises the LLC before they mean anything. GDPR is NOT dropped by the move: it follows the customers, and the customers are in the EU. — **Corrected 2026-08-16: the three pages EXIST** (`apps/web/src/app/uslovi`, `privatnost`, `impressum`) with substantive, provider-accurate content — the privacy page's processor list is assembled from the providers actually wired. What stands is the caveat, not the absence: this was written by an LLM and has had no legal review, and there is still no cookie/consent flow and no user-facing GDPR export/delete. Original note: *Deliberately NOT drafted: these carry real legal weight (GDPR-relevant, cross-border DE/RS/EU) and fabricating placeholder legal text risks the user mistaking it for real coverage. Needs your Steuerberater/a real legal review, not generated boilerplate.*
 - **DoD:** a real user can sign up, buy credits, generate an ad, and download it in production.
 
 ### F7 (later) — AI influencer UGC 🔵

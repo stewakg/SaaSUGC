@@ -39,12 +39,17 @@ is the number that decides whether `edit` at 18 credits is profitable or a loss 
 
 ## Two liabilities to keep an eye on
 
-1. **Payment-processor fees are unknown, because there is no processor.** Lemon Squeezy
-   (~5% + €0.50 per transaction as a Merchant of Record) was the assumption and was
-   dropped on 2026-08-10 — the code is deleted and no replacement is chosen. Every margin
-   figure below therefore omits a processing fee that will exist. Whatever is picked, its
-   cut comes off before COGS; a Merchant of Record costs more than a bare gateway but
-   absorbs EU VAT handling, which is the reason this was the plan in the first place.
+1. **Payment-processor fees are unknown, because there is no processor.** The history, since
+   it keeps changing: Lemon Squeezy (~5% + €0.50 per transaction as a Merchant of Record)
+   was the assumption, was deleted 2026-08-10, was restored 2026-08-13 as the launch
+   choice — and on **2026-08-16 it is out again**. The operator will be an **LLC whose
+   owner is Serbian and resident in Serbia**, and **Stripe** goes in once the LLC is
+   confirmed. The Merchant-of-Record argument (it absorbs EU VAT for a Serbian entity) was
+   the whole reason for Lemon Squeezy and does not survive the new structure.
+   **Consequence for every margin figure below: they omit a processing fee that will
+   exist, and Stripe's shape is different from a MoR's** — a bare gateway is cheaper per
+   transaction but hands back the VAT/registration question rather than absorbing it. That
+   is a question for whoever advises the LLC, not an assumption to re-guess here.
 2. **"Neiskorišćeni krediti se prenose"** (unused credits roll over) is a **deferred
    liability**. A user who hoards credits for months and then burns them all on
    expensive-tool usage in one month can spike that month's COGS well above what was

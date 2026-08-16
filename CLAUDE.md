@@ -148,9 +148,18 @@ OpenRouter have all been called live** (see `INFRASTRUCTURE.md` F5); **R2 and Re
 2026-08-13** — the owner created an EU-jurisdiction R2 bucket and deployed the Lambda function
 and site, and the first real render ran end to end through OUR renderer (not the Remotion CLI):
 26.8s for a 5s clip, the finished mp4 landed in R2, and the returned url was ours, not the AWS
-S3 one — so the "take ownership" path is proven, not assumed. **Billing is back as of 2026-08-13**: the owner
-chose Lemon Squeezy as the launch provider (a merchant of record carries the EU VAT that a
-Serbian entity otherwise would; an own entity + Stripe is a later question). The layer deleted
+S3 one — so the "take ownership" path is proven, not assumed. **⚠️ BILLING CHANGED AGAIN
+2026-08-16 — read this before touching anything below it.** The operator will be an **LLC, owner
+Serbian and resident in Serbia; the German angle is gone**, and with it the merchant-of-record
+argument that picked Lemon Squeezy in the first place. **Lemon Squeezy is OUT and Stripe goes in
+once the LLC is confirmed** (`TODO.md` §2). Nothing has been deleted yet — the layer was already
+deleted once (2026-08-10) and restored (2026-08-13), so a second delete-and-rebuild is a cost
+worth deciding deliberately; leaving it dormant behind the factory is the cheaper shape. The
+paragraph that follows describes the code as it stands today and is still accurate about WHAT
+exists — only the "launch provider" framing is superseded. **Billing came back on 2026-08-13**:
+the owner chose Lemon Squeezy as the launch provider (a merchant of record carries the EU VAT that a
+Serbian entity otherwise would; an own entity + Stripe is a later question — which is now the
+question, answered). The layer deleted
 on 2026-08-10 was restored from `d8dfb49^` — so it still carries the webhook idempotency from
 `5fc43fc` — re-wired into the current factory, hardened (the webhook now cross-checks the
 variant actually PAID against `LEMONSQUEEZY_VARIANT_MAP`, the checkout redirects back to the
