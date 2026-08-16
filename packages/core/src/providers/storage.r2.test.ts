@@ -140,6 +140,69 @@ describe('signedUploadUrl', () => {
     );
     expect(new URL(asVideo).searchParams.get('X-Amz-SignedHeaders')).toContain('content-type');
   });
+
+  /**
+   * Presigning never goes through S3Client.send — the presigner resolves the
+   * command's own middleware chain — so the send-spy seam used for `upload`
+   * further down cannot observe it. Instead: mock the presigner for the
+   * duration of one call, re-import the module fresh so it binds to the mock,
+   * and capture the exact command and options it was handed. The url-level
+   * assertions around this helper still go through the REAL signer.
+   */
+  async function captureSigning(key: string, contentType: string, contentLength?: number) {
+    const getSignedUrl = vi.fn();
+    vi.resetModules();
+    vi.doMock('@aws-sdk/s3-request-presigner', () => ({ getSignedUrl }));
+    try {
+      const { S3CompatibleStorage: FreshStorage } = await import('./storage.r2.ts');
+      await new FreshStorage({
+        bucket: 'adgen-test',
+        publicBaseUrl: 'https://cdn.example.test/',
+        endpoint: 'https://accountid.r2.cloudflarestorage.com',
+        accessKeyId: 'AKIAEXAMPLEEXAMPLE',
+        secretAccessKey: 'sekritsekritsekritsekritsekritsekritsekr',
+      }).signedUploadUrl(key, contentType, undefined, contentLength);
+      return { calls: getSignedUrl.mock.calls };
+    } finally {
+      vi.doUnmock('@aws-sdk/s3-request-presigner');
+    }
+  }
+
+  it('signs exactly [content-type] (plus the unavoidable host) when no length is given', async () => {
+    const url = await storage().signedUploadUrl('uploads/user-1/clip.mp4', 'video/mp4');
+    const signed = (new URL(url).searchParams.get('X-Amz-SignedHeaders') ?? '').split(';');
+    // `host` is always part of a SigV4 presign; what this pins is that
+    // content-length is NOT signed and nothing else crept in — today's
+    // behaviour, unchanged.
+    expect(new Set(signed)).toEqual(new Set(['host', 'content-type']));
+  });
+
+  it('binds content-length too when a length is given, and the command carries it', async () => {
+    const url = await storage().signedUploadUrl('uploads/user-1/clip.mp4', 'video/mp4', undefined, 40 * 1024 * 1024);
+    const signed = (new URL(url).searchParams.get('X-Amz-SignedHeaders') ?? '').split(';');
+    expect(signed).toContain('content-type');
+    expect(signed).toContain('content-length');
+
+    const { calls } = await captureSigning('uploads/user-1/clip.mp4', 'video/mp4', 40 * 1024 * 1024);
+    const command = calls[0][1] as PutObjectCommand;
+    expect(command.input.ContentLength).toBe(40 * 1024 * 1024);
+    expect(command.input.ContentType).toBe('video/mp4');
+  });
+
+  it('still returns a real url, with the key and bucket passed through', async () => {
+    const url = await storage().signedUploadUrl('uploads/user-1/clip.mp4', 'video/mp4', undefined, 3);
+    expect(typeof url).toBe('string');
+    const parsed = new URL(url);
+    // Virtual-hosted style: the bucket lands in the host, the key in the path
+    // (same pins as the signedDownloadUrl suite above).
+    expect(parsed.origin).toBe('https://adgen-test.accountid.r2.cloudflarestorage.com');
+    expect(parsed.pathname).toBe('/uploads/user-1/clip.mp4');
+
+    const { calls } = await captureSigning('uploads/user-1/clip.mp4', 'video/mp4', 3);
+    const command = calls[0][1] as PutObjectCommand;
+    expect(command.input.Bucket).toBe('adgen-test');
+    expect(command.input.Key).toBe('uploads/user-1/clip.mp4');
+  });
 });
 
 describe('upload — ContentLength on the PUT (the streamed-body signing fix)', () => {

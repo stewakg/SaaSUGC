@@ -139,16 +139,37 @@ export class S3CompatibleStorage implements Storage {
    * store `text/html` that then serves from our own domain. With it, the
    * browser MUST send the same Content-Type on the PUT or the upload is
    * rejected.
+   *
+   * `contentLength` binds the byte count the same way: the browser sends
+   * Content-Length itself on the PUT, and a value other than the signed one
+   * fails the signature — so a link issued for a 40 MB clip cannot be reused to
+   * store a 10 GB object under the same key. Omit it only when the length is
+   * genuinely unknown at signing time.
    */
   async signedUploadUrl(
     key: string,
     contentType: string,
     ttlSeconds = SIGNED_UPLOAD_TTL_SECONDS,
+    contentLength?: number,
   ): Promise<string> {
     return getSignedUrl(
       this.client,
-      new PutObjectCommand({ Bucket: this.config.bucket, Key: key, ContentType: contentType }),
-      { expiresIn: ttlSeconds, signableHeaders: new Set(['content-type']) },
+      new PutObjectCommand({
+        Bucket: this.config.bucket,
+        Key: key,
+        ContentType: contentType,
+        ...(contentLength === undefined ? {} : { ContentLength: contentLength }),
+      }),
+      {
+        expiresIn: ttlSeconds,
+        // Binding the length is what stops a signed link for a 40 MB clip being
+        // used to upload 10 GB: the browser sends Content-Length itself, and a
+        // value other than the signed one fails the signature. Same reasoning as
+        // the content-type binding above, which a test already pins.
+        signableHeaders: new Set(
+          contentLength === undefined ? ['content-type'] : ['content-type', 'content-length'],
+        ),
+      },
     );
   }
 }

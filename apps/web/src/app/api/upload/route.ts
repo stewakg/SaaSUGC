@@ -32,52 +32,11 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createProviders } from '@adgen/core';
 import { createServerClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
+import { ALLOWED_TYPES, EXT_BY_TYPE, MAX_SIZE_BYTES } from '@/lib/upload-constraints';
 
-const MAX_SIZE_BYTES = 200 * 1024 * 1024; // 200MB
 // Uploads are unbilled (unlike /api/jobs, no credit check gates this) —
 // tighter window than jobs so someone can't fill storage for free.
 const RATE_LIMIT = { max: 15, windowSeconds: 60 };
-const ALLOWED_TYPES = new Set([
-  'video/mp4',
-  'video/quicktime',
-  'video/webm',
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  // Audio: background music / CTA sound effects the user supplies for a Matrix ad.
-  // `audio/mp4` and `audio/x-m4a` are both seen for .m4a depending on the browser.
-  'audio/mpeg',
-  'audio/wav',
-  'audio/x-wav',
-  'audio/ogg',
-  'audio/mp4',
-  'audio/x-m4a',
-]);
-
-/**
- * Canonical extension per allowed MIME type. The stored key's extension is
- * derived from the type we validated, never from the client-supplied filename —
- * `/api/storage` picks the response Content-Type by extension, so letting the
- * filename choose it would let an upload be served as a type it is not.
- *
- * Keep this in lockstep with ALLOWED_TYPES above (every allowed type has exactly
- * one extension here) AND with CONTENT_TYPES in `/api/storage/[...path]`, which
- * must be able to serve every extension this can produce.
- */
-const EXT_BY_TYPE: Record<string, string> = {
-  'video/mp4': '.mp4',
-  'video/quicktime': '.mov',
-  'video/webm': '.webm',
-  'image/png': '.png',
-  'image/jpeg': '.jpg',
-  'image/webp': '.webp',
-  'audio/mpeg': '.mp3',
-  'audio/wav': '.wav',
-  'audio/x-wav': '.wav',
-  'audio/ogg': '.ogg',
-  'audio/mp4': '.m4a',
-  'audio/x-m4a': '.m4a',
-};
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
