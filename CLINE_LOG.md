@@ -109,6 +109,22 @@ cline --json -P openai-compatible --thinking medium -c "<repo>" "Read scratchpad
 | 47 | **Code change:** signed asset urls, part A (core + route) | `storage.r2.{ts,test.ts}` + `api/storage/[...path]/route.{ts,test.ts}` | Two mutations: skipping `authorise` failed the 401 and 404 signing tests; returning `getUrl` from `upload` failed the core route-path tests. Also updated the route's own header comment, which had claimed R2 bypasses this route entirely. @ `26a0f34` |
 | 48 | **Code change:** signed asset urls, part B (worker) | `worker/src/index.ts` + `matrix-pipeline.test.ts` + `media-edit.test.ts` | Mutation: disabling the signing branch failed exactly its two tests. It found the fourth call site (`voiceUrl`) that the spec only gestured at, and correctly avoided `.map(resolveStorageUrl)` — which would have passed the array index as the storage argument. @ `26a0f34` |
 
+| 49 | **Code change:** streamed `/api/import-clip` (no 200 MB buffer) | `api/import-clip/route.ts` + `ssrf-routes.test.ts` | Mutation: dropping the byte-length argument fails exactly the test named for it — the argument R2 cannot sign a PUT without. @ `3149141` |
+| 50 | **Code change:** nonce CSP on every response, redirects included | NEW `middleware.test.ts` + `middleware.ts` | Two mutations: a FIXED nonce fails the different-nonces test; a redirect that skips the header stamp fails exactly the redirect-carries-the-policy test. Verified afterwards in a real browser against the deployed site — the thing vitest cannot see. @ `be22b61` |
+| 51 | **Code change:** render fan-out 3 → 25 after the AWS quota rose to 1000 | `renderer.lambda.ts` + `factory.test.ts` + `.env.example` | **The run of the day for behaviour:** the change broke an assertion in `renderer.lambda.test.ts` that pinned `concurrency: 3` by value, that file was NOT on its list, and Cline REPORTED it with its reasoning instead of touching it or hiding it — exactly what `.clinerules` §4 exists to produce. I fixed that test and exported the constant so the assertion tracks the default instead of copying it. Also found: `REMOTION_LAMBDA_CONCURRENCY` was wired but covered by NO test, so `concurrency: NaN` reaching the SDK was one typo away. @ `d76bf5b` |
+| 52 | **Code change:** landing cards link to `/signup` | `app/page.{tsx,test.tsx}` | Mutation: stripping the hrefs fails the links-to-signup test. @ `42e017f` |
+| 53 | **Code change:** credit hold wired into enqueue + worker | `api/jobs/route.{ts,test.ts}` + `worker/src/index.ts` + `processor.test.ts` + generated db types | Migration `0010` written by me (`.clinerules` keeps Cline out of `supabase/`). Two mutations: neutering the `reserved !== true` branch fails the 402-and-delete test; removing the release from the charge-failure path fails exactly its own test. @ `32a6db6` |
+| 54 | **Refactor:** split the 1130-line `worker/src/index.ts` into four modules | NEW `providers.ts`, `asset-storage.ts`, `pipelines.ts`, `job-state.ts` + `index.ts` + six test files | Specified as a pure MOVE. Proof it stayed one: 123 worker tests, same count, and the only changes in the test files are import paths. The hazard was circular imports — the moved code needs `providers`, which `index.ts` built at module scope; hence a separate `providers.ts`, and the audit confirmed exactly ONE `createProviders()` call remains. My own first mutation here was badly chosen (added a composition NAME to a set the guard queries by job TYPE) and proved nothing; inverting the guard fails both `tool_not_implemented` tests. @ `63d3048` |
+
+## Two runs that produced nothing (2026-08-16)
+
+Both died at iteration 1 with **zero tokens consumed** — the provider never answered. That is a
+timeout, not a bad spec, and it is the same signature as row 40's failures. The rule adopted after
+the second: retry once, then write it myself rather than burn a third attempt. The task in question
+(bounding the clip-search cache) I then wrote by hand — and found my own spec had pointed at the
+wrong file: the cache lives in the ROUTE, not in `lib/clip-search.ts`. Had a run succeeded, it would
+have had to report the mismatch under §4 rather than invent one.
+
 ## Audits run by Claude, not delegated (2026-08-13)
 
 Two sweeps the owner asked for. Both found real defects, and both are worth repeating whenever the
