@@ -83,17 +83,20 @@ Trimmed 2026-08-14 by the functional audit: a card links to a wizard ONLY if a p
 
 ## 3b. Profil / podešavanja — MISSING ENTIRELY
 
-Requested by the owner 2026-08-14 and largely built the same day. What is left is listed below;
-the rows marked 🔄 are in progress right now.
+Requested by the owner 2026-08-14 and built the same day. **Verified against the code 2026-08-16: all four
+rows below that were still marked "in progress" are DONE** — the page is titled "Moj profil", `CREDIT_PACKS`
+is rendered only by `app/profil/page.tsx` (so the packs did leave Početna), the sidebar collapse is real
+(`desktopCollapsed`, with `aria-expanded`), and the instant-credit button is gated by `isAdminEmail` outside
+development. The file had been carrying them as open for two days.
 
 | Status | Item | Note |
 |---|---|---|
 | ✅ | **Profile entry point** | `/app/profil` shipped 2026-08-14. Reached by clicking the email in the topbar — and ALSO from the sidebar, because the email sits in a `hidden sm:block` container and on a phone there was nothing to click at all |
-| 🔄 | **Rename to "Moj Profil"** | Owner's wording, 2026-08-14. Everywhere it is named: the nav entry, the topbar link title, the page heading |
-| 🔄 | **Credits move off the dashboard into the profile** | Owner's decision, 2026-08-14. The packs currently sit at the bottom of Početna; that is not where a returning customer looks for them, and it pushes the tools down |
-| 🔄 | **Collapsible sidebar** | Owner's request, 2026-08-14. A toggle slides the left nav out of view and stays visible so it can be brought back. Today it is fixed on desktop and only the mobile hamburger can hide it |
+| ✅ | **Renamed to "Moj profil"** | Owner's wording, 2026-08-14. Everywhere it is named: the nav entry, the topbar link title, the page heading |
+| ✅ | **Credits moved off the dashboard into the profile** | Owner's decision, 2026-08-14. The packs currently sit at the bottom of Početna; that is not where a returning customer looks for them, and it pushes the tools down |
+| ✅ | **Collapsible sidebar** | Owner's request, 2026-08-14. A toggle slides the left nav out of view and stays visible so it can be brought back. Today it is fixed on desktop and only the mobile hamburger can hide it |
 | ✅ | **Change password** | Done 2026-08-14. Reuses the existing `validatePassword` checklist and `PasswordRules`, maps Supabase's English through `authErrorMessage`, and announces both failure and success (`role="alert"` / `role="status"`) |
-| 🔄 | **Buy / add credits from the profile** | In progress — the packs move off Početna entirely. The production admin gate on the instant-credit button has to move WITH them, or every production user gets free credits |
+| ✅ | **Buy / add credits from the profile** | In progress — the packs move off Početna entirely. The production admin gate on the instant-credit button has to move WITH them, or every production user gets free credits |
 | ✅ | **Timezone + time display** | Done 2026-08-14, and actually wired: the job list formats through `formatDateTime` with the picked zone, read server-side off the cookie. An unknown zone falls back instead of throwing — `Intl` raises `RangeError`, which would have broken every page showing a date |
 | 🟡 | **Account basics** | Email and sign-out shipped 2026-08-14. **Delete-my-account is the one still missing**, and it is blocked on a decision rather than on work: `Storage` has no `delete` (see §5), so we could not actually erase the person's videos, and a GDPR obligation half-honoured is worse than one not yet offered |
 | ❌ | **Invoices / purchase history** | Lemon Squeezy is a merchant of record and issues the invoice, so this may be a link out rather than a screen we build. Decide before building anything |
