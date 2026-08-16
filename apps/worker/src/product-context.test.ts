@@ -9,7 +9,7 @@
  * is a finding to report, never a reason to edit index.ts.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { describeProductImage } from './index.ts';
+import { describeProductImage } from './pipelines.ts';
 
 describe('describeProductImage', () => {
   it('returns "" and does NOT call describeImage when there are no sourceImages', async () => {

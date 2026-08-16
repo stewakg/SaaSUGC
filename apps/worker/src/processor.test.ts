@@ -11,7 +11,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { consoleLogger } from '@adgen/core';
-import { GENERIC_JOB_ERROR, jobErrorForUser, makeProcessor } from './index.ts';
+import { GENERIC_JOB_ERROR, jobErrorForUser, makeProcessor } from './job-state.ts';
 
 /**
  * A fake Supabase client whose shape matches exactly what `processJob` calls:

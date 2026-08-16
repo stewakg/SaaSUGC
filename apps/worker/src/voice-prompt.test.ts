@@ -6,7 +6,7 @@
  * a failing test is a finding to report, never a reason to edit index.ts.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { resolveVoiceId, buildImageAdsPrompt } from './index.ts';
+import { resolveVoiceId, buildImageAdsPrompt } from './pipelines.ts';
 
 describe('resolveVoiceId', () => {
   const voices = [

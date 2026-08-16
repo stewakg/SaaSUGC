@@ -73,7 +73,7 @@ const downloadClip = vi.fn(async () => '/tmp/fake-clip.mp4');
 const detectShots = vi.fn(() => [{ startSec: 0, playSec: 2 }]);
 vi.mock('./scene-detect.ts', () => ({ downloadClip, detectShots }));
 
-const { runMatrixPipeline } = await import('./index.ts');
+const { runMatrixPipeline } = await import('./pipelines.ts');
 
 /** A renderer that records what it was asked to draw. */
 function recordingRenderer(overrides: { storageKey?: string } = {}): Renderer & {

@@ -17,11 +17,8 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { consoleLogger } from '@adgen/core';
-import {
-  persistRemoteAsset,
-  PERSIST_BUFFERED_FALLBACK_CAP_BYTES,
-  runMediaEditPipeline,
-} from './index.ts';
+import { persistRemoteAsset, PERSIST_BUFFERED_FALLBACK_CAP_BYTES } from './asset-storage.ts';
+import { runMediaEditPipeline } from './pipelines.ts';
 
 // ---------------------------------------------------------------------------
 // The ACTIVE provider set. resolveStorageUrl reads `providers.storage` (no

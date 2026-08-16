@@ -7,7 +7,7 @@
  * a failing test is a finding to report, never a reason to edit index.ts.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { runPipeline, RENDERABLE_COMPOSITIONS } from './index.ts';
+import { runPipeline, RENDERABLE_COMPOSITIONS } from './pipelines.ts';
 
 type Deps = NonNullable<Parameters<typeof runPipeline>[2]>;
 
