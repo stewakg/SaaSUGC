@@ -216,9 +216,11 @@ function createRendererProvider(env: ReturnType<typeof loadEnv>, storage: Storag
       functionName: env.REMOTION_LAMBDA_FUNCTION_NAME!,
       serveUrl: env.REMOTION_SERVE_URL!,
       region: (env.REMOTION_AWS_REGION ?? 'eu-central-1') as AwsRegion,
-      // Raise this AFTER the AWS concurrent-execution quota is raised, not
-      // before — see DEFAULT_LAMBDA_CONCURRENCY in renderer.lambda.ts. Anything
-      // unparseable or <= 0 falls back to the safe default rather than to NaN.
+      // Overrides DEFAULT_LAMBDA_CONCURRENCY (renderer.lambda.ts) with no
+      // deploy. The quota that once capped this was raised 10 → 1000 on
+      // 2026-08-16, so the default is now 25 and this is a tuning knob rather
+      // than a workaround. Anything unparseable or <= 0 falls back to the
+      // default rather than reaching the SDK as NaN.
       concurrency: positiveIntOrUndefined(env.REMOTION_LAMBDA_CONCURRENCY),
     },
     storage,

@@ -56,28 +56,36 @@ const FETCH_BACKOFF_MS = 500;
 const PRESIGN_EXPIRES_IN_SECONDS = 900;
 
 /**
- * How many Lambda functions one render may fan out to.
+ * How many chunk Lambdas one render is split into. A render does not cost
+ * only that many concurrent executions: Remotion also runs a launcher
+ * invocation, so each render occupies `concurrency + 1` of the account's
+ * concurrent-execution quota.
  *
- * FOUND BY THE FIRST FULL-CHAIN LIVE RUN, 2026-08-14: a one-second render
- * succeeded, and a ten-second one — the SHORTEST length the wizard offers —
- * died with `AWS Concurrency limit reached (Original Error: Rate Exceeded.)`.
- * Remotion splits a render into chunks and invokes one Lambda per chunk, so a
- * longer video means more simultaneous invocations, and a fresh AWS account's
- * concurrent-execution quota is small. Left unbounded, every real customer job
- * would have failed exactly this way while the one-second smoke test kept
- * passing.
+ * History, kept so a future reader can see why 3 was ever right: this was 3,
+ * a workaround for a fresh AWS account's 10-concurrent-executions quota. The
+ * first full-chain live run (2026-08-14) found it: a one-second render
+ * passed, and a ten-second ad — the SHORTEST length the wizard sells — died
+ * with `AWS Concurrency limit reached (Original Error: Rate Exceeded.)`. At 3
+ * a render costs about four executions in total, which fits under 10.
  *
- * 3 leaves room under a tight quota: Remotion also runs a launcher invocation,
- * so a render costs about four executions in total. The cost is wall-clock —
- * fewer workers on the same frames — which is the right trade against a render
- * that does not happen at all.
+ * That quota is 1000 as of 2026-08-16 (eu-central-1, approved by AWS the same
+ * day), and with the reason for 3 gone, 3 stopped being right: it made every
+ * render three-workers-slow on every deployment until someone remembered an
+ * env var. At 25 a render costs 26 of the 1000, and roughly 38 simultaneous
+ * renders would still fit.
  *
- * THE REAL FIX IS AN AWS QUOTA INCREASE (Service Quotas → Lambda → Concurrent
- * executions), which is a support request only the account owner can make.
- * Once that lands, raise this via REMOTION_LAMBDA_CONCURRENCY rather than
- * editing the constant — renders get faster with no deploy.
+ * Raising concurrency does not raise the bill: the same frames are rendered,
+ * just in parallel — this buys wall-clock time at the same GB-second cost.
+ *
+ * 25 is reasoned, not measured: nobody has yet timed a render at 3 against
+ * one at 25, and past some point the per-chunk overhead eats the gain on a
+ * short ad.
+ *
+ * REMOTION_LAMBDA_CONCURRENCY overrides this with no deploy — junk or <= 0
+ * falls back to this default rather than reaching the SDK as NaN (see
+ * positiveIntOrUndefined in factory.ts).
  */
-const DEFAULT_LAMBDA_CONCURRENCY = 3;
+export const DEFAULT_LAMBDA_CONCURRENCY = 25;
 
 /**
  * Derive the S3 object key from the `outputFile` url that getRenderProgress
@@ -172,8 +180,10 @@ export class RemotionLambdaRenderer implements Renderer {
       inputProps: input.props,
       codec: 'h264',
       privacy: 'private',
-      // Bounded on purpose — see DEFAULT_LAMBDA_CONCURRENCY. Unbounded, a
-      // ten-second ad fans out past a fresh account's quota and fails.
+      // Bounded on purpose — see DEFAULT_LAMBDA_CONCURRENCY for the number and
+      // its history. The quota this used to fear is 1000 as of 2026-08-16;
+      // the bound stays because an unbounded fan-out is still a fan-out nobody
+      // sized.
       concurrency: this.config.concurrency ?? DEFAULT_LAMBDA_CONCURRENCY,
     });
 

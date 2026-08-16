@@ -76,6 +76,7 @@ const PROVIDER_KEYS = [
   'REMOTION_LAMBDA_FUNCTION_NAME',
   'REMOTION_SERVE_URL',
   'REMOTION_AWS_REGION',
+  'REMOTION_LAMBDA_CONCURRENCY',
   'LOCAL_STORAGE_DIR',
   'BILLING_PROVIDER',
   'LEMONSQUEEZY_API_KEY',
@@ -394,6 +395,80 @@ describe('F. Renderer — half-configured Lambda must not silently run mocks', (
     const { createProviders } = await withEnv({
       REMOTION_LAMBDA_FUNCTION_NAME: 'test-fn',
       REMOTION_SERVE_URL: 'https://example.invalid',
+    });
+    const p = createProviders();
+    expect(p.renderer.name).not.toBe(MOCK_NAME.renderer);
+  });
+
+  // REMOTION_LAMBDA_CONCURRENCY — how many Lambdas one render splits into
+  // (see DEFAULT_LAMBDA_CONCURRENCY in renderer.lambda.ts). The renderer keeps
+  // it in a PRIVATE config field with no accessor, so the numeric value itself
+  // is not observable from outside these tests; what IS observable is the
+  // guard's effect: whatever the env holds, the factory still constructs the
+  // real Lambda renderer rather than throwing or falling back to the mock.
+  // positiveIntOrUndefined in factory.ts is module-private, so it cannot be
+  // imported and tested directly either — construction is its only surface.
+  const LAMBDA_KEYS: Record<string, string> = {
+    REMOTION_LAMBDA_FUNCTION_NAME: 'test-fn',
+    REMOTION_SERVE_URL: 'https://example.invalid',
+    REMOTION_AWS_REGION: 'eu-central-1',
+  };
+
+  it("16a. the full REMOTION_* set with no REMOTION_LAMBDA_CONCURRENCY → the real Lambda renderer (today's behaviour, unchanged)", async () => {
+    const { createProviders } = await withEnv({ ...LAMBDA_KEYS });
+    const p = createProviders();
+    expect(p.renderer.name).not.toBe(MOCK_NAME.renderer);
+  });
+
+  it('16b. REMOTION_LAMBDA_CONCURRENCY=25 → still the real Lambda renderer — the override must not break construction', async () => {
+    const { createProviders } = await withEnv({
+      ...LAMBDA_KEYS,
+      REMOTION_LAMBDA_CONCURRENCY: '25',
+    });
+    const p = createProviders();
+    expect(p.renderer.name).not.toBe(MOCK_NAME.renderer);
+  });
+
+  // THE POINT of 16c–16f: an env var arrives as a string, and a junk value
+  // must fall back to the code's default rather than reach the AWS SDK as
+  // `concurrency: NaN` — an invalid argument that fails deep inside someone
+  // else's library with a message that names nothing useful. That guard
+  // (positiveIntOrUndefined in factory.ts) had never been exercised by a test
+  // before these.
+  it("16c. REMOTION_LAMBDA_CONCURRENCY='abc' → still a working Lambda renderer", async () => {
+    const { createProviders } = await withEnv({
+      ...LAMBDA_KEYS,
+      REMOTION_LAMBDA_CONCURRENCY: 'abc',
+    });
+    const p = createProviders();
+    expect(p.renderer.name).not.toBe(MOCK_NAME.renderer);
+  });
+
+  it("16d. REMOTION_LAMBDA_CONCURRENCY='0' → still a working Lambda renderer", async () => {
+    const { createProviders } = await withEnv({
+      ...LAMBDA_KEYS,
+      REMOTION_LAMBDA_CONCURRENCY: '0',
+    });
+    const p = createProviders();
+    expect(p.renderer.name).not.toBe(MOCK_NAME.renderer);
+  });
+
+  it("16e. REMOTION_LAMBDA_CONCURRENCY='-5' → still a working Lambda renderer", async () => {
+    const { createProviders } = await withEnv({
+      ...LAMBDA_KEYS,
+      REMOTION_LAMBDA_CONCURRENCY: '-5',
+    });
+    const p = createProviders();
+    expect(p.renderer.name).not.toBe(MOCK_NAME.renderer);
+  });
+
+  it("16f. REMOTION_LAMBDA_CONCURRENCY='' → still a working Lambda renderer", async () => {
+    // Unlike the url-typed keys, env.ts does NOT preprocess '' to undefined
+    // here (z.string().optional() keeps it), so the empty string genuinely
+    // reaches the guard — Number('') is 0, which is not > 0, which drops it.
+    const { createProviders } = await withEnv({
+      ...LAMBDA_KEYS,
+      REMOTION_LAMBDA_CONCURRENCY: '',
     });
     const p = createProviders();
     expect(p.renderer.name).not.toBe(MOCK_NAME.renderer);

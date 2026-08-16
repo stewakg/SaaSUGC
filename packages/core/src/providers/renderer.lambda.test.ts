@@ -26,7 +26,11 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import type { AwsRegion } from '@remotion/lambda-client';
-import { RemotionLambdaRenderer, objectKeyFromOutputUrl } from './renderer.lambda.ts';
+import {
+  DEFAULT_LAMBDA_CONCURRENCY,
+  RemotionLambdaRenderer,
+  objectKeyFromOutputUrl,
+} from './renderer.lambda.ts';
 import type { Storage } from '../interfaces.ts';
 
 // vi.mock is hoisted above every import, so the four fns it hands back to the
@@ -200,11 +204,12 @@ describe('A. Happy path', () => {
       // because 'public' would make the customer's video world-readable at
       // its plain S3 url for as long as the object exists.
       privacy: 'private',
-      // Bounded fan-out, asserted by value. The first full-chain live run died
-      // on `AWS Concurrency limit reached` for a ten-second ad — the shortest
-      // the wizard offers — while the one-second smoke test kept passing. An
+      // Bounded fan-out. Asserted against the CONSTANT, not a copy of its
+      // value: this line said `3` and went stale the moment the default moved
+      // to 25 (the AWS quota that forced 3 was raised 10 → 1000 on
+      // 2026-08-16). What matters here is that a bound is passed at all — an
       // unbounded render is one that works in testing and fails for customers.
-      concurrency: 3,
+      concurrency: DEFAULT_LAMBDA_CONCURRENCY,
     });
   });
 });
