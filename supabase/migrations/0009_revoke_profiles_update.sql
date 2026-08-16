@@ -1,0 +1,46 @@
+-- ===========================================================================
+-- 0009 — finish what 0007 only half did.
+--
+-- 0007 closed the credit self-grant hole with two locks:
+--   1. drop the `profiles_update_own` RLS policy  — WORKED;
+--   2. `revoke update (balance, id) ... from anon, authenticated` — NO-OP.
+--
+-- Verified against the live database 2026-08-16. Lock 1 is in place:
+-- `pg_policies` for public.profiles returns only `profiles_select_own`, so
+-- there is no UPDATE policy and RLS denies every client write regardless of
+-- privileges. The hole itself is shut. But lock 2 never took:
+--
+--     select grantee, column_name from information_schema.column_privileges
+--      where table_name='profiles' and column_name in ('balance','id')
+--        and grantee in ('anon','authenticated') and privilege_type='UPDATE';
+--
+-- still returned four rows.
+--
+-- WHY IT WAS A NO-OP, because this will come up again: PostgreSQL cannot
+-- subtract a column from a TABLE-level grant. A column-level REVOKE only
+-- removes column-level grants. Supabase's defaults hand `anon` and
+-- `authenticated` privileges on the tables in `public`, and a table-level
+-- UPDATE implicitly covers every column — which is exactly what
+-- information_schema was reporting. 0007's statement had nothing to revoke.
+--
+-- So the revoke has to be table-level. Nothing legitimate is lost, re-verified
+-- 2026-08-16: no client code updates `profiles` at all. `/api/jobs` and
+-- `app/layout.tsx` only SELECT it; `packages/db/src/seed.ts` writes through the
+-- service role, which bypasses both RLS and these grants; and every credit
+-- mutation goes through a SECURITY DEFINER RPC.
+--
+-- This is defence in depth, not the fix — the fix was 0007's policy drop. It
+-- matters for the day somebody adds an UPDATE policy to `profiles` in a hurry:
+-- with this revoke in place, that policy still cannot move `balance`.
+-- ===========================================================================
+
+revoke update on public.profiles from anon, authenticated;
+
+-- Confirm: this must return ZERO rows.
+--
+--     select grantee, column_name
+--       from information_schema.column_privileges
+--      where table_schema='public' and table_name='profiles'
+--        and column_name in ('balance','id')
+--        and grantee in ('anon','authenticated')
+--        and privilege_type='UPDATE';

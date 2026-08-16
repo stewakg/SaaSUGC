@@ -36,6 +36,13 @@ drop policy if exists "profiles_update_own" on public.profiles;
 -- Defence in depth: even WITH a permissive policy, these columns stay read-only
 -- to the client roles. `id` is in the list because a row whose id could be
 -- rewritten is a row that could be pointed at somebody else's profile.
+--
+-- ⚠️ THIS STATEMENT IS A NO-OP — kept only so the file matches what was applied.
+-- Verified against the live database 2026-08-16: it changed nothing, because
+-- PostgreSQL cannot subtract a column from a TABLE-level grant, and Supabase's
+-- defaults give these roles table-level privileges. **Migration 0009 does the
+-- table-level revoke that this line was meant to be.** The policy drop above
+-- did work, and that is what actually closed the hole.
 revoke update (balance, id) on public.profiles from anon, authenticated;
 
 -- Nothing else about the table changes: the select policy from 0001
