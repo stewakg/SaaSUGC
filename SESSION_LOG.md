@@ -132,6 +132,17 @@ a traversal payload ALSO returns 401 rather than `400 invalid_path`, which prove
 branch is the live one rather than the local-disk branch. Worker logs `storage: s3-storage`. Build
 cache pruned after two rebuilds: 4.88 GB, disk 46% → 35%.
 
+**And checking 0007 found that half of it had never worked.** With the bucket closed, the owner
+ran the two verification queries. The policy half was fine — `profiles` has no UPDATE policy, so
+RLS denies every client write and the credit self-grant hole has been shut since 0007 was applied.
+The revoke half had done nothing: `information_schema.column_privileges` still showed `anon` and
+`authenticated` holding UPDATE on `balance` and `id`. **PostgreSQL cannot subtract a column from a
+TABLE-level grant** — a column-level REVOKE only removes column-level grants, and Supabase's
+defaults grant these roles at table level, so 0007's second statement had nothing to revoke. It
+had read as a second lock for three days and was not one. `0009_revoke_profiles_update.sql` does
+the table-level revoke; applied and verified the same day (zero rows). 0007 keeps the dead line
+with a note, because deleting it would make the file stop matching what was actually run.
+
 The lesson worth carrying: **the deploy was the test.** Every gate in this repo passed on code
 that could not answer a single asset request in production, because no test and no typecheck
 looks at what the image actually contains.
