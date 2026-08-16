@@ -43,7 +43,7 @@ all happened since, and all three "known defects" in its §6b had already been f
 | 🟡 | **Error alerting** | 👤 | Shipped and deployed 2026-08-14 (`d47815e`, 6 tests): a failed job POSTs one line to `ALERT_WEBHOOK_URL`. **It is unset on the live box, so nothing is reported today** — paste a Discord/Slack/Telegram relay url into `/srv/adgen/.env` and restart the worker. One line, no rebuild |
 | 🟡 | **R2 public URL is still the `r2.dev` dev subdomain** | 👤 then 🤖 | Cloudflare rate-limits it and says not for production. Swap to `cdn.<domain>` once the domain exists |
 | ❌ ⛔ | **Make the R2 bucket PRIVATE** | 👤 | Added 2026-08-16. The code stopped handing out permanent public urls (`26a0f34`: uploads return `/api/storage/<key>`, the route 302s to a signed url after the ownership check, the worker signs keys itself). **None of that closes anything while the bucket still answers anonymously** — the old `${R2_PUBLIC_URL}/uploads/<uid>/<timestamp>.mp4` form is guessable and still works. Cloudflare → the bucket → disable public access. Do it together with the row below, and after the deploy below |
-| ❌ ⛔ | **Rewrite pre-2026-08-16 `assets.url` rows** | 👤 decides, 🤖 writes | Rows written before `26a0f34` hold absolute public R2 urls. They keep working today and **break the moment the bucket goes private** — a customer's finished ad turns into a dead link in "Moje reklame", which is the exact failure class `persistRemoteAsset` was built to prevent. Needs one UPDATE stripping `R2_PUBLIC_URL` down to `/api/storage/<key>`. Not written: it touches live customer rows, and per the DB safety rule that is your call, not mine |
+| 🟡 ⛔ | **Rewrite pre-2026-08-16 asset urls — migration 0008 written, NOT APPLIED** | 👤 | Rows written before `26a0f34` hold absolute public R2 urls; they **break the moment the bucket goes private**. `supabase/migrations/0008_asset_urls_through_route.sql` rewrites them, and it covers **two** tables, not one: `assets.url` is the ownership record, but every screen a customer looks at renders `jobs.result -> assets[] -> url`. The new url is built from the stored `storage_key`, never parsed out of the old url; rows without a key are left alone; re-running it is a no-op. **Never executed — there is no local Postgres on this machine.** Its header carries two SELECTs that show exactly which rows would change; run those first, then the migration, in the same SQL-editor paste as 0007 |
 | ❌ ⛔ | **Deploy web and worker TOGETHER for the signed-url change** | 👤 | `26a0f34` is one change split across both processes: the web app now hands out `/api/storage/<key>`, and only the new worker knows how to sign that form. **A web-only deploy leaves every render 401ing on its own source clips**; a worker-only deploy is harmless but pointless. One `git pull` + one `up -d --build` covers both — just do not deploy half |
 
 ## 2. Money
@@ -181,10 +181,10 @@ arguments including `p_reason`.
 Judgement, not blockers. Cheapest first.
 
 1. **Apply migration 0007 today.** The only open hole with money attached, and it is one paste.
-1b. **Deploy, then close the R2 bucket, then rewrite the old asset rows — in that order** (§1).
-   The order is the whole point: closing the bucket before deploying breaks every render, and
-   rewriting the rows before closing it is harmless but pointless. Doing none of it leaves the
-   guessable-url exposure open no matter what the code now does.
+1b. **Deploy → apply migration 0008 → close the R2 bucket, in that order** (§1). Deploying first
+   because only the new worker can sign a `/api/storage/<key>` source; 0008 before the bucket
+   closes because those rows are what a closed bucket would break; the bucket last because until
+   it is private nothing is actually closed, whatever the code now returns.
 2. **Buy the domain.** The single item unblocking the most others: TLS, email, the Lemon Squeezy
    webhook, the R2 custom domain. Being unblocked matters more than the name being perfect — a
    name can be rebranded later, a missing domain blocks five things today.
