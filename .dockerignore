@@ -3,8 +3,21 @@ node_modules
 .git
 .next
 **/.next
-storage
-**/storage
+# The LOCAL_STORAGE_DIR working directory — never the source tree.
+#
+# This was `storage` + `**/storage`, and `**/storage` also matched
+# `apps/web/src/app/api/storage/`, so `GET /api/storage/:path*` was silently
+# absent from every web image ever built. Nobody noticed while production served
+# assets straight from R2's public base url and this route only mattered in dev
+# — but the moment `upload()` started returning `/api/storage/<key>`
+# (26a0f34), every asset link in production 404'd. Found 2026-08-16 by probing
+# the deployed container: `.next/server/app/api` listed nine routes and not this
+# one.
+#
+# Anchored patterns only, so a directory NAMED storage anywhere in the source
+# tree keeps travelling into the image.
+/storage
+apps/*/storage
 *.log
 # Root AND nested. dockerignore patterns are NOT recursive: plain `.env` matches
 # only the context root, so apps/web/.env and apps/worker/.env were being copied
