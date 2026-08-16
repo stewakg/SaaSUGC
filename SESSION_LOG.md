@@ -16,6 +16,8 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: the rest of 2026-08-16 — direct upload, streamed import, bounded cache, CSP, billing dormancy, render fan-out, landing (NEW apps/web/src/app/api/upload/sign/route.{ts,test.ts} + NEW apps/web/src/lib/upload-constraints.ts + apps/web/src/lib/upload-file.{ts,test.ts} + apps/web/src/app/api/upload/route.ts + apps/web/src/app/api/import-clip/route.ts + apps/web/src/app/api/ssrf-routes.test.ts + apps/web/src/app/api/search-clips/route.ts + apps/web/src/lib/clip-search.ts + apps/web/src/app/api/remaining-routes.test.ts + apps/web/src/middleware.{ts,test.ts} + NEW apps/web/src/app/page.test.tsx + apps/web/src/app/page.tsx + apps/web/src/components/tool-cards.{tsx,test.tsx} + packages/core/src/providers/{storage.r2,factory,renderer.lambda}.{ts,test.ts} + packages/core/src/env.ts + .dockerignore + .env.example) — CLEAN @ b174e3e, b3db997, 3149141, 930d9e2, be22b61, 16dee4f, d76bf5b, 844c1c8, 2741dba (2026-08-16). Seven Cline runs plus two I wrote after provider timeouts; every one audited by MUTATION and every mutation failed exactly its own tests: sending `file.type` instead of the route's contentType on the PUT; letting a sign refusal fall back through the server; dropping the byte length from the import upload; disabling the cache eviction loop; a fixed nonce, and a redirect that skips the CSP stamp; forcing the billing dormancy guard false with a full key set present; reverting the landing's live-tools filter. Two mutations that changed NOTHING are recorded as findings rather than passes: `content-length` in `signableHeaders` is redundant (the binding comes from the command input), and the landing had no test at all until one was written here. Gates re-run independently: typecheck clean, core 379 / worker 119 / web 543, lint clean, web build passes. **Runtime-verified, not just typechecked:** the storage route and the CSP were both exercised against the deployed site. CODE-COMPLETE for everything else — no upload has yet gone browser→R2 for real, and no render has run at concurrency 25.
+
 REVIEWED: the six fixes the 2026-08-16 audit produced (NEW apps/web/src/lib/{safe-redirect,asset-url}.{ts,test.ts} + apps/web/src/app/(auth)/login/page.tsx + apps/web/src/app/auth/callback/route.ts + apps/web/src/app/api/jobs/route.{ts,test.ts} + apps/web/src/app/api/billing/{webhook/route.ts,routes.test.ts} + apps/web/src/app/api/storage/[...path]/route.{ts,test.ts} + apps/worker/src/{index.ts,processor.test.ts,matrix-pipeline.test.ts,media-edit.test.ts} + packages/core/src/providers/storage.r2.{ts,test.ts} + .github/workflows/ci.yml + package.json) — CLEAN @ 198c191, b01d909, 35bdf4c, 06d5572, 26a0f34, a7f22e2 (2026-08-16). Five Cline runs, each audited by MUTATION rather than by reading the diff, and every mutation failed exactly the tests named for it and no others: dropping the rooted-path check fails the absolute-url/userinfo/javascript/empty-string cases; accepting any origin in `isOwnAssetUrl` fails nine unit tests plus both `/api/jobs` route tests including the 169.254.169.254 one; dropping `reserved` from the balance comparison fails exactly the two in-flight tests; returning the raw message from `jobErrorForUser` fails six worker tests including the duplicate-key one; skipping `authorise` in the storage route fails the 401 and 404 signing tests; returning `getUrl` from `upload` fails the core route-path tests; disabling the worker's signing branch fails its two named tests. Gates re-run by Claude independently: typecheck clean, core 365 / worker 119 / web 495 = **979**, web build passes. CODE-COMPLETE, NOT runtime-verified — none of this has been run against real R2, a real Lemon Squeezy key, or the live worker.
 
 REVIEWED: the account screen, two queue lanes, and the first component tests this app has ever had (NEW apps/web/src/app/app/profil/page.tsx + NEW apps/web/src/lib/{timezone.ts,timezone.test.ts} + apps/web/src/components/app-shell.tsx + the 4 (auth) pages + packages/core/src/queue.{ts,test.ts} + apps/web/src/app/api/jobs/route.{ts,test.ts} + apps/worker/src/index.ts + NEW apps/web/src/components/job-wizard.test.tsx + NEW apps/web/src/lib/{theme,upload-file,utils}.test.ts + apps/web/src/app/app/reklame/page.tsx) — CLEAN @ c63b1c0, 0289c26, 542d5df, 9838f15 (2026-08-14). **Profil** exists at all for the first time: clicking your email did nothing and there was no account screen. Two decisions taken rather than parked — a PAGE (linkable, survives refresh, testable) and NO delete-my-account, because `Storage` has no `delete` and offering erasure we cannot perform is worse than not offering it. Timezone is the part with teeth: `Intl` throws `RangeError` on an unknown zone, so a stale cookie would break every page showing a date; mutations on the catch and on ignoring the zone each failed exactly their test. **A correction to my own earlier report**: I told the owner the auth forms announce errors via `aria-live`. They do not — the live region belongs to the password checklist, and the error paragraph had no role on any of the four pages, so a screen-reader user submitted a wrong password and heard nothing. All five are now `role="alert"`, the success line `role="status"`. **Two queue lanes** (`0289c26`): everything shared one queue at concurrency 1, so a 12-second `enhance` waited behind a 90-second render. Heavy keeps the name `adgen-jobs` — renaming strands jobs already in Redis with no error anywhere, pinned by a test that says so — an unlisted type routes LIGHT (safe one way only: a heavy job on the light lane is four renders on one box), each worker gets its own Redis connection, and shutdown closes BOTH via `allSettled`, without which this morning's graceful-drain fix covered only half the workers. **Cline did not report seven failing tests** on that run: its `vi.mock('@adgen/core/queue')` predated the router. Fixed by delegating the mock to the REAL module — a stubbed router would let the route enqueue a render onto the light lane while the file reported green — and the bullmq mock now records the queue NAME, which it had been swallowing. **The timezone preference was wired to nothing** (`542d5df`) until the job list stopped calling `toLocaleString` directly; grepped afterwards, it was the only such caller. **First component tests in the app's history** (`9838f15`, 28 of them): `JobWizard` mutations — forcing `Dalje` enabled, and making every rail chip reachable — each failed exactly the test guarding the paid action; `upload-file` losing its `!res.ok || !data.url` guard failed three, including the one where an ok response with no url means the server never stored the file. **Operational finding, recorded in CLINE_LOG (`c444ddd`): Cline runs cannot be parallelised** — three at once gave `run_aborted / external_abort / "aborted by another client"`, and it disguises itself as `"The operation timed out."` at iteration 1 with zero tokens, which is how I misread two earlier failures as provider stalls. Tests 800 → 814 (core 355, web 372, worker 105).
@@ -146,6 +148,65 @@ with a note, because deleting it would make the file stop matching what was actu
 The lesson worth carrying: **the deploy was the test.** Every gate in this repo passed on code
 that could not answer a single asset request in production, because no test and no typecheck
 looks at what the image actually contains.
+
+**Then the session kept going, and the company changed under it.** Everything below happened
+after the audit fixes, in the order it happened.
+
+- **Direct browser → R2 upload** (`b174e3e`, `b3db997`). `/api/upload` buffered the whole file
+  in the Node process — up to 200 MB on a box with 3.7 GB — to relay bytes it had no other
+  reason to touch. `signedUploadUrl` had existed since F5 and was called by nothing. Now
+  `POST /api/upload/sign` validates exactly what `/api/upload` validates (auth, the SAME
+  rate-limit bucket, MIME allowlist, size ceiling) and returns a presigned PUT; the browser
+  sends the file itself. The signature binds content type AND byte length, so a link issued
+  for a 40 MB clip cannot be replayed to store 10 GB. `{ supported: false }` keeps dev on
+  MockStorage working; a REFUSAL (413/415/429) deliberately does not fall back, because
+  re-POSTing would only re-refuse after the whole file crossed the server.
+- **Streamed clip import** (`3149141`), **bounded search cache** (`930d9e2`), **nonce CSP on
+  every response including redirects** (`be22b61`, verified in a real browser: 10 scripts
+  loaded, `window.next` present, a theme click changed `data-theme`, zero console errors).
+- **Migrations 0008 and 0009.** 0008 rewrites pre-existing asset urls to the route form —
+  two tables, because the dashboard renders `jobs.result -> assets[] -> url`, not the
+  `assets` table. 0009 exists because **0007's second lock had never worked**: PostgreSQL
+  cannot subtract a column from a TABLE-level grant, and Supabase grants at table level, so
+  `revoke update (balance, id)` had nothing to revoke. It had read as a working second lock
+  for three days. The policy drop — the half that actually closed the hole — was fine.
+- **R2 bucket made private**, verified from the VPS (`401` where `404` used to answer), after
+  the deploy and 0008 so nothing broke on the way.
+- **Old AdGen deploy removed from the aikutak VPS**, backed up first, after proving it was
+  dead: no clients on its Redis, empty queue, worker exited six days earlier **on all-mock
+  providers against the real `adgen-jobs` queue name**. Both boxes were measured while there:
+  4 GB / 2 vCPU each, same availability zone — **aikutak is not the 8 GB machine it was
+  believed to be**, so "move the load to the big box" has no big box.
+- **AWS Lambda concurrency 10 → 1000**, requested and approved the same day; the render fan-out
+  default went 3 → 25 (`d76bf5b`). The cap of 3 was never a rendering judgement, only a
+  workaround for a fresh account's quota.
+- **Lemon Squeezy put to sleep, not deleted** (`16dee4f`). It now needs
+  `BILLING_PROVIDER=lemonsqueezy`; a full set of valid keys with the switch unset still
+  resolves to the mock. Deleting it was the obvious reading of "remove" and the expensive
+  one — this layer was already deleted on 2026-08-10 and restored on 2026-08-13.
+- **The operator became a Wyoming LLC** (owner Serbian, resident in Serbia; no EU company),
+  so all three legal pages were re-founded (`699d28c`): every German statute reference
+  removed rather than translated, Terms gained the clauses a competitor comparison found
+  missing — above all a definition of successful delivery, which is what settles a credit
+  dispute — and Privacy now states the controller is outside the EU **and** that this removes
+  neither GDPR nor Serbian ZZPL. No lawyer has read any of it; the owner decided there will
+  probably not be one, and that is recorded as an accepted risk rather than argued.
+- **Landing trimmed to the five tools that work** (`844c1c8`), prices off the cards, colours
+  and benefit bullets finally passed through — the two screens shared a component and looked
+  like different products because the landing withheld the props. Mutation-testing that found
+  the landing page had **no test at all**; it has one now.
+
+**Three things nobody was looking for, all found by verifying rather than by reading:**
+1. `/api/storage` had never been in any web image — `.dockerignore`'s `**/storage` matched the
+   route directory. Free for months, fatal the moment asset urls pointed at it.
+2. 0007's revoke was a no-op for three days while looking like a lock.
+3. `REMOTION_LAMBDA_CONCURRENCY` was wired but covered by no test, so `concurrency: NaN`
+   reaching the AWS SDK was one typo away.
+
+**Cline ran nine tasks.** Two died on provider timeouts with zero tokens consumed (a known
+flake) and I wrote that change myself. One run broke a test in a file outside its list and
+**reported it instead of touching it**, with its reasoning — which is exactly the behaviour
+`.clinerules` exists to produce. Every code run was audited by mutation.
 
 **Docs corrected** (`INFRASTRUCTURE.md`, `CLAUDE.md`, `middleware.ts`): F6 no longer claims there
 is no payment provider, the R2 decision item records what was decided and what is still owed, the
