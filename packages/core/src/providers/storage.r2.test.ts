@@ -44,6 +44,31 @@ describe('getUrl — the public, permanent form', () => {
   });
 });
 
+describe('assetPath / upload — the ownership-checked route form', () => {
+  it('upload returns the route path, not the bucket url', async () => {
+    // Same prototype seam as the ContentLength suite below: upload() sends
+    // through its own S3Client, the spy swallows the send, no socket opens.
+    vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({} as never);
+    try {
+      const { url } = await storage().upload('uploads/u1/123.mp4', Buffer.from('abc'), 'video/mp4');
+      expect(url).toBe('/api/storage/uploads/u1/123.mp4');
+      // The public base must not leak into what the app hands a customer.
+      expect(url).not.toContain('cdn.example.test');
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('getUrl still returns the public base form — pinned so a future edit cannot quietly change both at once', () => {
+    expect(storage().getUrl('uploads/u1/123.mp4')).toBe('https://cdn.example.test/uploads/u1/123.mp4');
+  });
+
+  it('assetPath does not double a slash when the key already has none, and keeps nested keys intact', () => {
+    expect(storage().assetPath('renders/a.mp4')).toBe('/api/storage/renders/a.mp4');
+    expect(storage().assetPath('renders/a/b.mp4')).toBe('/api/storage/renders/a/b.mp4');
+  });
+});
+
 describe('signedDownloadUrl', () => {
   it('points at the bucket endpoint and carries a real signature', async () => {
     const url = await storage().signedDownloadUrl('renders/a.mp4');
@@ -145,7 +170,7 @@ describe('upload — ContentLength on the PUT (the streamed-body signing fix)', 
     expect(cmd.input.Key).toBe('enhance/1.png');
     expect(cmd.input.ContentType).toBe('image/png');
     expect(cmd.input.Body).toBe(stream);
-    expect(url).toBe('https://cdn.example.test/enhance/1.png');
+    expect(url).toBe('/api/storage/enhance/1.png');
   });
 
   it('does NOT set ContentLength when the body is a Buffer — a Buffer carries its own length', async () => {

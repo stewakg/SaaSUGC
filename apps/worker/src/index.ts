@@ -197,15 +197,37 @@ function isImageSource(sourceUrl: string): boolean {
   return /\.(png|jpe?g|webp|gif|avif)(\?|#|$)/i.test(sourceUrl);
 }
 
-/**
- * Absolutize a storage url for cross-process use. MockStorage (dev) hands out
- * RELATIVE urls (/api/storage/...) served by the web app; the worker's fetch and
- * the Remotion renderer both need an absolute url. Real R2/S3 urls (and
- * DEFAULT_BACKGROUND_VIDEO_URL) are already absolute and pass through unchanged.
- */
+/** Must match S3CompatibleStorage.assetPath / MockStorage's publicPrefix. */
+const STORAGE_PATH_PREFIX = '/api/storage/';
+
 const WEB_PUBLIC_URL = process.env.WEB_PUBLIC_URL ?? 'http://localhost:3000';
-function resolveStorageUrl(url: string): string {
-  return url.startsWith('/') ? `${WEB_PUBLIC_URL}${url}` : url;
+
+/**
+ * Turn a stored asset url into something this process (and the renderer, and
+ * fal) can actually fetch.
+ *
+ * Storage urls are relative — `/api/storage/<key>` — for both providers. In dev
+ * that path is served by the web app off local disk, so prefixing
+ * WEB_PUBLIC_URL is enough. In production the bytes live in a PRIVATE R2 bucket
+ * and that route requires a session cookie, which no headless process here has:
+ * so the key is signed directly instead. The signature is computed locally from
+ * the credentials — no network call — and the link expires within the hour.
+ *
+ * Absolute urls (a provider CDN link, the default background clip) are returned
+ * untouched.
+ */
+async function resolveStorageUrl(
+  url: string,
+  storage: unknown = providers.storage,
+): Promise<string> {
+  if (!url.startsWith('/')) return url;
+
+  const candidate = storage as { signedDownloadUrl?: (key: string) => Promise<string> };
+  if (url.startsWith(STORAGE_PATH_PREFIX) && typeof candidate.signedDownloadUrl === 'function') {
+    return candidate.signedDownloadUrl(url.slice(STORAGE_PATH_PREFIX.length));
+  }
+
+  return `${WEB_PUBLIC_URL}${url}`;
 }
 
 /**
@@ -355,11 +377,12 @@ export async function runMatrixPipeline(
   // M2a: the wizard now uploads real source clips; use the first uploaded clip as the
   // background instead of the hardcoded placeholder. (Multi-clip scene-detected montage
   // lands in M2b/M2c.) Falls back to the placeholder when no clip was uploaded.
-  const sourceVideoUrls = (
-    Array.isArray(params.sourceVideoUrls)
+  const sourceVideoUrls = await Promise.all(
+    (Array.isArray(params.sourceVideoUrls)
       ? params.sourceVideoUrls.filter((u): u is string => typeof u === 'string' && u.length > 0)
       : []
-  ).map(resolveStorageUrl);
+    ).map((u) => resolveStorageUrl(u)),
+  );
   const firstClipUrl = sourceVideoUrls[0];
 
   // Build a richer product/benefits string from the wizard's imported product
@@ -487,13 +510,22 @@ export async function runMatrixPipeline(
         ? buildMontage(pool, { targetSec })
         : [{ url: firstClipUrl ?? DEFAULT_BACKGROUND_VIDEO_URL, startSec: 0, playSec: targetSec }];
 
+    const musicUrl =
+      typeof params.musicUrl === 'string' && params.musicUrl
+        ? await resolveStorageUrl(params.musicUrl)
+        : undefined;
+    const sfxUrl =
+      typeof params.sfxUrl === 'string' && params.sfxUrl
+        ? await resolveStorageUrl(params.sfxUrl)
+        : undefined;
+
     const matrixProps: MatrixAdProps = {
       shots,
       // Must be absolutized exactly like the clip urls: MockStorage hands back a
       // RELATIVE /api/storage/... path, and MatrixAd only mounts <Audio> for an
       // absolute http(s) src. Without this the ad renders MUTE with no error —
       // Remotion just finds no audio asset and writes a silent track.
-      voiceUrl: resolveStorageUrl(voice.audioUrl),
+      voiceUrl: await resolveStorageUrl(voice.audioUrl),
       captionWords,
       captionStyle:
         typeof params.captionStyle === 'string' && params.captionStyle
@@ -506,9 +538,9 @@ export async function runMatrixPipeline(
       captionY: typeof params.captionY === 'number' ? params.captionY : undefined,
       // Absolutized like every other storage url — MockStorage returns a relative
       // path and <Audio> only mounts on an absolute http(s) src.
-      musicUrl: typeof params.musicUrl === 'string' && params.musicUrl ? resolveStorageUrl(params.musicUrl) : undefined,
+      musicUrl,
       musicVolume: typeof params.musicVolume === 'number' ? params.musicVolume : undefined,
-      sfxUrl: typeof params.sfxUrl === 'string' && params.sfxUrl ? resolveStorageUrl(params.sfxUrl) : undefined,
+      sfxUrl,
       transitionIn,
       outroText:
         typeof params.outroText === 'string' && params.outroText ? params.outroText : DEFAULT_MATRIX_OUTRO_TEXT,
@@ -610,7 +642,7 @@ export async function runMediaEditPipeline(
   // localhost:3000 (see resolveStorageUrl), which fal cannot see — the call
   // would fail deep inside the provider with an opaque message. Say it plainly
   // here instead: these two tools are blocked on R2 existing, not on code.
-  const absoluteSource = resolveStorageUrl(sourceUrl);
+  const absoluteSource = await resolveStorageUrl(sourceUrl);
   if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/i.test(absoluteSource)) {
     throw new Error(
       `source_not_public: "${type}" šalje fajl provajderu preko interneta, a ovaj je samo lokalan ` +

@@ -80,21 +80,34 @@ export class S3CompatibleStorage implements Storage {
         ...(isBuffer || contentLength === undefined ? {} : { ContentLength: contentLength }),
       }),
     );
-    return { url: this.getUrl(key) };
+    return { url: this.assetPath(key) };
   }
 
   /**
    * The PUBLIC, permanent url for a key.
    *
-   * Only correct for a bucket that is meant to be world-readable. Keys in this
-   * app are not uniformly unguessable — `uploads/<userId>/<timestamp>.mp4` is
-   * quite guessable to anyone who knows a user id — so a customer's own footage
-   * should be handed out through `signedDownloadUrl` instead. Keeping both, and
-   * saying which is which here, is the point: the choice is per-prefix, not
-   * global.
+   * No longer what `upload` returns — that is `assetPath`, our ownership-checked
+   * route — so a customer is never handed a permanent public url for guessable
+   * keys. Kept for diagnostics and for callers that genuinely want the public
+   * form (a bucket that is meant to be world-readable).
    */
   getUrl(key: string): string {
     return `${this.config.publicBaseUrl.replace(/\/$/, '')}/${key}`;
+  }
+
+  /**
+   * Where the APP should point at this object: our own ownership-checked route,
+   * not the bucket.
+   *
+   * `getUrl` is the bucket's public url, and the keys here are guessable enough
+   * (`uploads/<userId>/<timestamp>.mp4`) that handing it to a customer exposes
+   * every other customer's uploads to anyone who knows a user id. The route
+   * checks ownership and then redirects to a signed, expiring url, so this is
+   * the form that goes into `assets.url` and into job params. MockStorage has
+   * always returned exactly this shape, so both providers now agree.
+   */
+  assetPath(key: string): string {
+    return `/api/storage/${key}`;
   }
 
   /**

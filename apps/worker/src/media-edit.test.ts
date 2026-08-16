@@ -24,6 +24,45 @@ import {
 } from './index.ts';
 
 // ---------------------------------------------------------------------------
+// The ACTIVE provider set. resolveStorageUrl reads `providers.storage` (no
+// injection seam of its own — deliberate, see §1 of its comment), and the only
+// way to exercise its two shapes from THIS suite is to mock createProviders.
+// `@adgen/core` is imported statically above, so the mock's factory runs before
+// any module-level const — hence vi.hoisted, the same discipline as
+// jobs/route.test.ts and renderer.lambda.test.ts. The storage starts in the
+// MockStorage shape (cannot sign); tests that need R2 attach `signedDownloadUrl`.
+// ---------------------------------------------------------------------------
+
+const { storageStandIn, signedDownloadUrl } = vi.hoisted(() => {
+  const signedDownloadUrl = vi.fn(async (key: string) => `https://signed.test/${key}?sig=1`);
+  const storageStandIn: {
+    name: string;
+    upload: () => Promise<{ url: string }>;
+    signedDownloadUrl?: (key: string) => Promise<string>;
+  } = {
+    name: 'test-storage',
+    upload: async () => ({ url: '/api/storage/x' }),
+  };
+  return { storageStandIn, signedDownloadUrl };
+});
+
+vi.mock('@adgen/core', async (importActual) => {
+  const actual = await importActual<typeof import('@adgen/core')>();
+  return {
+    ...actual,
+    createProviders: () => ({
+      ai: { name: 'test-ai' },
+      script: { name: 'test-script' },
+      voice: { name: 'test-voice' },
+      renderer: { name: 'test-renderer' },
+      storage: storageStandIn,
+      scraper: { name: 'test-scraper' },
+      mediaEdit: null,
+    }),
+  };
+});
+
+// ---------------------------------------------------------------------------
 // Global fetch — persistRemoteAsset reads the bare global, so the suite owns it
 // here. One persistent mock (reset + reinstalled in beforeEach), restored in
 // afterEach so later test files in the same vitest run get the real fetch back.
@@ -297,5 +336,47 @@ describe('runMediaEditPipeline', () => {
     });
     expect(persist).toHaveBeenCalledWith('https://prov/uv', 'enhance');
     expect(result).toEqual([{ kind: 'video', url: 'https://our/final', storageKey: 'enhance/final.png' }]);
+  });
+});
+
+describe('runMediaEditPipeline — resolving the source url', () => {
+  beforeEach(() => {
+    signedDownloadUrl.mockClear();
+    // Default: the MockStorage shape, exactly what this suite ran against
+    // before this seam existed.
+    delete storageStandIn.signedDownloadUrl;
+  });
+
+  it('signs a relative /api/storage source when the storage can (R2) and hands fal the SIGNED url', async () => {
+    storageStandIn.signedDownloadUrl = signedDownloadUrl;
+    const { mediaEdit, persist } = makeDeps();
+    const result = await runMediaEditPipeline('enhance', '/api/storage/uploads/u1/a.png', {}, {
+      mediaEdit,
+      persist,
+    });
+
+    // The signer gets the BARE storage key — '/api/storage' is OUR route
+    // prefix, not part of the bucket key.
+    expect(signedDownloadUrl).toHaveBeenCalledWith('uploads/u1/a.png');
+    // fal fetches the source itself over the public internet and has no session
+    // cookie for our ownership-checked route — it must receive the signed url.
+    expect(mediaEdit.upscaleImage).toHaveBeenCalledWith('https://signed.test/uploads/u1/a.png?sig=1', {
+      upscaleFactor: undefined,
+      faceEnhancement: false,
+    });
+    expect(result[0].kind).toBe('image');
+  });
+
+  it('falls back to WEB_PUBLIC_URL when the storage cannot sign (dev), where the localhost guard still fires', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    await expect(
+      runMediaEditPipeline('enhance', '/api/storage/uploads/u1/a.png', {}, { mediaEdit, persist }),
+    ).rejects.toThrow(/source_not_public/);
+
+    // Refused BEFORE any signing, provider call, or persist — the job fails
+    // honestly and is never charged.
+    expect(signedDownloadUrl).not.toHaveBeenCalled();
+    expect(mediaEdit.upscaleImage).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
   });
 });

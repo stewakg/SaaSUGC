@@ -28,6 +28,25 @@ const generateVariants = vi.fn(async () => {
   throw new Error('generateVariants must not be called when approved scripts are supplied');
 });
 
+/**
+ * Stand-in for the ACTIVE storage, so the suite can flip between the two shapes
+ * resolveStorageUrl handles: R2/S3 (has signedDownloadUrl — production) and
+ * MockStorage (has not — dev falls back to WEB_PUBLIC_URL). `signedDownloadUrl`
+ * is attached per test and removed in beforeEach, so every pre-existing test
+ * keeps running against the exact non-signing shape it ran against before.
+ */
+const storageStandIn: {
+  name: string;
+  upload: () => Promise<{ url: string }>;
+  signedDownloadUrl?: (key: string) => Promise<string>;
+} = {
+  name: 'test-storage',
+  upload: async () => ({ url: '/api/storage/x' }),
+};
+
+/** The R2 shape: every key signs into a deterministic, recognizable url. */
+const signedDownloadUrl = vi.fn(async (key: string) => `https://signed.test/${key}?sig=1`);
+
 vi.mock('@adgen/core', async (importActual) => {
   const actual = await importActual<typeof import('@adgen/core')>();
   return {
@@ -41,7 +60,7 @@ vi.mock('@adgen/core', async (importActual) => {
         listVoices: async () => [{ id: 'voice-1', name: 'Voice One' }],
       },
       renderer: { name: 'test-renderer' },
-      storage: { name: 'test-storage', upload: async () => ({ url: '/api/storage/x' }) },
+      storage: storageStandIn,
       scraper: { name: 'test-scraper' },
       mediaEdit: null,
     }),
@@ -82,6 +101,8 @@ beforeEach(() => {
   generateVariants.mockClear();
   downloadClip.mockClear();
   detectShots.mockClear();
+  signedDownloadUrl.mockClear();
+  delete storageStandIn.signedDownloadUrl;
 });
 
 describe('runMatrixPipeline — variant count', () => {
@@ -231,5 +252,68 @@ describe('runMatrixPipeline — an empty result is a FAILURE, not a success', ()
     expect(assets).toEqual([]);
     expect(renderer.calls).toHaveLength(0);
     expect(voiceTts).not.toHaveBeenCalled();
+  });
+});
+
+describe('runMatrixPipeline — source urls: signed when the storage can, WEB_PUBLIC_URL when it cannot', () => {
+  it('signs a relative /api/storage source and feeds the SIGNED url to the montage and the renderer', async () => {
+    storageStandIn.signedDownloadUrl = signedDownloadUrl;
+    const renderer = recordingRenderer();
+    await runMatrixPipeline(
+      { scripts: [SCRIPTS[0]], count: 1, sourceVideoUrls: ['/api/storage/uploads/u1/a.mp4'] },
+      { renderer },
+    );
+
+    // The signer gets the BARE storage key — '/api/storage' is OUR route prefix,
+    // not part of the bucket key.
+    expect(signedDownloadUrl).toHaveBeenCalledWith('uploads/u1/a.mp4');
+
+    // The montage pool build downloads the SIGNED url (the renderer it drives
+    // has no session cookie for the app route)...
+    expect(downloadClip).toHaveBeenCalledWith('https://signed.test/uploads/u1/a.mp4?sig=1');
+
+    // ...and every shot handed to the renderer carries it.
+    const shots = renderer.calls[0].props.shots as { url: string }[];
+    expect(shots.length).toBeGreaterThan(0);
+    for (const shot of shots) {
+      expect(shot.url).toBe('https://signed.test/uploads/u1/a.mp4?sig=1');
+    }
+  });
+
+  it('falls back to WEB_PUBLIC_URL + path when the storage cannot sign (MockStorage, dev)', async () => {
+    const renderer = recordingRenderer();
+    await runMatrixPipeline(
+      { scripts: [SCRIPTS[0]], count: 1, sourceVideoUrls: ['/api/storage/uploads/u1/a.mp4'] },
+      { renderer, montage: false },
+    );
+
+    // Dev: the web app serves /api/storage off local disk, so prefixing the web
+    // origin is enough — and keeps this suite identical to pre-R2 behaviour.
+    const shots = renderer.calls[0].props.shots as { url: string }[];
+    expect(shots[0].url).toBe('http://localhost:3000/api/storage/uploads/u1/a.mp4');
+  });
+
+  it('passes an absolute source url through untouched, with and without a signing storage', async () => {
+    storageStandIn.signedDownloadUrl = signedDownloadUrl;
+    const withSigner = recordingRenderer();
+    await runMatrixPipeline(
+      { scripts: [SCRIPTS[0]], count: 1, sourceVideoUrls: ['https://cdn.test/a.mp4'] },
+      { renderer: withSigner, montage: false },
+    );
+
+    delete storageStandIn.signedDownloadUrl;
+    const withoutSigner = recordingRenderer();
+    await runMatrixPipeline(
+      { scripts: [SCRIPTS[0]], count: 1, sourceVideoUrls: ['https://cdn.test/a.mp4'] },
+      { renderer: withoutSigner, montage: false },
+    );
+
+    // Provider CDN urls and the default background clip are already absolute —
+    // neither branch may touch them. (The voice-audio url IS still signed in the
+    // with-signer run — it is a relative /api/storage path by contract — so the
+    // assertion is that no KEY was ever derived from the absolute source.)
+    expect((withSigner.calls[0].props.shots as { url: string }[])[0].url).toBe('https://cdn.test/a.mp4');
+    expect((withoutSigner.calls[0].props.shots as { url: string }[])[0].url).toBe('https://cdn.test/a.mp4');
+    expect(signedDownloadUrl.mock.calls.some(([key]) => key.includes('cdn.test'))).toBe(false);
   });
 });

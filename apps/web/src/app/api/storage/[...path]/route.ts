@@ -1,11 +1,14 @@
 /**
- * GET /api/storage/:path* — serves files written by MockStorage (local disk,
- * F4+: real Remotion renders, later mock assets too). Real R2/S3 replaces
- * this route entirely in F5; this is dev-only local serving.
+ * GET /api/storage/:path* — serves what the active storage holds:
+ *  - MockStorage (local disk, dev): reads the file and streams it (F4+: real
+ *    Remotion renders, later mock assets too).
+ *  - R2/S3 (real): authorises the caller, then 302-redirects to a short-lived
+ *    signed url — the bytes go straight from the bucket to the browser.
  *
- * NOTE: outside production the auth/ownership checks below are bypassed — see
- * the DEV-ONLY BYPASS comment in GET() for why (headless worker/renderer have
- * no session cookie).
+ * NOTE: outside production the auth/ownership checks below are bypassed on the
+ * local-file branch only — see the DEV-ONLY BYPASS comment in GET() for why
+ * (headless worker/renderer have no session cookie). The signing branch
+ * authorises in every environment.
  *
  * Requires auth + ownership. Two cases:
  *  - Job OUTPUTS (renders/…, voice/…, etc.): the path must match the `url`
@@ -22,10 +25,32 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { createProviders } from '@adgen/core';
 import { resolveLocalStorageDir } from '@adgen/core/storage-path';
 import { createServerClient } from '@/lib/supabase/server';
 
 const ROOT = resolveLocalStorageDir(process.env.LOCAL_STORAGE_DIR ?? './storage');
+
+/**
+ * The active storage, memoised: `createProviders()` builds an S3 client, and
+ * doing that per request would open a fresh connection pool every time.
+ *
+ * A provider that can sign urls (R2/S3) means the bytes are NOT on this disk —
+ * this route then authorises the caller and redirects to a short-lived signed
+ * url instead of reading a file that does not exist here.
+ */
+let signer: { signedDownloadUrl(key: string, ttl?: number): Promise<string> } | null | undefined;
+function getSigner() {
+  if (signer === undefined) {
+    const { storage } = createProviders();
+    const candidate = storage as unknown as { signedDownloadUrl?: unknown };
+    signer =
+      typeof candidate.signedDownloadUrl === 'function'
+        ? (storage as unknown as { signedDownloadUrl(key: string, ttl?: number): Promise<string> })
+        : null;
+  }
+  return signer;
+}
 
 /**
  * Response Content-Type per extension. This MUST cover every extension
@@ -51,24 +76,48 @@ const CONTENT_TYPES: Record<string, string> = {
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path: segments } = await context.params;
-  const resolved = path.resolve(ROOT, ...segments);
+  const key = segments.join('/');
+  const signedStorage = getSigner();
 
-  // Path-traversal guard: the resolved file must stay inside ROOT.
-  if (resolved !== ROOT && !resolved.startsWith(ROOT + path.sep)) {
-    return NextResponse.json({ error: 'invalid_path' }, { status: 400 });
-  }
+  if (!signedStorage) {
+    const resolved = path.resolve(ROOT, ...segments);
 
-  // DEV-ONLY BYPASS — do not remove the NODE_ENV condition.
-  // The worker and the Remotion renderer are separate headless processes with
-  // no Supabase session cookie; without this they get 401 here and every
-  // Matrix render hard-fails (runtime-verified 2026-08-05). This route only
-  // ever serves MockStorage's local files, which is a dev-only provider — in
-  // production S3CompatibleStorage serves assets from its own public base url
-  // and this route is not reached at all.
-  if (process.env.NODE_ENV !== 'production') {
+    // Path-traversal guard: the resolved file must stay inside ROOT.
+    if (resolved !== ROOT && !resolved.startsWith(ROOT + path.sep)) {
+      return NextResponse.json({ error: 'invalid_path' }, { status: 400 });
+    }
+
+    // DEV-ONLY BYPASS — do not remove the NODE_ENV condition.
+    // The worker and the Remotion renderer are separate headless processes with
+    // no Supabase session cookie; without this they get 401 here and every
+    // Matrix render hard-fails (runtime-verified 2026-08-05). This route only
+    // ever serves MockStorage's local files, which is a dev-only provider — in
+    // production S3CompatibleStorage serves assets from its own public base url
+    // and this route is not reached at all.
+    if (process.env.NODE_ENV !== 'production') {
+      return serveFile(resolved);
+    }
+
+    const denied = await authorise(segments);
+    if (denied) return denied;
     return serveFile(resolved);
   }
 
+  // Real storage: the caller is authorised the same way regardless of
+  // NODE_ENV. The dev bypass above exists for the headless worker reading
+  // MockStorage's local files; with R2 the worker signs keys itself and never
+  // arrives here, so there is nothing to bypass and every caller is a browser.
+  const denied = await authorise(segments);
+  if (denied) return denied;
+
+  // A redirect, not a proxy: the bytes go straight from R2 to the customer
+  // instead of through this process, and the url stops working within the hour.
+  const url = await signedStorage.signedDownloadUrl(key);
+  return NextResponse.redirect(url, 302);
+}
+
+/** Returns a response when the caller may NOT have this key, or null when they may. */
+async function authorise(segments: string[]): Promise<NextResponse | null> {
   const supabase = await createServerClient();
   const {
     data: { user },
@@ -87,8 +136,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ pa
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
     }
   }
-
-  return serveFile(resolved);
+  return null;
 }
 
 /** Reads the resolved local file and returns it with a guessed content type. */
