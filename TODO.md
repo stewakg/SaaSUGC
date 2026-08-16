@@ -128,6 +128,25 @@ belongs. **We now have real renders in R2** — the verification runs produced f
 Both B1 and B2 depend on **one decision the owner has to make: which render to use as the sample.**
 No code can pick that — it is the shop window.
 
+### C. The landing cards and the dashboard cards do not look alike — owner's request 2026-08-16
+Both screens render the SAME component (`MainToolCard`), and `page.tsx`'s own comment says they
+reuse it "so the two screens cannot drift". They drifted anyway, through props rather than through
+code: the dashboard passes `benefits={t.benefits}` and `theme={t.theme}`, and **the landing passes
+neither**, so the component falls back to the neutral `card` class with no benefit bullets and no
+per-tool colour wash. Both values already exist on `JOB_DESCRIPTORS` — nothing needs designing,
+they are simply not being handed over.
+
+| | Dashboard | Landing |
+|---|---|---|
+| `theme` | passed → `.card-tool--<hue>` wash + coloured edge | omitted → flat neutral card |
+| `benefits` | passed → three check-marked lines | omitted → one description line |
+| main grid | 2 columns | 3 columns, so cards are narrower |
+
+Fix: pass both props on the landing and match the main-tier grid to the dashboard's 2 columns.
+Mechanical and small. **One thing to decide while doing it:** §3c-A above already decided the
+landing should show only the tools that WORK — doing that first changes which cards this even
+applies to, so do A then C, not C then A.
+
 ## 4. Output quality
 
 | Status | Item | Note |
