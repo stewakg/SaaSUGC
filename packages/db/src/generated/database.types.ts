@@ -165,6 +165,15 @@ export type Database = {
         Args: { p_user_id: string; p_job_id: string | null; p_amount: number; p_reason?: string };
         Returns: undefined;
       };
+      // From migration 0010 (credit holds): reserve_credits places an
+      // expiring hold at enqueue, release_credits drops it on every terminal
+      // worker path. Hand-added like charge_credits above — regenerating the
+      // file needs a live database connection.
+      reserve_credits: {
+        Args: { p_user_id: string; p_job_id: string; p_amount: number };
+        Returns: boolean;
+      };
+      release_credits: { Args: { p_job_id: string }; Returns: undefined };
       add_credits: { Args: { p_user_id: string; p_amount: number; p_reason: string }; Returns: number };
       add_credits_idempotent: { Args: { p_user_id: string; p_amount: number; p_reason: string; p_external_ref: string }; Returns: number };
       tg_set_updated_at: { Args: Record<string, never>; Returns: undefined };

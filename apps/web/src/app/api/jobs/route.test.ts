@@ -3,11 +3,13 @@
  *
  * This route is the single door between a signed-in customer and a render that
  * costs real provider money (ElevenLabs voice, OpenRouter script, Lambda GPU).
- * Credits are NOT deducted here — the worker charges on success — so the only
- * thing standing between a zero-balance account and a free job is the
- * `balance < cost` check exercised below. If that check ever slips (a `<=` /
- * `<` typo, a missing balance load, an insert that runs before the check),
- * the tests in the "balance gate" describe fail, which is the point.
+ * Credits are NOT deducted here — the worker charges on success — so the
+ * things standing between a zero-balance account and a free job are the cheap
+ * `balance < cost` pre-check and, above all, the `reserve_credits` hold the
+ * route places once the job row exists. If either ever slips (a `<=` / `<`
+ * typo, a missing balance load, a reservation that never runs or runs after
+ * the enqueue), the tests in the "balance gate" describe fail, which is the
+ * point.
  *
  * Everything external is mocked so the route runs with no Supabase, no Redis,
  * no BullMQ and no network: the Supabase server/admin clients, the rate
@@ -30,12 +32,25 @@ import type { JobType } from '@adgen/db';
 // number — derive every expected cost below from computeJobCost(type, count).
 const type = 'matrix' satisfies JobType;
 
-const { getUser, profileSingle, inFlightRows, insertSingle, insertSpy, rateLimitMock, queueAdd, queueNames } = vi.hoisted(() => ({
+const {
+  getUser,
+  profileSingle,
+  insertSingle,
+  insertSpy,
+  adminDeleteEq,
+  reserveRpc,
+  rateLimitMock,
+  queueAdd,
+  queueNames,
+} = vi.hoisted(() => ({
   getUser: vi.fn(),
   profileSingle: vi.fn(),
-  inFlightRows: vi.fn(),
   insertSingle: vi.fn(),
   insertSpy: vi.fn(),
+  // `from('jobs').delete().eq('id', ...)` — the failed-reservation cleanup.
+  adminDeleteEq: vi.fn(),
+  // `admin.rpc('reserve_credits', ...)` — the hold itself.
+  reserveRpc: vi.fn(),
   rateLimitMock: vi.fn(),
   queueAdd: vi.fn(),
   queueNames: [] as string[],
@@ -47,10 +62,9 @@ vi.mock('@/lib/supabase/server', () => ({
     from: (_t: string) => ({
       select: (_c: string) => ({
         eq: (_k: string, _v: unknown) => ({
-          // `profiles` ends here…
+          // `profiles` ends here — the route no longer reads `jobs` from the
+          // user client; the in-flight sum moved into reserve_credits (RPC).
           single: profileSingle,
-          // …and `jobs` ends one link further, at the in-flight status filter.
-          in: (_col: string, _vals: unknown[]) => inFlightRows(),
         }),
       }),
     }),
@@ -61,7 +75,15 @@ vi.mock('@/lib/supabase/server', () => ({
         insertSpy(row);
         return { select: (_c: string) => ({ single: insertSingle }) };
       },
+      // A failed reservation deletes the just-inserted job row again.
+      delete: () => ({
+        eq: (col: string, val: unknown) => {
+          adminDeleteEq(col, val);
+          return Promise.resolve({ error: null });
+        },
+      }),
     }),
+    rpc: reserveRpc,
   }),
 }));
 
@@ -105,7 +127,8 @@ beforeEach(() => {
   rateLimitMock.mockResolvedValue({ allowed: true, resetSeconds: 0 });
   profileSingle.mockResolvedValue({ data: { balance: 10_000 }, error: null });
   insertSingle.mockResolvedValue({ data: { id: 'job1' }, error: null });
-  inFlightRows.mockResolvedValue({ data: [], error: null });
+  // The hold is placed by default — only the reservation tests override it.
+  reserveRpc.mockResolvedValue({ data: true, error: null });
 });
 
 describe('POST /api/jobs — auth, rate limit and input validation', () => {
@@ -217,75 +240,73 @@ describe('POST /api/jobs — the balance gate', () => {
     expect(queueAdd).not.toHaveBeenCalled();
   });
 
-  it('19. in-flight work is counted: balance covers the new job but not the queued one ⇒ 402, nothing inserted or enqueued', async () => {
-    // The exact hole this closes: charge-on-success means the balance is spent
-    // twice if both jobs run. unit + 5 would pass the old bare `balance < cost`
-    // check (it covers the new job) but must NOT pass once the one job already
-    // sitting in the queue is counted. The mock's single row stands in for the
-    // `.in('status', ['queued','running'])` result set.
-    const unit = computeJobCost(type, 1);
-    profileSingle.mockResolvedValue({ data: { balance: unit + 5 }, error: null });
-    inFlightRows.mockResolvedValue({ data: [{ cost: unit }], error: null });
+  it('19. the happy path reserves the INSERTED job: reserve_credits(u1, job1, computed cost), after the insert and before the enqueue', async () => {
+    const res = await POST(req({ type, count: 3 }));
+
+    expect(res.status).toBe(200);
+    // All three arguments matter: whose balance is held, which job the hold is
+    // keyed by (the row just inserted — hence after the insert), and the full
+    // quoted cost.
+    expect(reserveRpc).toHaveBeenCalledTimes(1);
+    expect(reserveRpc).toHaveBeenCalledWith('reserve_credits', {
+      p_user_id: 'u1',
+      p_job_id: 'job1',
+      p_amount: computeJobCost(type, 3),
+    });
+    // Nothing is enqueued until the hold is placed — an enqueued job with no
+    // hold is exactly the free render this gate exists to stop.
+    expect(insertSpy.mock.invocationCallOrder[0]).toBeLessThan(
+      reserveRpc.mock.invocationCallOrder[0],
+    );
+    expect(reserveRpc.mock.invocationCallOrder[0]).toBeLessThan(
+      queueAdd.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('20. reserve_credits returning false ⇒ 402 insufficient_balance, the job row DELETED, nothing enqueued', async () => {
+    // false (not an error) is the DB saying the balance cannot cover this job
+    // PLUS the caller's outstanding holds — the counting the old in-flight sum
+    // approximated in application code, now done under the profile row lock.
+    reserveRpc.mockResolvedValue({ data: false, error: null });
 
     const res = await POST(req({ type, count: 1 }));
 
     expect(res.status).toBe(402);
     const body = await res.json();
     expect(body.error).toBe('insufficient_balance');
-    expect(insertSpy).not.toHaveBeenCalled();
+    expect(body.cost).toBe(computeJobCost(type, 1));
+    expect(body.balance).toBe(10_000);
+    // The row is removed again — no queued job that nobody will ever process.
+    expect(adminDeleteEq).toHaveBeenCalledTimes(1);
+    expect(adminDeleteEq).toHaveBeenCalledWith('id', 'job1');
     expect(queueAdd).not.toHaveBeenCalled();
   });
 
-  it('20. the 402 body reports the held amount: reserved = in-flight cost, balance as loaded', async () => {
-    const unit = computeJobCost(type, 1);
-    profileSingle.mockResolvedValue({ data: { balance: unit + 5 }, error: null });
-    inFlightRows.mockResolvedValue({ data: [{ cost: unit }], error: null });
-
-    const res = await POST(req({ type, count: 1 }));
-
-    const body = await res.json();
-    expect(body.reserved).toBe(unit);
-    expect(body.balance).toBe(unit + 5);
-  });
-
-  it('21. balance covering in-flight + the new job still passes ⇒ 200 and the row is inserted', async () => {
-    const unit = computeJobCost(type, 1);
-    profileSingle.mockResolvedValue({ data: { balance: unit * 2 + 10 }, error: null });
-    inFlightRows.mockResolvedValue({ data: [{ cost: unit }], error: null });
-
-    const res = await POST(req({ type, count: 1 }));
-
-    expect(res.status).toBe(200);
-    expect(insertSpy).toHaveBeenCalledTimes(1);
-    const row = insertSpy.mock.calls[0][0];
-    expect(row.cost).toBe(unit);
-  });
-
-  it('22. only unfinished work counts: jobs outside queued/running are not held against the balance ⇒ 200', async () => {
-    // inFlightRows IS the `.in('status', ['queued','running'])` step in this
-    // mock — its empty result stands for a user whose only other jobs are all
-    // `done`. The balance is exactly one unit, so counting ANY finished job's
-    // cost here would flip this to 402.
-    const unit = computeJobCost(type, 1);
-    profileSingle.mockResolvedValue({ data: { balance: unit }, error: null });
-    inFlightRows.mockResolvedValue({ data: [], error: null });
-
-    const res = await POST(req({ type, count: 1 }));
-
-    expect(res.status).toBe(200);
-    expect(insertSpy).toHaveBeenCalledTimes(1);
-  });
-
-  it('23. in-flight lookup failure ⇒ 500 balance_check_failed, nothing inserted or enqueued', async () => {
-    // If the reservation cannot be computed the job must not be created —
-    // enqueueing blind is exactly the double-spend this gate exists to stop.
-    inFlightRows.mockResolvedValue({ data: null, error: { message: 'boom' } });
+  it('21. reserve_credits erroring ⇒ 500 balance_check_failed, row deleted, nothing enqueued', async () => {
+    // An RPC error is a database failure, not "no credits": different status,
+    // same cleanup.
+    reserveRpc.mockResolvedValue({ data: null, error: { message: 'db exploded' } });
 
     const res = await POST(req({ type, count: 1 }));
 
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'balance_check_failed' });
+    expect(adminDeleteEq).toHaveBeenCalledWith('id', 'job1');
+    expect(queueAdd).not.toHaveBeenCalled();
+  });
+
+  it('22. the cheap pre-check still short-circuits: balance below cost ⇒ 402 and reserve_credits was never called', async () => {
+    // The pre-check exists to save the insert + delete round trip in the
+    // "user has no credits at all" case; reserve_credits is the authority.
+    const cost = computeJobCost(type, 2);
+    profileSingle.mockResolvedValue({ data: { balance: cost - 1 }, error: null });
+
+    const res = await POST(req({ type, count: 2 }));
+
+    expect(res.status).toBe(402);
+    expect(await res.json()).toEqual({ error: 'insufficient_balance', cost, balance: cost - 1 });
     expect(insertSpy).not.toHaveBeenCalled();
+    expect(reserveRpc).not.toHaveBeenCalled();
     expect(queueAdd).not.toHaveBeenCalled();
   });
 });

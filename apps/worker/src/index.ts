@@ -5,7 +5,10 @@
  * row, runs the mock pipeline (real providers land per-tool in F3+), writes
  * `assets` + `jobs.result`, and charges credits ONLY on success via the
  * `charge_credits` RPC (INFRASTRUCTURE.md §3 — charge-on-success). On
- * failure the job is marked "error" and nothing is charged.
+ * failure the job is marked "error" and nothing is charged. Whatever the
+ * outcome, the hold `POST /api/jobs` placed on the balance at enqueue time
+ * is released via `release_credits`, so the reserved credits return to
+ * available (one-hour expiry is the backstop if this process dies).
  *
  * Mock-first: with zero external keys, `createProviders()` resolves to mocks,
  * so the whole pipeline runs end-to-end locally (just needs Redis + Supabase).
@@ -835,6 +838,25 @@ export function makeProcessor(
   return async function processJob(bullJob: Job<JobQueueData>) {
     const { jobId } = bullJob.data;
 
+    // Best-effort: the hold expires by itself within the hour, so a failure
+    // here delays a customer's credits at worst. Letting it throw would turn
+    // a paid, delivered job into a failed one, which is far worse.
+    const releaseHold = async () => {
+      try {
+        const { error: releaseError } = await db.rpc('release_credits', { p_job_id: jobId });
+        if (releaseError) {
+          consoleLogger.warn('release_credits failed', { jobId, error: releaseError.message });
+        }
+      } catch (err) {
+        // A rejected rpc call is the same outcome as an errored one — log
+        // and swallow; it must never change the job's result.
+        consoleLogger.warn('release_credits failed', {
+          jobId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    };
+
     const { data: job, error } = await db.from('jobs').select('*').eq('id', jobId).single();
     if (error || !job) {
       throw new Error(`[worker] job ${jobId} not found: ${error?.message ?? 'no row'}`);
@@ -912,8 +934,14 @@ export function makeProcessor(
             error: 'charge_failed: Naplata nije uspela. Posao nije naplaćen.',
           })
           .eq('id', jobId);
+        // Nothing was charged, so the held credits go back to available.
+        await releaseHold();
         return;
       }
+
+      // charge_credits succeeded — the money has moved, so the hold has done
+      // its job and the credits go back to available for the next enqueue.
+      await releaseHold();
 
       // `assets` is a plain, JSON-serialisable array of strings — safe to
       // hand to the jsonb column despite PipelineAsset not structurally
@@ -932,6 +960,9 @@ export function makeProcessor(
         .from('jobs')
         .update({ status: 'error', error: jobErrorForUser(message) })
         .eq('id', jobId);
+      // The pipeline threw — nothing was charged, so the hold must not
+      // outlive the job.
+      await releaseHold();
       throw err;
     }
   };

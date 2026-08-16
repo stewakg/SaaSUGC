@@ -1,13 +1,18 @@
 /**
  * POST /api/jobs — enqueue a generation job (F2 job pipeline).
  *
- * Flow: auth -> validate type/count -> compute cost -> check balance ->
- * insert `jobs` row (service-role; RLS has no insert policy for clients,
- * by design — see supabase/migrations/0001_init_schema.sql) -> push to
- * BullMQ -> return the job id for the client to poll.
+ * Flow: auth -> validate type/count -> compute cost -> cheap balance
+ * pre-check -> insert `jobs` row (service-role; RLS has no insert policy
+ * for clients, by design — see supabase/migrations/0001_init_schema.sql)
+ * -> RESERVE the cost (reserve_credits holds it against the balance —
+ * supabase/migrations/0010_credit_holds.sql) -> push to BullMQ -> return
+ * the job id for the client to poll.
  *
  * Credits are NOT deducted here — charge-on-success happens in the worker
- * once the job actually completes (INFRASTRUCTURE.md §3).
+ * once the job actually completes (INFRASTRUCTURE.md §3). The reservation
+ * is a hold, not a charge: it stops concurrent enqueues from each spending
+ * the same balance, and the worker releases it on every terminal path
+ * (one-hour expiry is the backstop for a worker that dies mid-job).
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { Queue } from 'bullmq';
@@ -105,31 +110,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'profile_not_found' }, { status: 500 });
   }
   /**
-   * Charge-on-success means the balance is not touched until the worker
-   * finishes, so a bare `balance < cost` check passes for EVERY job enqueued
-   * inside the same window. Fifteen matrix jobs on a 15-credit account each
-   * ran the real pipeline and each spent real provider money; only the first
-   * charge could succeed and the business ate the other fourteen.
-   *
-   * So the balance has to cover what is already in flight as well. This is a
-   * check, not a lock: two requests in the same millisecond still read the
-   * same in-flight set. It shrinks the window from minutes of queue-and-render
-   * time to one round trip. A real hold belongs in the database and is a
-   * separate change.
+   * Cheap pre-check, not the gate. It saves a row insert + delete in the
+   * common "user has no credits at all" case and keeps the 402 body the
+   * client already knows (`error`, `cost`, `balance`). `reserve_credits`
+   * below is the authority: it takes the profile row's write lock in
+   * Postgres, counts the caller's outstanding holds — the queued/running
+   * jobs this check used to sum for itself — and places this job's hold
+   * atomically. No application-side check can do that: two requests in the
+   * same millisecond read the same state here and would both pass.
    */
-  const { data: inFlight, error: inFlightError } = await supabase
-    .from('jobs')
-    .select('cost')
-    .eq('user_id', user.id)
-    .in('status', ['queued', 'running']);
-  if (inFlightError) {
-    console.error('[jobs] in-flight lookup failed:', inFlightError.message);
-    return NextResponse.json({ error: 'balance_check_failed' }, { status: 500 });
-  }
-  const reserved = (inFlight ?? []).reduce((sum, row) => sum + (row.cost ?? 0), 0);
-  if (profile.balance < reserved + cost) {
+  if (profile.balance < cost) {
     return NextResponse.json(
-      { error: 'insufficient_balance', cost, balance: profile.balance, reserved },
+      { error: 'insufficient_balance', cost, balance: profile.balance },
       { status: 402 },
     );
   }
@@ -146,6 +138,27 @@ export async function POST(request: NextRequest) {
     // client only needs to know the job was not created.
     console.error('[jobs] insert failed:', insertError?.message ?? 'no row returned');
     return NextResponse.json({ error: 'insert_failed' }, { status: 500 });
+  }
+
+  // The row has to exist before the hold can point at it. If the reservation
+  // fails, this job never runs, so the row is removed again rather than left as
+  // a queued job nobody will ever process.
+  const { data: reserved, error: reserveError } = await admin.rpc('reserve_credits', {
+    p_user_id: user.id,
+    p_job_id: job.id,
+    p_amount: cost,
+  });
+  if (reserveError) {
+    console.error('[jobs] reserve_credits failed:', reserveError.message);
+    await admin.from('jobs').delete().eq('id', job.id);
+    return NextResponse.json({ error: 'balance_check_failed' }, { status: 500 });
+  }
+  if (reserved !== true) {
+    await admin.from('jobs').delete().eq('id', job.id);
+    return NextResponse.json(
+      { error: 'insufficient_balance', cost, balance: profile.balance },
+      { status: 402 },
+    );
   }
 
   await getQueue(queueNameForJobType(type)).add(type, { jobId: job.id });

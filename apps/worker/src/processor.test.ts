@@ -4,11 +4,13 @@
  * the real pipeline) are injected, so nothing here touches a database or a provider.
  *
  * The point of this file is the charge/refund/rollback logic: charge happens ONLY on
- * success, a failed charge rolls back the inserted asset rows, and every failure path
- * marks the job `error` without charging. Getting any of that wrong is what overbills
- * a customer or hands them a paid asset for free.
+ * success, a failed charge rolls back the inserted asset rows, every failure path
+ * marks the job `error` without charging, and every terminal path releases the
+ * enqueue-time credit hold (release_credits). Getting any of that wrong is what
+ * overbills a customer or hands them a paid asset for free.
  */
 import { describe, it, expect, vi } from 'vitest';
+import { consoleLogger } from '@adgen/core';
 import { GENERIC_JOB_ERROR, jobErrorForUser, makeProcessor } from './index.ts';
 
 /**
@@ -22,6 +24,8 @@ function makeDb(opts: {
   jobError?: { message: string } | null;
   insertError?: { message: string } | null;
   chargeError?: { message: string } | null;
+  /** Per-RPC errors, keyed by function name — lets release_credits fail alone. */
+  rpcErrors?: Record<string, { message: string } | null>;
 } = {}) {
   const calls = {
     jobUpdates: [] as any[], // every patch passed to jobs.update(...)
@@ -55,7 +59,11 @@ function makeDb(opts: {
     },
     rpc: async (name: string, args: any) => {
       calls.rpc.push({ name, args });
-      return { error: opts.chargeError ?? null };
+      // chargeError keeps its old meaning (charge_credits fails); per-name
+      // errors let one RPC fail without failing the others.
+      const error =
+        opts.rpcErrors?.[name] ?? (name === 'charge_credits' ? (opts.chargeError ?? null) : null);
+      return { error };
     },
   };
   return { db, calls };
@@ -119,7 +127,9 @@ describe('makeProcessor / processJob — the worker job state machine', () => {
     const processJob = makeProcessor(db as any, runPipelineFn);
 
     await expect(processJob(bullJob)).rejects.toThrow(/no assets/);
-    expect(calls.rpc).toHaveLength(0);
+    // Nothing was charged — and the failure path releases the enqueue hold.
+    expect(calls.rpc.filter((c) => c.name === 'charge_credits')).toHaveLength(0);
+    expect(calls.rpc).toEqual([{ name: 'release_credits', args: { p_job_id: 'j1' } }]);
     // The "no assets" text now goes to the worker log, not the row — the row
     // gets the generic customer-facing message.
     expect(calls.jobUpdates[calls.jobUpdates.length - 1]).toEqual({
@@ -134,7 +144,9 @@ describe('makeProcessor / processJob — the worker job state machine', () => {
     const processJob = makeProcessor(db as any, runPipelineFn);
 
     await expect(processJob(bullJob)).rejects.toThrow(/boom/);
-    expect(calls.rpc).toHaveLength(0);
+    // Nothing was charged — and the failure path releases the enqueue hold.
+    expect(calls.rpc.filter((c) => c.name === 'charge_credits')).toHaveLength(0);
+    expect(calls.rpc).toEqual([{ name: 'release_credits', args: { p_job_id: 'j1' } }]);
     expect(calls.jobUpdates[calls.jobUpdates.length - 1]).toEqual({
       status: 'error',
       error: GENERIC_JOB_ERROR,
@@ -179,7 +191,9 @@ describe('makeProcessor / processJob — the worker job state machine', () => {
     const processJob = makeProcessor(db as any, runPipelineFn);
 
     await expect(processJob(bullJob)).rejects.toThrow(/assets insert failed/);
-    expect(calls.rpc).toHaveLength(0);
+    // Nothing was charged — and the failure path releases the enqueue hold.
+    expect(calls.rpc.filter((c) => c.name === 'charge_credits')).toHaveLength(0);
+    expect(calls.rpc).toEqual([{ name: 'release_credits', args: { p_job_id: 'j1' } }]);
     expect(calls.jobUpdates[calls.jobUpdates.length - 1].status).toBe('error');
   });
 
@@ -214,6 +228,56 @@ describe('makeProcessor / processJob — the worker job state machine', () => {
     const twoAmount = two.calls.rpc[0].args.p_amount;
 
     expect(twoAmount).toBe(oneAmount * 2);
+  });
+});
+
+describe('processJob — the enqueue-time credit hold (release_credits)', () => {
+  it('a successful job releases the hold: release_credits with the job id, once, after the charge', async () => {
+    const { db, calls } = makeDb({ job });
+    await makeProcessor(db as any, vi.fn().mockResolvedValue([asset]))(bullJob);
+
+    expect(calls.rpc.filter((c) => c.name === 'release_credits')).toEqual([
+      { name: 'release_credits', args: { p_job_id: 'j1' } },
+    ]);
+    // The charge moves the money first; only then does the hold go.
+    const chargeIdx = calls.rpc.findIndex((c) => c.name === 'charge_credits');
+    expect(chargeIdx).toBeGreaterThanOrEqual(0);
+    expect(chargeIdx).toBeLessThan(calls.rpc.findIndex((c) => c.name === 'release_credits'));
+  });
+
+  it('a FAILED charge releases the hold too — the money never moved, so the credits must go back', async () => {
+    const { db, calls } = makeDb({ job, chargeError: { message: 'insufficient' } });
+    await makeProcessor(db as any, vi.fn().mockResolvedValue([asset]))(bullJob);
+
+    expect(calls.rpc.filter((c) => c.name === 'release_credits')).toEqual([
+      { name: 'release_credits', args: { p_job_id: 'j1' } },
+    ]);
+  });
+
+  it('a thrown pipeline releases the hold', async () => {
+    const { db, calls } = makeDb({ job });
+    const processJob = makeProcessor(db as any, vi.fn().mockRejectedValue(new Error('boom')));
+
+    await expect(processJob(bullJob)).rejects.toThrow('boom');
+    expect(calls.rpc.filter((c) => c.name === 'release_credits')).toEqual([
+      { name: 'release_credits', args: { p_job_id: 'j1' } },
+    ]);
+  });
+
+  it('a FAILING release_credits does not change the outcome: the job is still done and the error is only logged', async () => {
+    // The one that matters — wiring the release so it could fail the job
+    // would turn a paid, delivered job into a failed one.
+    const warnSpy = vi.spyOn(consoleLogger, 'warn').mockImplementation(() => {});
+    const { db, calls } = makeDb({ job, rpcErrors: { release_credits: { message: 'locked' } } });
+
+    await makeProcessor(db as any, vi.fn().mockResolvedValue([asset]))(bullJob);
+
+    expect(calls.jobUpdates[calls.jobUpdates.length - 1].status).toBe('done');
+    expect(warnSpy).toHaveBeenCalledWith(
+      'release_credits failed',
+      expect.objectContaining({ jobId: 'j1' }),
+    );
+    warnSpy.mockRestore();
   });
 });
 
