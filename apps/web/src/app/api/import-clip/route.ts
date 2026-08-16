@@ -24,7 +24,8 @@
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { runYtDlp } from '@/lib/yt-dlp';
-import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createProviders } from '@adgen/core';
@@ -87,11 +88,20 @@ export async function POST(request: NextRequest) {
     if (size > MAX_IMPORT_BYTES) {
       return NextResponse.json({ error: 'file_too_large', maxBytes: MAX_IMPORT_BYTES }, { status: 413 });
     }
-    const buffer = await readFile(join(dir, files[0]));
     const ext = files[0].includes('.') ? files[0].slice(files[0].lastIndexOf('.')) : '.mp4';
     const key = `uploads/${user.id}/imported-${Date.now()}${ext}`;
     const { storage } = createProviders();
-    const { url: storedUrl } = await storage.upload(key, buffer, 'video/mp4');
+    // Streamed, not buffered: this file can be 200 MB and this process has ~3.7 GB
+    // shared with everything else on the box. `size` comes from the stat() check
+    // above — the same number, so nothing extra is read — and storage needs it
+    // because SigV4 cannot sign a body whose length it cannot measure (see
+    // S3CompatibleStorage.upload).
+    const { url: storedUrl } = await storage.upload(
+      key,
+      createReadStream(join(dir, files[0])),
+      'video/mp4',
+      size,
+    );
     return NextResponse.json({ url: storedUrl });
   } catch (err) {
     console.error('[import-clip] download failed:', err);

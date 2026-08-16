@@ -15,8 +15,9 @@
  * Everything external is mocked so the routes run with no Supabase, no Redis,
  * no provider keys, no yt-dlp binary and no disk: the Supabase server client,
  * the rate limiter, assertPublicHost, runYtDlp, createProviders (scraper +
- * storage) and the exact node:fs/promises functions import-clip calls
- * (mkdtemp / readdir / stat / readFile / rm) are all vi.fn()s declared through
+ * storage) and the exact node:fs functions import-clip calls — mkdtemp /
+ * readdir / stat / rm from node:fs/promises, createReadStream from node:fs —
+ * are all vi.fn()s declared through
  * vi.hoisted (vi.mock is hoisted above every import, so its factory can only
  * see hoisted bindings — same discipline as jobs/route.test.ts).
  *
@@ -36,8 +37,8 @@ const {
   mkdtempMock,
   readdirMock,
   statMock,
-  readFileMock,
   rmMock,
+  createReadStreamMock,
 } = vi.hoisted(() => ({
   getUser: vi.fn(),
   rateLimitMock: vi.fn(),
@@ -49,8 +50,8 @@ const {
   mkdtempMock: vi.fn(),
   readdirMock: vi.fn(),
   statMock: vi.fn(),
-  readFileMock: vi.fn(),
   rmMock: vi.fn(),
+  createReadStreamMock: vi.fn(),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -65,8 +66,15 @@ vi.mock('node:fs/promises', () => ({
   mkdtemp: mkdtempMock,
   readdir: readdirMock,
   stat: statMock,
-  readFile: readFileMock,
   rm: rmMock,
+}));
+// node:fs keeps its real shape (spread from importOriginal) with only
+// createReadStream replaced, so anything else in the graph importing node:fs
+// is unaffected — the route hands the returned stream straight to the mocked
+// storage.upload, which never reads it.
+vi.mock('node:fs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:fs')>()),
+  createReadStream: createReadStreamMock,
 }));
 
 import { POST as scrapePost } from './scrape/route.ts';
@@ -107,7 +115,10 @@ beforeEach(() => {
   mkdtempMock.mockResolvedValue('/tmp/import-clip-xyz');
   readdirMock.mockResolvedValue(['clip.mp4']);
   statMock.mockResolvedValue({ size: 1024 });
-  readFileMock.mockResolvedValue(Buffer.from('fake-mp4'));
+  // A stand-in stream (a plain object with a pipe function): storage.upload
+  // is mocked and never reads it — the tests pin that the route passes a
+  // STREAM, not a Buffer, plus stat()'s size as the 4th upload argument.
+  createReadStreamMock.mockReturnValue({ pipe: () => {} });
   rmMock.mockResolvedValue(undefined);
 });
 
@@ -246,6 +257,36 @@ describe('POST /api/import-clip', () => {
     expect(fail.status).toBe(502);
     expect(rmMock).toHaveBeenCalledTimes(2);
     expect(rmMock).toHaveBeenLastCalledWith(expect.any(String), { recursive: true, force: true });
+  });
+
+  it('13. streamed, not buffered ⇒ storage.upload receives a readable stream (pipe-able), never a Buffer', async () => {
+    const res = await importPost(importReq({ url: 'https://www.tiktok.com/@u/video/1' }));
+
+    expect(res.status).toBe(200);
+    expect(createReadStreamMock).toHaveBeenCalledTimes(1);
+    expect(String(createReadStreamMock.mock.calls[0][0])).toContain('clip.mp4');
+
+    const uploaded = storageMock.upload.mock.calls[0][1];
+    expect(Buffer.isBuffer(uploaded)).toBe(false);
+    expect(typeof uploaded.pipe).toBe('function');
+  });
+
+  it('14. the byte length rides along ⇒ the 4th storage.upload argument is the size stat() reported, which R2 cannot sign the PUT without', async () => {
+    statMock.mockResolvedValue({ size: 123456 });
+
+    const res = await importPost(importReq({ url: 'https://www.tiktok.com/@u/video/1' }));
+
+    expect(res.status).toBe(200);
+    expect(storageMock.upload).toHaveBeenCalledTimes(1);
+    expect(storageMock.upload.mock.calls[0][3]).toBe(123456);
+  });
+
+  it('15. happy path ⇒ 200 { url } and the stored key keeps the uploads/<user id>/imported- prefix', async () => {
+    const res = await importPost(importReq({ url: 'https://www.tiktok.com/@u/video/1' }));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ url: 'https://cdn.example/stored' });
+    expect(storageMock.upload.mock.calls[0][0].startsWith('uploads/u1/imported-')).toBe(true);
   });
 });
 
