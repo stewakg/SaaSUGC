@@ -104,8 +104,34 @@ export async function POST(request: NextRequest) {
   if (profileError || !profile) {
     return NextResponse.json({ error: 'profile_not_found' }, { status: 500 });
   }
-  if (profile.balance < cost) {
-    return NextResponse.json({ error: 'insufficient_balance', cost, balance: profile.balance }, { status: 402 });
+  /**
+   * Charge-on-success means the balance is not touched until the worker
+   * finishes, so a bare `balance < cost` check passes for EVERY job enqueued
+   * inside the same window. Fifteen matrix jobs on a 15-credit account each
+   * ran the real pipeline and each spent real provider money; only the first
+   * charge could succeed and the business ate the other fourteen.
+   *
+   * So the balance has to cover what is already in flight as well. This is a
+   * check, not a lock: two requests in the same millisecond still read the
+   * same in-flight set. It shrinks the window from minutes of queue-and-render
+   * time to one round trip. A real hold belongs in the database and is a
+   * separate change.
+   */
+  const { data: inFlight, error: inFlightError } = await supabase
+    .from('jobs')
+    .select('cost')
+    .eq('user_id', user.id)
+    .in('status', ['queued', 'running']);
+  if (inFlightError) {
+    console.error('[jobs] in-flight lookup failed:', inFlightError.message);
+    return NextResponse.json({ error: 'balance_check_failed' }, { status: 500 });
+  }
+  const reserved = (inFlight ?? []).reduce((sum, row) => sum + (row.cost ?? 0), 0);
+  if (profile.balance < reserved + cost) {
+    return NextResponse.json(
+      { error: 'insufficient_balance', cost, balance: profile.balance, reserved },
+      { status: 402 },
+    );
   }
 
   const admin = createAdminClient();

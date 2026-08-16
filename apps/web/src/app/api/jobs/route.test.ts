@@ -30,9 +30,10 @@ import type { JobType } from '@adgen/db';
 // number — derive every expected cost below from computeJobCost(type, count).
 const type = 'matrix' satisfies JobType;
 
-const { getUser, profileSingle, insertSingle, insertSpy, rateLimitMock, queueAdd, queueNames } = vi.hoisted(() => ({
+const { getUser, profileSingle, inFlightRows, insertSingle, insertSpy, rateLimitMock, queueAdd, queueNames } = vi.hoisted(() => ({
   getUser: vi.fn(),
   profileSingle: vi.fn(),
+  inFlightRows: vi.fn(),
   insertSingle: vi.fn(),
   insertSpy: vi.fn(),
   rateLimitMock: vi.fn(),
@@ -44,7 +45,14 @@ vi.mock('@/lib/supabase/server', () => ({
   createServerClient: async () => ({
     auth: { getUser },
     from: (_t: string) => ({
-      select: (_c: string) => ({ eq: (_k: string, _v: unknown) => ({ single: profileSingle }) }),
+      select: (_c: string) => ({
+        eq: (_k: string, _v: unknown) => ({
+          // `profiles` ends here…
+          single: profileSingle,
+          // …and `jobs` ends one link further, at the in-flight status filter.
+          in: (_col: string, _vals: unknown[]) => inFlightRows(),
+        }),
+      }),
     }),
   }),
   createAdminClient: () => ({
@@ -97,6 +105,7 @@ beforeEach(() => {
   rateLimitMock.mockResolvedValue({ allowed: true, resetSeconds: 0 });
   profileSingle.mockResolvedValue({ data: { balance: 10_000 }, error: null });
   insertSingle.mockResolvedValue({ data: { id: 'job1' }, error: null });
+  inFlightRows.mockResolvedValue({ data: [], error: null });
 });
 
 describe('POST /api/jobs — auth, rate limit and input validation', () => {
@@ -204,6 +213,78 @@ describe('POST /api/jobs — the balance gate', () => {
 
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'profile_not_found' });
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(queueAdd).not.toHaveBeenCalled();
+  });
+
+  it('19. in-flight work is counted: balance covers the new job but not the queued one ⇒ 402, nothing inserted or enqueued', async () => {
+    // The exact hole this closes: charge-on-success means the balance is spent
+    // twice if both jobs run. unit + 5 would pass the old bare `balance < cost`
+    // check (it covers the new job) but must NOT pass once the one job already
+    // sitting in the queue is counted. The mock's single row stands in for the
+    // `.in('status', ['queued','running'])` result set.
+    const unit = computeJobCost(type, 1);
+    profileSingle.mockResolvedValue({ data: { balance: unit + 5 }, error: null });
+    inFlightRows.mockResolvedValue({ data: [{ cost: unit }], error: null });
+
+    const res = await POST(req({ type, count: 1 }));
+
+    expect(res.status).toBe(402);
+    const body = await res.json();
+    expect(body.error).toBe('insufficient_balance');
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(queueAdd).not.toHaveBeenCalled();
+  });
+
+  it('20. the 402 body reports the held amount: reserved = in-flight cost, balance as loaded', async () => {
+    const unit = computeJobCost(type, 1);
+    profileSingle.mockResolvedValue({ data: { balance: unit + 5 }, error: null });
+    inFlightRows.mockResolvedValue({ data: [{ cost: unit }], error: null });
+
+    const res = await POST(req({ type, count: 1 }));
+
+    const body = await res.json();
+    expect(body.reserved).toBe(unit);
+    expect(body.balance).toBe(unit + 5);
+  });
+
+  it('21. balance covering in-flight + the new job still passes ⇒ 200 and the row is inserted', async () => {
+    const unit = computeJobCost(type, 1);
+    profileSingle.mockResolvedValue({ data: { balance: unit * 2 + 10 }, error: null });
+    inFlightRows.mockResolvedValue({ data: [{ cost: unit }], error: null });
+
+    const res = await POST(req({ type, count: 1 }));
+
+    expect(res.status).toBe(200);
+    expect(insertSpy).toHaveBeenCalledTimes(1);
+    const row = insertSpy.mock.calls[0][0];
+    expect(row.cost).toBe(unit);
+  });
+
+  it('22. only unfinished work counts: jobs outside queued/running are not held against the balance ⇒ 200', async () => {
+    // inFlightRows IS the `.in('status', ['queued','running'])` step in this
+    // mock — its empty result stands for a user whose only other jobs are all
+    // `done`. The balance is exactly one unit, so counting ANY finished job's
+    // cost here would flip this to 402.
+    const unit = computeJobCost(type, 1);
+    profileSingle.mockResolvedValue({ data: { balance: unit }, error: null });
+    inFlightRows.mockResolvedValue({ data: [], error: null });
+
+    const res = await POST(req({ type, count: 1 }));
+
+    expect(res.status).toBe(200);
+    expect(insertSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('23. in-flight lookup failure ⇒ 500 balance_check_failed, nothing inserted or enqueued', async () => {
+    // If the reservation cannot be computed the job must not be created —
+    // enqueueing blind is exactly the double-spend this gate exists to stop.
+    inFlightRows.mockResolvedValue({ data: null, error: { message: 'boom' } });
+
+    const res = await POST(req({ type, count: 1 }));
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'balance_check_failed' });
     expect(insertSpy).not.toHaveBeenCalled();
     expect(queueAdd).not.toHaveBeenCalled();
   });
