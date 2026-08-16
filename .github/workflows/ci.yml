@@ -16,4 +16,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
       - run: pnpm run lint
+      # The suites run BEFORE the build: they are the slow-to-write, fast-to-run
+      # half of the gate, and a logic regression that typechecks and lints (most
+      # of them do) is invisible to every other step here. Until 2026-08-16 this
+      # workflow ran none of them, so the whole suite gated nothing on a PR.
+      - run: pnpm run test
       - run: pnpm --filter @adgen/web run build
