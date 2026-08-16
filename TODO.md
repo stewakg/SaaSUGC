@@ -4,6 +4,10 @@ One line per item. **This file is an index, not a second source of truth** — t
 history and the caveats live in `INFRASTRUCTURE.md` and `RELEASE_PLAN.md`. If they ever disagree,
 those win and this file is the one that is stale.
 
+**Updated 2026-08-16** with what the security audit left for the owner: the R2 bucket is still
+public, the old asset rows still hold public urls, and the signed-url change has to be deployed to
+web and worker together (§1). Everything else in this file is as of the rewrite below.
+
 **Last reviewed: 2026-08-14 — full rewrite.** The previous version was written on 2026-08-10 and
 had gone wrong on nearly every line: hosting, R2, Lambda, the worker's real keys and billing have
 all happened since, and all three "known defects" in its §6b had already been fixed.
@@ -38,6 +42,9 @@ all happened since, and all three "known defects" in its §6b had already been f
 | ✅ | **Worker survives a deploy, and a wedged one is detected** | — | Fixed 2026-08-14 (`115cb25`, `03a3bbc`) and **proven with a real SIGTERM to the live container**: exits 0, drains first, and Node is PID 1 so Docker's signal is not filtered through pnpm. Liveness is a Redis heartbeat the compose healthcheck reads — "the loop beat recently", not "the process exists" |
 | 🟡 | **Error alerting** | 👤 | Shipped and deployed 2026-08-14 (`d47815e`, 6 tests): a failed job POSTs one line to `ALERT_WEBHOOK_URL`. **It is unset on the live box, so nothing is reported today** — paste a Discord/Slack/Telegram relay url into `/srv/adgen/.env` and restart the worker. One line, no rebuild |
 | 🟡 | **R2 public URL is still the `r2.dev` dev subdomain** | 👤 then 🤖 | Cloudflare rate-limits it and says not for production. Swap to `cdn.<domain>` once the domain exists |
+| ❌ ⛔ | **Make the R2 bucket PRIVATE** | 👤 | Added 2026-08-16. The code stopped handing out permanent public urls (`26a0f34`: uploads return `/api/storage/<key>`, the route 302s to a signed url after the ownership check, the worker signs keys itself). **None of that closes anything while the bucket still answers anonymously** — the old `${R2_PUBLIC_URL}/uploads/<uid>/<timestamp>.mp4` form is guessable and still works. Cloudflare → the bucket → disable public access. Do it together with the row below, and after the deploy below |
+| ❌ ⛔ | **Rewrite pre-2026-08-16 `assets.url` rows** | 👤 decides, 🤖 writes | Rows written before `26a0f34` hold absolute public R2 urls. They keep working today and **break the moment the bucket goes private** — a customer's finished ad turns into a dead link in "Moje reklame", which is the exact failure class `persistRemoteAsset` was built to prevent. Needs one UPDATE stripping `R2_PUBLIC_URL` down to `/api/storage/<key>`. Not written: it touches live customer rows, and per the DB safety rule that is your call, not mine |
+| ❌ ⛔ | **Deploy web and worker TOGETHER for the signed-url change** | 👤 | `26a0f34` is one change split across both processes: the web app now hands out `/api/storage/<key>`, and only the new worker knows how to sign that form. **A web-only deploy leaves every render 401ing on its own source clips**; a worker-only deploy is harmless but pointless. One `git pull` + one `up -d --build` covers both — just do not deploy half |
 
 ## 2. Money
 
@@ -48,6 +55,7 @@ all happened since, and all three "known defects" in its §6b had already been f
 | ❌ ⛔ | **Whose company takes the money** | 👤 | The owner operates from Frankfurt on his own cards; the plan is a friend's LLC. **No euro may be taken and no real user onboarded before that entity exists and Lemon Squeezy is in its name** — otherwise the operator, the taxpayer and the GDPR controller are all him. A German Steuerberater should see the US-LLC-managed-from-Germany question before the company is formed |
 | ❌ ⛔ | **Migration 0007 (credit self-grant)** | 👤 | `profiles_update_own` let any logged-in user set their own `balance` and spend it on real provider calls. Fixed in code 2026-08-13, **not yet applied** |
 | ❌ | **Refunds / chargebacks (L3.6)** | 👤 then 🤖 | Needs a decision first: a reversal arriving after the credits were SPENT → negative balance, clamp at zero, or freeze the account |
+| 🟡 | **Credit reservation is a check, not a lock** | 🤖 | Half-fixed 2026-08-16 (`35bdf4c`): the balance now has to cover queued+running work too, so the "fifteen jobs, one balance, fourteen unpaid provider calls" case is closed. What is left is the narrow one — two requests in the same millisecond read the same in-flight set. Closing it properly means a database-side hold (reserve at enqueue, convert or release at charge), which is a new migration and an RPC. Not urgent at current traffic; do not let it be forgotten |
 | ❌ | **Per-job cost compared against real invoices** | 👤 | The worker logs units (characters, render seconds); nobody has held them next to an ElevenLabs or OpenRouter bill |
 
 ## 3. Tools — does the card tell the truth?
@@ -139,7 +147,9 @@ placeholder text is worse than none because it reads as if it were coverage.
 
 ## 6. Testing
 
-**886 tests** (core 358, web 420, worker 108); `pnpm -r typecheck` clean on all five projects.
+**979 tests** (core 365, web 495, worker 119) as of 2026-08-16; `pnpm -r typecheck` clean on all five
+projects, and **CI actually runs them now** (`a7f22e2` — until that commit the workflow ran only
+typecheck, lint and the build, so the whole suite gated nothing on a pull request).
 `@adgen/web` can now test COMPONENTS: `jsdom` is a devDependency and `apps/web/vitest.config.ts`
 keeps `node` as the default environment, so a file opts into a DOM with `// @vitest-environment
 jsdom` and the ~300 route tests keep a real `Request`/`Response`. Before this, no component in the
@@ -171,6 +181,10 @@ arguments including `p_reason`.
 Judgement, not blockers. Cheapest first.
 
 1. **Apply migration 0007 today.** The only open hole with money attached, and it is one paste.
+1b. **Deploy, then close the R2 bucket, then rewrite the old asset rows — in that order** (§1).
+   The order is the whole point: closing the bucket before deploying breaks every render, and
+   rewriting the rows before closing it is harmless but pointless. Doing none of it leaves the
+   guessable-url exposure open no matter what the code now does.
 2. **Buy the domain.** The single item unblocking the most others: TLS, email, the Lemon Squeezy
    webhook, the R2 custom domain. Being unblocked matters more than the name being perfect — a
    name can be rebranded later, a missing domain blocks five things today.
