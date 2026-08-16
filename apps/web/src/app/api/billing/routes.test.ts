@@ -244,7 +244,9 @@ describe('POST /api/billing/webhook — signature, parse, idempotent grant', () 
   });
 
   it('12. an RPC error ⇒ 500 (Lemon Squeezy SHOULD retry a grant that failed to persist)', async () => {
-    rpcMock.mockResolvedValue({ error: { message: 'boom' } });
+    // A distinctive Postgres message: the PG text goes to the server log, the
+    // body carries only the opaque code — same posture as /api/jobs.
+    rpcMock.mockResolvedValue({ error: { message: 'relation "credits_ledger" does not exist' } });
     parseWebhook.mockResolvedValue({
       userId: 'u9',
       amount: 260,
@@ -255,5 +257,9 @@ describe('POST /api/billing/webhook — signature, parse, idempotent grant', () 
     const res = await webhookPOST(webhookPost({ raw: 'event' }));
 
     expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body).toEqual({ error: 'grant_failed' });
+    // The raw PG message must appear nowhere in the serialised body.
+    expect(JSON.stringify(body)).not.toContain('relation "credits_ledger" does not exist');
   });
 });

@@ -9,7 +9,7 @@
  * a customer or hands them a paid asset for free.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { makeProcessor } from './index.ts';
+import { GENERIC_JOB_ERROR, jobErrorForUser, makeProcessor } from './index.ts';
 
 /**
  * A fake Supabase client whose shape matches exactly what `processJob` calls:
@@ -120,9 +120,11 @@ describe('makeProcessor / processJob — the worker job state machine', () => {
 
     await expect(processJob(bullJob)).rejects.toThrow(/no assets/);
     expect(calls.rpc).toHaveLength(0);
+    // The "no assets" text now goes to the worker log, not the row — the row
+    // gets the generic customer-facing message.
     expect(calls.jobUpdates[calls.jobUpdates.length - 1]).toEqual({
       status: 'error',
-      error: expect.stringContaining('no assets'),
+      error: GENERIC_JOB_ERROR,
     });
   });
 
@@ -135,8 +137,40 @@ describe('makeProcessor / processJob — the worker job state machine', () => {
     expect(calls.rpc).toHaveLength(0);
     expect(calls.jobUpdates[calls.jobUpdates.length - 1]).toEqual({
       status: 'error',
-      error: 'boom',
+      error: GENERIC_JOB_ERROR,
     });
+  });
+
+  it('a coded user-facing error reaches the customer unchanged', async () => {
+    // `missing_source:` is one of the five codes whose message was written FOR
+    // the customer — it must survive to the row verbatim, not be genericised.
+    const runPipelineFn = vi
+      .fn()
+      .mockRejectedValue(new Error('missing_source: enhance zahteva otpremljeni fajl.'));
+    const { db, calls } = makeDb({ job });
+    const processJob = makeProcessor(db as any, runPipelineFn);
+
+    await expect(processJob(bullJob)).rejects.toThrow('missing_source');
+    expect(calls.jobUpdates[calls.jobUpdates.length - 1]).toEqual({
+      status: 'error',
+      error: 'missing_source: enhance zahteva otpremljeni fajl.',
+    });
+  });
+
+  it('a Postgres message never reaches the row the customer reads', async () => {
+    const runPipelineFn = vi.fn().mockRejectedValue(
+      new Error(
+        'assets insert failed: duplicate key value violates unique constraint "assets_pkey"',
+      ),
+    );
+    const { db, calls } = makeDb({ job });
+    const processJob = makeProcessor(db as any, runPipelineFn);
+
+    await expect(processJob(bullJob)).rejects.toThrow('assets insert failed');
+    const stored = calls.jobUpdates[calls.jobUpdates.length - 1];
+    expect(stored).toEqual({ status: 'error', error: GENERIC_JOB_ERROR });
+    expect(stored.error).not.toContain('duplicate key');
+    expect(stored.error).not.toContain('assets_pkey');
   });
 
   it('throws when assets.insert fails, before any charge', async () => {
@@ -180,5 +214,32 @@ describe('makeProcessor / processJob — the worker job state machine', () => {
     const twoAmount = two.calls.rpc[0].args.p_amount;
 
     expect(twoAmount).toBe(oneAmount * 2);
+  });
+});
+
+describe('jobErrorForUser — what may be stored on the row the customer reads', () => {
+  it('passes each of the five deliberate user-facing codes through verbatim', () => {
+    for (const code of [
+      'missing_source',
+      'provider_unavailable',
+      'source_not_public',
+      'video_not_supported',
+      'tool_not_implemented',
+    ]) {
+      expect(jobErrorForUser(`${code}: poruka na srpskom`)).toBe(`${code}: poruka na srpskom`);
+    }
+  });
+
+  it('an unknown code becomes the generic message', () => {
+    expect(jobErrorForUser('weird_code: nešto')).toBe(GENERIC_JOB_ERROR);
+  });
+
+  it('a message with no colon becomes the generic message', () => {
+    expect(jobErrorForUser('boom')).toBe(GENERIC_JOB_ERROR);
+  });
+
+  it('a message whose prefix is not a bare code becomes the generic message', () => {
+    // A url contains a colon — "https://..." must not be mistaken for a code.
+    expect(jobErrorForUser('https://provider.example/x: timeout')).toBe(GENERIC_JOB_ERROR);
   });
 });

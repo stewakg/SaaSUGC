@@ -38,7 +38,12 @@ export async function POST(request: NextRequest) {
     p_external_ref: grant.orderId,
   });
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // The PG message names tables, columns and constraints. Logged, not
+    // returned — same posture as /api/jobs and /api/dev/credits/add, which this
+    // route was the only exception to. The caller is Lemon Squeezy's retry
+    // machinery and only needs the status code.
+    console.error('[billing] credit grant failed:', error.message);
+    return NextResponse.json({ error: 'grant_failed' }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

@@ -758,6 +758,37 @@ export async function runPipeline(
 }
 
 /**
+ * Error codes whose message was written FOR the customer and may be shown as-is.
+ *
+ * The worker's convention is `<code>: <poruka na srpskom>`, and the dashboard
+ * (`job-display.ts`) strips the code and renders the rest. Anything without one
+ * of these codes is an internal message — a Postgres constraint, a provider url
+ * with a token in it, a stack-shaped string — and `GET /api/jobs/[id]` used to
+ * hand it to the customer verbatim.
+ */
+const USER_FACING_ERROR_CODES = new Set([
+  'missing_source',
+  'provider_unavailable',
+  'source_not_public',
+  'video_not_supported',
+  'tool_not_implemented',
+]);
+
+/** What the customer sees when the real reason is not theirs to read. */
+export const GENERIC_JOB_ERROR =
+  'internal_error: Obrada nije uspela. Posao nije naplaćen — pokušaj ponovo.';
+
+/** Full text goes to the worker log; this is what may be stored on the row. */
+export function jobErrorForUser(message: string): string {
+  const separator = message.indexOf(':');
+  if (separator > 0) {
+    const code = message.slice(0, separator);
+    if (/^[a-z0-9_]+$/.test(code) && USER_FACING_ERROR_CODES.has(code)) return message;
+  }
+  return GENERIC_JOB_ERROR;
+}
+
+/**
  * The job state machine, isolated from its two impure dependencies so it can be
  * tested without a database or a real render. `db` is the Supabase client;
  * `runPipelineFn` defaults to the real `runPipeline` and is only overridden by
@@ -839,9 +870,15 @@ export function makeProcessor(
         if (assets.length > 0) {
           await db.from('assets').delete().eq('job_id', jobId);
         }
+        // The RPC's own message is a Postgres one — logged, never stored on a
+        // row the customer reads.
+        consoleLogger.error('charge failed', { jobId, error: chargeError.message });
         await db
           .from('jobs')
-          .update({ status: 'error', error: `charge_failed: ${chargeError.message}` })
+          .update({
+            status: 'error',
+            error: 'charge_failed: Naplata nije uspela. Posao nije naplaćen.',
+          })
           .eq('id', jobId);
         return;
       }
@@ -855,7 +892,14 @@ export function makeProcessor(
         .eq('id', jobId);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      await db.from('jobs').update({ status: 'error', error: message }).eq('id', jobId);
+      // Keep the real text where the operator can read it, store only what the
+      // customer should see. `err` is still rethrown unchanged, so BullMQ's
+      // retry/stall behaviour is exactly as before.
+      consoleLogger.error('job failed', { jobId, error: message });
+      await db
+        .from('jobs')
+        .update({ status: 'error', error: jobErrorForUser(message) })
+        .eq('id', jobId);
       throw err;
     }
   };
