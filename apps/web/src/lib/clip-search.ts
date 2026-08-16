@@ -10,6 +10,23 @@
  * hand-written fixture would keep passing when it does.
  */
 
+/**
+ * Hard ceiling on the search route's process-local result cache.
+ *
+ * Lives HERE rather than in the route because a Next App Router route file may
+ * only export its HTTP handlers and a fixed set of config keys — exporting a
+ * constant from it fails the build's own route type check, which is how this
+ * landed here rather than next to the cache it bounds.
+ *
+ * The cache's TTL is consulted on READ only, so an entry nobody asks for again
+ * is never removed and the map only grows, inside the process serving the app
+ * on a box with 3.7 GB shared between web, worker and Redis. A Map iterates in
+ * insertion order, so dropping the first key is plain FIFO — deliberately not
+ * an LRU: a hot key ages out too, the cost of that miss is one yt-dlp search,
+ * and the TTL already bounds staleness.
+ */
+export const MAX_CACHE_ENTRIES = 200;
+
 /** Clips shorter than this have too few shots to be useful montage material. */
 export const MIN_DURATION_SEC = 5;
 /** Feature-length uploads are almost never product footage; they also cost the most to import. */

@@ -69,13 +69,21 @@ vi.mock('@adgen/core', async (importActual) => {
 });
 
 vi.mock('@/lib/yt-dlp', () => ({ runYtDlp: runYtDlpMock }));
-vi.mock('@/lib/clip-search', () => ({
+// The two functions are faked; everything else comes from the REAL module.
+// MAX_CACHE_ENTRIES in particular must be the real number — the route reads it
+// on every write, and a factory that omitted it made vitest throw on access
+// INSIDE the route's try block, which surfaced as a 502 rather than as a
+// missing-export error.
+vi.mock('@/lib/clip-search', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/clip-search')>()),
   parseSearchOutput: parseSearchOutputMock,
   usableAsMontageMaterial: usableAsMontageMaterialMock,
 }));
 
 import { POST as generateScripts } from './generate-scripts/route.ts';
 import { POST as searchClips } from './search-clips/route.ts';
+// From the lib, not the route: a Next route file may only export its handlers.
+import { MAX_CACHE_ENTRIES } from '@/lib/clip-search';
 import { GET as listVoices } from './voices/route.ts';
 import { GET as getJob } from './jobs/[id]/route.ts';
 
@@ -246,6 +254,57 @@ describe('POST /api/search-clips', () => {
 
     expect(res.status).toBe(502);
     expect(await res.json()).toEqual({ error: 'search_failed' });
+  });
+
+  /**
+   * The cache is process-local and has no accessor, so it is observed the only
+   * way a caller can: a HIT does not call runYtDlp and answers `cached: true`.
+   * These run last in this describe because they deliberately fill it.
+   */
+  it('12b. a repeated query is served from cache — no second yt-dlp search', async () => {
+    const res1 = await searchClips(postSearch({ query: 'hit-me' }));
+    expect(res1.status).toBe(200);
+    expect((await res1.json()).cached).toBe(false);
+    expect(runYtDlpMock).toHaveBeenCalledTimes(1);
+
+    const res2 = await searchClips(postSearch({ query: 'hit-me' }));
+    expect((await res2.json()).cached).toBe(true);
+    // Still 1: the second request never reached the searcher.
+    expect(runYtDlpMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('12c. the cache is bounded — the oldest entry is evicted once over MAX_CACHE_ENTRIES', async () => {
+    // Fill past the cap. `oldest` goes in first, so it is first out.
+    await searchClips(postSearch({ query: 'oldest-entry' }));
+    for (let i = 0; i < MAX_CACHE_ENTRIES; i += 1) {
+      await searchClips(postSearch({ query: `filler-${i}` }));
+    }
+
+    // A recent one is still remembered…
+    runYtDlpMock.mockClear();
+    const recent = await searchClips(postSearch({ query: `filler-${MAX_CACHE_ENTRIES - 1}` }));
+    expect((await recent.json()).cached).toBe(true);
+    expect(runYtDlpMock).not.toHaveBeenCalled();
+
+    // …while the first one has been evicted and has to be searched again.
+    const evicted = await searchClips(postSearch({ query: 'oldest-entry' }));
+    expect((await evicted.json()).cached).toBe(false);
+    expect(runYtDlpMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('12d. re-searching an existing key evicts nothing', async () => {
+    // Map.set on an existing key keeps its position and does not grow size, so
+    // the eviction loop must not fire. `evict-probe` is written first, then
+    // rewritten after the cache is full; it must survive.
+    await searchClips(postSearch({ query: 'evict-probe' }));
+    for (let i = 0; i < MAX_CACHE_ENTRIES - 1; i += 1) {
+      await searchClips(postSearch({ query: `pad-${i}` }));
+    }
+
+    runYtDlpMock.mockClear();
+    const probe = await searchClips(postSearch({ query: 'evict-probe' }));
+    expect((await probe.json()).cached).toBe(true);
+    expect(runYtDlpMock).not.toHaveBeenCalled();
   });
 });
 

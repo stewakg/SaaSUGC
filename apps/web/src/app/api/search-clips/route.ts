@@ -21,7 +21,12 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { runYtDlp } from '@/lib/yt-dlp';
 import { createServerClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
-import { parseSearchOutput, usableAsMontageMaterial, type ClipSuggestion } from '@/lib/clip-search';
+import {
+  MAX_CACHE_ENTRIES,
+  parseSearchOutput,
+  usableAsMontageMaterial,
+  type ClipSuggestion,
+} from '@/lib/clip-search';
 
 /** Upper bound on results; the UI shows a grid, not a feed. */
 const MAX_RESULTS = 12;
@@ -83,6 +88,14 @@ export async function POST(request: NextRequest) {
     const results = parseSearchOutput(raw).filter(usableAsMontageMaterial).slice(0, limit);
 
     cache.set(cacheKey, { at: Date.now(), results });
+    // Evict oldest-first once over the cap. `set` on an EXISTING key keeps its
+    // original position and does not grow `size`, so re-searching the same term
+    // never evicts anything.
+    while (cache.size > MAX_CACHE_ENTRIES) {
+      const oldest = cache.keys().next().value;
+      if (oldest === undefined) break;
+      cache.delete(oldest);
+    }
     return NextResponse.json({ results, cached: false });
   } catch (err) {
     console.error('[search-clips] search failed:', err);
