@@ -75,7 +75,7 @@ Trimmed 2026-08-14 by the functional audit: a card links to a wizard ONLY if a p
 | Status | Tool | Note |
 |---|---|---|
 | ✅ | **Video reklame** (`matrix`) | Renamed from "Matrix" 2026-08-13. Real script, real TTS, scene-detect montage, Lambda render |
-| ✅ | **AI slike** (`image_ads`) | ✅ LIVE through `runPipeline` 2026-08-14: 196.3s, 1.17 MB png on our own url. **kie.ai timed out at 180s and the fal.ai fallback carried it** — the first time that fallback has fired for real. 196s for one image is a bad wait; consider lowering the kie timeout so the fallback starts sooner |
+| ✅ | **AI slike** (`image_ads`) | ✅ LIVE through `runPipeline` 2026-08-14: 196.3s, 1.17 MB png on our own url. **kie.ai timed out at 180s and the fal.ai fallback carried it** — the first time that fallback has fired for real. 196s for one image is a bad wait. ~~consider lowering the kie timeout so the fallback starts sooner~~ — **done the same day, confirmed 2026-08-17**: `ai.kiefal.ts:41` splits the one timeout in two, `KIE_IMAGE_MAX_WAIT_MS` 60 s for the PRIMARY (giving up is cheap — the fallback is right there) and `FAL_IMAGE_MAX_WAIT_MS` 3 min for the FALLBACK (when it gives up the job fails). Not re-measured live since |
 | ✅ | **Poboljšaj kvalitet** (`enhance`) | ✅ LIVE through the WHOLE pipeline 2026-08-14: 14.6s, 543 KB on our url. The earlier ✅ on this row was overstated — it had only exercised the fal provider, and the ownership copy into R2 was in fact broken for every customer until `81a023b` |
 | ✅ | **Skini tekst** (`remove_text`) | ✅ LIVE through the WHOLE pipeline 2026-08-14: 14.6s, 335 KB on our url. Same correction as the row above — the earlier ✅ covered the provider only. Images by design; video erasers are negative margin |
 | ❌ | **Brzi test · Edit videi · Mix · Prevod** | Wizard exists, pipeline does not. Now badged USKORO instead of linking to a wizard that ends in an error |
@@ -98,7 +98,7 @@ development. The file had been carrying them as open for two days.
 | ✅ | **Change password** | Done 2026-08-14. Reuses the existing `validatePassword` checklist and `PasswordRules`, maps Supabase's English through `authErrorMessage`, and announces both failure and success (`role="alert"` / `role="status"`) |
 | ✅ | **Buy / add credits from the profile** | In progress — the packs move off Početna entirely. The production admin gate on the instant-credit button has to move WITH them, or every production user gets free credits |
 | ✅ | **Timezone + time display** | Done 2026-08-14, and actually wired: the job list formats through `formatDateTime` with the picked zone, read server-side off the cookie. An unknown zone falls back instead of throwing — `Intl` raises `RangeError`, which would have broken every page showing a date |
-| 🟡 | **Account basics** | Email and sign-out shipped 2026-08-14. **Delete-my-account is the one still missing**, and it is blocked on a decision rather than on work: `Storage` has no `delete` (see §5), so we could not actually erase the person's videos, and a GDPR obligation half-honoured is worse than one not yet offered |
+| 🟡 | **Account basics** | Email and sign-out shipped 2026-08-14. **Delete-my-account is the one still missing.** The technical half of the blocker is gone as of 2026-08-17 — `Storage.delete` exists and both providers implement it (§5) — so erasing a person's files is now possible. What remains is entirely a decision: WHICH rows and objects go (assets only, or the profile and its credit ledger too — a spent-credit history is also an accounting record), whether deletion is immediate or a grace period, and what happens to a job that is mid-render. Nothing should be built until those are answered; a GDPR obligation half-honoured is worse than one not yet offered |
 | ❌ | **Invoices / purchase history** | Lemon Squeezy is a merchant of record and issues the invoice, so this may be a link out rather than a screen we build. Decide before building anything |
 
 Two things to settle before writing code: whether this is a full page (`/app/profil`) or a panel,
@@ -109,8 +109,12 @@ the file deletion is worse than not offering it yet.
 
 Raised by the owner 2026-08-14. Two problems, both measured on the live page.
 
-### A. It shows every tool, half of which do not exist
-The landing renders all 10 cards, and **5 carry an USKORO badge**. A visitor's first impression is
+### A. It shows every tool, half of which do not exist — ✅ RESOLVED 2026-08-16 (`844c1c8`), A1 was taken
+Confirmed against the code 2026-08-17: the landing renders only the tools with a pipeline, the
+dashboard keeps the full list with its badges, and the landing has a test of its own now. The
+options table below is kept because it is what the decision was made against.
+
+The original problem: the landing renders all 10 cards, and **5 carry an USKORO badge**. A visitor's first impression is
 a catalogue that is half "coming soon", which reads as a product that is not ready — and it buries
 the five that do work. The dashboard is the right place for the full list; the landing is a pitch.
 
@@ -123,7 +127,9 @@ the five that do work. The dashboard is the right place for the full list; the l
 A1 needs no new mechanism: `isToolSoon()` already exists and the landing already imports it.
 
 ### B. The 9:16 slot is an empty box
-`apps/web/src/app/page.tsx:58` renders a `phone-frame` div containing the text `1080×1920`. It
+`apps/web/src/app/page.tsx:67-71` renders a `phone-frame` div containing the text `1080×1920` (the
+line number was 58 when this was written; re-checked 2026-08-17 — still there, and it is the only
+row in §3c still open). It
 occupies the hero's most valuable space and shows a placeholder where the product's actual output
 belongs. **We now have real renders in R2** — the verification runs produced finished mp4s.
 
@@ -136,7 +142,11 @@ belongs. **We now have real renders in R2** — the verification runs produced f
 Both B1 and B2 depend on **one decision the owner has to make: which render to use as the sample.**
 No code can pick that — it is the shop window.
 
-### C. The landing cards and the dashboard cards do not look alike — owner's request 2026-08-16
+### C. The landing cards and the dashboard cards do not look alike — ✅ FIXED 2026-08-16 (`844c1c8`)
+Verified against the code 2026-08-17: `apps/web/src/app/page.tsx:108-109` now passes both
+`benefits={t.benefits}` and `theme={t.theme}`, and the main grid matches the dashboard's 2 columns.
+Kept as the record of what drifted and why, because the mechanism is the interesting part:
+
 Both screens render the SAME component (`MainToolCard`), and `page.tsx`'s own comment says they
 reuse it "so the two screens cannot drift". They drifted anyway, through props rather than through
 code: the dashboard passes `benefits={t.benefits}` and `theme={t.theme}`, and **the landing passes
@@ -155,7 +165,8 @@ Mechanical and small. **One thing to decide while doing it:** §3c-A above alrea
 landing should show only the tools that WORK — doing that first changes which cards this even
 applies to, so do A then C, not C then A.
 
-| ❌ | **No favicon, no robots.txt** | 🤖 | Found 2026-08-16 while verifying a deploy in a real browser: `/favicon.ico`, `/apple-touch-icon.png` and `/robots.txt` all 404. Cosmetic until someone shares a link — then it is a blank tab icon next to the competitor's, and no robots.txt on a site that is not ready to be indexed |
+| ✅ | **Favicon + robots.txt** | — | Done 2026-08-17 and **verified live in a browser**, not just built: `/favicon.ico` (2543 B, `image/x-icon`), `/icon.svg`, `/apple-icon.png` (180²) and `/robots.txt` all answer 200 with the right content types, and the page emits all three `<link rel>` tags. The mark is obsidian's own `--action-grad` (#7c5cff → #4dd6ff) with a white play triangle, and it carries its OWN background — a transparent glyph disappears into either a white or a near-black tab strip. The rasters are generated by `scratchpad/gen-icons.mjs` (dependency-free: sharp is not resolvable in this workspace and `.clinerules` forbids adding a dependency), so the mark can be regenerated rather than redrawn. **`robots.txt` currently says `Disallow: /` on purpose** — no domain, an Impressum of labelled blanks, and no wizard clicked end to end; an early index entry outlives the state that produced it. One line flips it at launch: `ALLOW_INDEXING = true` in `apps/web/src/app/robots.ts`, and `/app`, `/api/` and `/auth/` stay disallowed either way. ⚠️ Note the literal path `/apple-touch-icon.png` still 404s — Next serves the icon at `/apple-icon.png` and points iOS at it with a link tag, which every iOS since 4 reads; only a bare root-path probe would miss |
+| ✅ | **Nothing hydrated in `next dev` — the CSP was blocking it** | — | Found 2026-08-17 by clicking in a real browser while verifying the favicon, and it had been true since the nonce CSP landed (`be22b61`): the dev client bundle runs through `eval`, the policy had no `'unsafe-eval'`, so main-app.js threw `EvalError`, the client bootstrap died, `window.next` never appeared and **no React handler was ever attached on any page**. Every screen rendered perfectly and every button did nothing — clicking a theme switch changed no attribute and set no cookie. Free in production (the production bundle contains no eval, which is why the 2026-08-16 check passed) and expensive everywhere else: it made local browser verification lie, since a dead page is indistinguishable from a broken component. Fixed by parameterising the policy — `buildCsp(nonce, { dev })` adds `'unsafe-eval'` and `ws:` in development ONLY, with four tests pinning that production carries neither and that the two policies are otherwise byte-identical. Verified after the fix: `window.next` present, a theme click set `data-theme="poluton"` and the cookie |
 
 ## 4. Output quality
 
@@ -178,7 +189,8 @@ applies to, so do A then C, not C then A.
 | ✅ | Impressum re-scoped (was: decide whether it applies, then name the operator) | — | The page ships as labelled blanks (`[[POPUNITI: …]]`) with a red warning, deliberately — an invented Impressum is an offence and, worse, looks finished. That was the right call and it still is; what changed is that the statute it cites may no longer be the applicable one |
 | ❌ | GDPR / cookie consent | 🤖 after the lawyer |
 | ❌ | 30-day retention | 👤 sets the bucket rule; 🤖 does the expired-asset UI, which would lie until the rule exists |
-| ❌ | **`Storage` has no `delete` method at all** | 🤖 after a 👤 decision. Found 2026-08-14. Retention by R2 lifecycle rule is legitimate and is the plan — but it means the APP cannot delete a file on request, so a GDPR erasure or a "remove this video" button has nothing to call. Decide whether deletion is bucket-only or the app needs the capability before a real user asks. One artifact is already stranded by this: `renders/lambda-dqbz7jwul1.mp4`, ~1 MB, from the live render verification |
+| 🟡 | **`Storage` CAN delete now — but nothing calls it** | 👤 decides the policy, 🤖 wires it. Added 2026-08-17: `Storage.delete(key)` is on the interface and implemented by both providers (`S3CompatibleStorage` sends a `DeleteObjectCommand`; `MockStorage` removes the file and REFUSES a key that resolves outside the storage root). Idempotent by contract — a missing key is a success, because every real caller (retention sweep, GDPR erasure, a retry after a partial failure) runs twice on the same key sooner or later — while a transport failure still rejects. 6 tests, and all four ways of breaking it were tried on purpose: dropping the traversal guard, dropping `force: true`, deleting from the wrong bucket, and swallowing the SDK error each failed exactly one test and nothing else. **Deliberately not wired to anything** — no route, no worker path, no UI. The capability was the blocked half; who may call it is still the decision below. Original row: |
+| ❌ | ~~**`Storage` has no `delete` method at all**~~ | 🤖 after a 👤 decision. Found 2026-08-14. Retention by R2 lifecycle rule is legitimate and is the plan — but it means the APP cannot delete a file on request, so a GDPR erasure or a "remove this video" button has nothing to call. Decide whether deletion is bucket-only or the app needs the capability before a real user asks. One artifact is already stranded by this: `renders/lambda-dqbz7jwul1.mp4`, ~1 MB, from the live render verification |
 
 Deliberately not drafted by me: this carries real legal weight, and generated placeholder text is
 worse than none because it reads as if it were coverage. **Updated 2026-08-16:** the cross-border
@@ -188,8 +200,10 @@ the entity is. Do not let "we are not in Germany any more" be read as "GDPR no l
 
 ## 6. Testing
 
-**979 tests** (core 365, web 495, worker 119) as of 2026-08-16; `pnpm -r typecheck` clean on all five
-projects, and **CI actually runs them now** (`a7f22e2` — until that commit the workflow ran only
+**1059 tests** (core 385, web 551, worker 123) — **counted from a real run 2026-08-17**, and the
+number this line carried before (979 / 365 / 495 / 119) was already 67 tests stale before this
+session added 21. Treat any census here as a claim to re-measure, not a fact. `pnpm -r typecheck`
+clean on all five projects, and **CI actually runs them now** (`a7f22e2` — until that commit the workflow ran only
 typecheck, lint and the build, so the whole suite gated nothing on a pull request).
 `@adgen/web` can now test COMPONENTS: `jsdom` is a devDependency and `apps/web/vitest.config.ts`
 keeps `node` as the default environment, so a file opts into a DOM with `// @vitest-environment
@@ -239,8 +253,15 @@ Judgement, not blockers. Cheapest first.
 6. **Measure a real job against a real invoice** — the only number in BUSINESS.md nobody has ever
    checked.
 6. **Do the L5 rehearsal on production with a real card** before the link is shared with anyone.
-7. **Only then**: watermark handling, a music library, the expired-asset state, per-job-type worker
-   concurrency (cheap tools 4, matrix 1 — BullMQ does it with separate queues).
+7. **Only then**: watermark handling, a music library, the expired-asset state. ~~per-job-type worker
+   concurrency (cheap tools 4, matrix 1 — BullMQ does it with separate queues)~~ — **already built,
+   checked 2026-08-17.** `packages/core/src/queue.ts:11-27` runs two queues (`adgen-jobs` for the
+   heavy types `matrix`/`revoice`, `adgen-jobs-light` for everything else, unknown types defaulting
+   to light), `apps/worker/src/index.ts:121-141` gives each its own Worker, connection and
+   concurrency env (`WORKER_CONCURRENCY` / `WORKER_CONCURRENCY_LIGHT`, both defaulting to 4), and
+   `infra/docker-compose.prod.yml:54` sets `WORKER_CONCURRENCY: '1'` — so production already runs
+   one render at a time next to four cheap jobs. What is genuinely left is not code but the
+   MEASUREMENT in the §1 throughput row: nobody has timed a render on this box to pick the number.
 
 ## 8. Two machines, one repo — how not to lose work
 

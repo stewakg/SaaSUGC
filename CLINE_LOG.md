@@ -116,6 +116,19 @@ cline --json -P openai-compatible --thinking medium -c "<repo>" "Read scratchpad
 | 53 | **Code change:** credit hold wired into enqueue + worker | `api/jobs/route.{ts,test.ts}` + `worker/src/index.ts` + `processor.test.ts` + generated db types | Migration `0010` written by me (`.clinerules` keeps Cline out of `supabase/`). Two mutations: neutering the `reserved !== true` branch fails the 402-and-delete test; removing the release from the charge-failure path fails exactly its own test. @ `32a6db6` |
 | 54 | **Refactor:** split the 1130-line `worker/src/index.ts` into four modules | NEW `providers.ts`, `asset-storage.ts`, `pipelines.ts`, `job-state.ts` + `index.ts` + six test files | Specified as a pure MOVE. Proof it stayed one: 123 worker tests, same count, and the only changes in the test files are import paths. The hazard was circular imports — the moved code needs `providers`, which `index.ts` built at module scope; hence a separate `providers.ts`, and the audit confirmed exactly ONE `createProviders()` call remains. My own first mutation here was badly chosen (added a composition NAME to a set the guard queries by job TYPE) and proved nothing; inverting the guard fails both `tool_not_implemented` tests. @ `63d3048` |
 
+| 55 | **Code change:** `Storage.delete` on the interface and both providers | `interfaces.ts` + `providers/mocks.ts` + `providers/storage.r2.{ts,test.ts}` + NEW `providers/mocks.storage.test.ts` | Four mutations, each failing exactly its own test and nothing else: removing MockStorage's traversal guard fails only the escape test; dropping `force: true` fails only the idempotency test; a wrong bucket on the `DeleteObjectCommand` fails only the bucket/key test; swallowing the SDK error fails only the rejection test. The escape test is the one worth copying — it creates the outside file BEFORE the call and asserts it SURVIVES, so it cannot be satisfied by an implementation that deletes and then throws. ⚠️ **Its self-report was wrong:** it reported success with `pnpm -r typecheck` RED — two `satisfies Storage` fakes in `renderer.{local,lambda}.test.ts` were missing the new required member. Those files were off its list, so `.clinerules` §4 required it to REPORT them; it did neither that nor ran the typecheck its own definition of done named. I added the two fakes. @ `ea1fcca` (2026-08-17) |
+
+## The first Bun crash (2026-08-17)
+
+The run above was the RETRY. The first invocation of the same spec died after ~250s with a Bun
+panic — `panic(main thread): index out of bounds: index 72577, len 49147`, exit code 3, "this
+indicates a bug in Bun, not your code" — having written **nothing**: `git status` was clean, so
+there was no half-applied edit to unwind. Different signature from the provider timeouts below
+(those consume zero tokens and die at iteration 1; this one ran for four minutes first), same
+remedy: retry once, then write it myself. The retry succeeded. Worth knowing because the crash
+output is long and reads like a repo problem, and it is not one — **check `git status` first**, and
+if it is clean, just run it again.
+
 ## Two runs that produced nothing (2026-08-16)
 
 Both died at iteration 1 with **zero tokens consumed** — the provider never answered. That is a

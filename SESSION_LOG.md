@@ -16,6 +16,8 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: 2026-08-17 — icons + robots.txt, the dev-CSP hydration fix, Storage.delete (NEW apps/web/src/app/{icon.svg,favicon.ico,apple-icon.png,robots.ts,robots.test.ts} + apps/web/src/middleware.{ts,test.ts} + packages/core/src/interfaces.ts + packages/core/src/providers/{mocks.ts,storage.r2.ts,storage.r2.test.ts,renderer.local.test.ts,renderer.lambda.test.ts} + NEW packages/core/src/providers/mocks.storage.test.ts + scratchpad/gen-icons.mjs) — CLEAN @ 1cb185b, 98e668b, ea1fcca (2026-08-17). One Cline run (the first attempt died in a Bun panic having written nothing; the retry wrote all five files correctly) plus the icons, robots and CSP fix written by Claude. Six mutations, each failing exactly its own test and nothing else: removing MockStorage's traversal guard fails only the escape test (which asserts the outside file SURVIVES, not merely that it throws); dropping `force: true` fails only the idempotency test; a wrong bucket on DeleteObjectCommand fails only the bucket/key test; swallowing the SDK error fails only the rejection test; flipping `ALLOW_INDEXING` to true fails only the disallow-all test; making `'unsafe-eval'` unconditional fails the production-policy test and the two-policies-identical test. Gates re-run independently: typecheck clean on all five projects, **core 385 / web 551 / worker 123 = 1059**, web build passes and `.next/server/app` contains favicon.ico, icon.svg and apple-icon.png (checked on purpose — this is where `.dockerignore` hid `/api/storage`). **RUNTIME-VERIFIED in a real browser**, not merely built: all four asset paths answer 200 with the right content types, robots.txt reads `Disallow: /`, and after the CSP fix `window.next` exists and a theme click sets `data-theme` and the cookie. `Storage.delete` itself is CODE-COMPLETE — no real R2 object has been deleted, and nothing calls it. ⚠️ Cline's run reported success while leaving `pnpm -r typecheck` RED (two `satisfies Storage` fakes in the renderer tests lacked the new member) — its own definition of done said to run typecheck, so its self-report was wrong; Claude fixed the two fakes.
+
 REVIEWED: the rest of 2026-08-16 — direct upload, streamed import, bounded cache, CSP, billing dormancy, render fan-out, landing (NEW apps/web/src/app/api/upload/sign/route.{ts,test.ts} + NEW apps/web/src/lib/upload-constraints.ts + apps/web/src/lib/upload-file.{ts,test.ts} + apps/web/src/app/api/upload/route.ts + apps/web/src/app/api/import-clip/route.ts + apps/web/src/app/api/ssrf-routes.test.ts + apps/web/src/app/api/search-clips/route.ts + apps/web/src/lib/clip-search.ts + apps/web/src/app/api/remaining-routes.test.ts + apps/web/src/middleware.{ts,test.ts} + NEW apps/web/src/app/page.test.tsx + apps/web/src/app/page.tsx + apps/web/src/components/tool-cards.{tsx,test.tsx} + packages/core/src/providers/{storage.r2,factory,renderer.lambda}.{ts,test.ts} + packages/core/src/env.ts + .dockerignore + .env.example) — CLEAN @ b174e3e, b3db997, 3149141, 930d9e2, be22b61, 16dee4f, d76bf5b, 844c1c8, 2741dba (2026-08-16). Seven Cline runs plus two I wrote after provider timeouts; every one audited by MUTATION and every mutation failed exactly its own tests: sending `file.type` instead of the route's contentType on the PUT; letting a sign refusal fall back through the server; dropping the byte length from the import upload; disabling the cache eviction loop; a fixed nonce, and a redirect that skips the CSP stamp; forcing the billing dormancy guard false with a full key set present; reverting the landing's live-tools filter. Two mutations that changed NOTHING are recorded as findings rather than passes: `content-length` in `signableHeaders` is redundant (the binding comes from the command input), and the landing had no test at all until one was written here. Gates re-run independently: typecheck clean, core 379 / worker 119 / web 543, lint clean, web build passes. **Runtime-verified, not just typechecked:** the storage route and the CSP were both exercised against the deployed site. CODE-COMPLETE for everything else — no upload has yet gone browser→R2 for real, and no render has run at concurrency 25.
 
 REVIEWED: the six fixes the 2026-08-16 audit produced (NEW apps/web/src/lib/{safe-redirect,asset-url}.{ts,test.ts} + apps/web/src/app/(auth)/login/page.tsx + apps/web/src/app/auth/callback/route.ts + apps/web/src/app/api/jobs/route.{ts,test.ts} + apps/web/src/app/api/billing/{webhook/route.ts,routes.test.ts} + apps/web/src/app/api/storage/[...path]/route.{ts,test.ts} + apps/worker/src/{index.ts,processor.test.ts,matrix-pipeline.test.ts,media-edit.test.ts} + packages/core/src/providers/storage.r2.{ts,test.ts} + .github/workflows/ci.yml + package.json) — CLEAN @ 198c191, b01d909, 35bdf4c, 06d5572, 26a0f34, a7f22e2 (2026-08-16). Five Cline runs, each audited by MUTATION rather than by reading the diff, and every mutation failed exactly the tests named for it and no others: dropping the rooted-path check fails the absolute-url/userinfo/javascript/empty-string cases; accepting any origin in `isOwnAssetUrl` fails nine unit tests plus both `/api/jobs` route tests including the 169.254.169.254 one; dropping `reserved` from the balance comparison fails exactly the two in-flight tests; returning the raw message from `jobErrorForUser` fails six worker tests including the duplicate-key one; skipping `authorise` in the storage route fails the 401 and 404 signing tests; returning `getUrl` from `upload` fails the core route-path tests; disabling the worker's signing branch fails its two named tests. Gates re-run by Claude independently: typecheck clean, core 365 / worker 119 / web 495 = **979**, web build passes. CODE-COMPLETE, NOT runtime-verified — none of this has been run against real R2, a real Lemon Squeezy key, or the live worker.
@@ -59,6 +61,72 @@ REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,v
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
 
 ---
+
+## 2026-08-17 (sixteenth session) — the small leftovers, and the one that turned out not to be small
+**Account:** _(unrecorded)_ · **Machine:** primary. **Deliberately left uncommitted: nothing.**
+
+The owner's instruction was to work through everything left on my side of `TODO.md`. Three things
+were genuinely unblocked; the rest of the list is waiting on him, and that is stated at the bottom
+rather than worked around.
+
+**1. Favicon, icons, robots.txt.** `/favicon.ico`, `/apple-touch-icon.png` and `/robots.txt` had all
+404'd since the project began. The mark is obsidian's own action gradient (#7c5cff → #4dd6ff) with a
+white play triangle, and it carries its OWN background — a transparent glyph vanishes into either a
+white or a near-black tab strip. `icon.svg` is hand-written; `favicon.ico` (16/32/48) and
+`apple-icon.png` (180) are rasterised by `scratchpad/gen-icons.mjs`, which writes PNG and ICO by
+hand with zlib. That is not showing off: `sharp` is not resolvable from this workspace and
+`.clinerules` forbids adding a dependency, and a generator means the mark can be regenerated instead
+of redrawn. **robots.txt deliberately says `Disallow: /`** — no domain, an Impressum of labelled
+blanks, no wizard ever clicked end to end; an index entry outlives the state that produced it. One
+constant flips it at launch and `/app`, `/api/`, `/auth/` stay out either way. Verified in a real
+browser: four paths, four 200s, correct content types, all three `<link rel>` tags emitted. And
+because `.dockerignore` once hid `/api/storage` from every image ever built, `.next/server/app` was
+checked directly for all three files rather than trusted.
+
+**2. The thing that was not small: nothing had ever hydrated in `next dev`.** Found by clicking,
+while checking the favicon. The dev client bundle runs through `eval`; the nonce CSP (`be22b61`)
+carried no `'unsafe-eval'`; so main-app.js threw `EvalError`, the client bootstrap died, `window.next`
+never appeared, and **no React handler was attached on any page in development**. Every screen
+rendered perfectly and every control did nothing — a theme click changed no attribute and set no
+cookie. Free in production (the production bundle contains no eval, which is exactly why the
+2026-08-16 browser check passed) and expensive everywhere else: it made local browser verification
+LIE, because a dead page and a broken component look identical. The policy is now
+`buildCsp(nonce, { dev })`, adding `'unsafe-eval'` and `ws:` in development only, with tests pinning
+that production carries neither and that the two policies are otherwise identical. After the fix:
+`window.next` present, a theme click sets `data-theme="poluton"` and the cookie.
+
+**3. `Storage.delete`.** The capability, not the policy: `delete(key)` on the interface, implemented
+by both providers, idempotent by contract (a missing key is a success — every real caller runs twice
+on the same key eventually) while a transport failure still rejects. `MockStorage` refuses a key that
+resolves outside the storage root, and the test for it asserts the outside file SURVIVES rather than
+merely that the call threw. **Nothing calls it.** That is the point: the capability was the blocked
+half of "delete my account" and the retention story; who may call it, and what else goes with the
+files, is still the owner's decision.
+
+**Cline: one crash, one clean run, one wrong self-report.** The first invocation died in a Bun panic
+(`index out of bounds`) after ~250s having written nothing — `git status` was clean, so nothing had
+to be unwound. The retry wrote all five files exactly to spec. But it reported success with
+`pnpm -r typecheck` RED: two `satisfies Storage` fakes in the renderer tests were missing the new
+member, and its own definition of done said to run typecheck. Its file list forbade touching them and
+`.clinerules` says report-don't-touch, which it also did not do. Claude added the two fakes. The
+lesson is the one already in `CLAUDE.md`, with a sharper edge: **the gates are Claude's to run, and a
+Cline run that says "done" has not run them.**
+
+**Stale claims corrected in `TODO.md`, all checked against code rather than memory.** Per-job-type
+worker concurrency was listed as future work and has existed for some time (two queues, two workers,
+two env vars, production already at `WORKER_CONCURRENCY=1`); the kie.ai timeout note asked for a
+lowering that happened on 2026-08-14 (60s primary / 3min fallback); §3c-A and §3c-C were both fixed
+on 2026-08-16 while still reading as open questions; the phone-frame line number had drifted. **The
+test census was 67 tests stale before this session touched it** — the file said 979, a real run says
+**1059** (core 385, web 551, worker 123). A census in a document is a claim to re-measure.
+
+**What is still open on my side is honestly nothing that does not need the owner first:** the landing's
+empty 9:16 frame needs him to pick which real render is the shop window; the expired-asset UI would
+lie until the R2 lifecycle rule exists; account deletion needs the policy decision above; the
+watermark filter needs a labelled set of his own clips to measure against. Everything else in
+`TODO.md` is marked 👤 for a reason. Note also that `pnpm format:check` is red repo-wide and was
+before this session — files I touched were checked against their HEAD versions to confirm none of
+them regressed, and the ones still flagged were already flagged.
 
 ## 2026-08-16 (fifteenth session) — an audit, and then the six things it found
 **Account:** _(unrecorded)_ · **Machine:** primary. **Deliberately left uncommitted: nothing.**
