@@ -16,11 +16,40 @@ services:
     image: redis:7-alpine
     container_name: adgen-redis-prod
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    # `--requirepass` is what makes the loopback bind below a second lock rather
+    # than the only one. Today nothing else runs on this box, so the bind is
+    # genuinely sufficient — but the queue holds every job and BullMQ trusts
+    # whatever is in it, and the moment a second container, a second project, or
+    # the mooted join with the `aikutak` box shares this host, an unauthenticated
+    # Redis is reachable from it. Cheap now, awkward later.
+    #
+    # REDIS_PASSWORD comes from /srv/adgen/.env, which the deploy already sources
+    # (`set -a && . ./.env && set +a`). If it is EMPTY, redis-server refuses to
+    # start rather than starting open — a visibly broken deploy beats a silently
+    # unprotected one.
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:?REDIS_PASSWORD must be set}']
+    environment:
+      # Only so the healthcheck below can authenticate. redis-server itself gets
+      # the password through --requirepass above, not from here.
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # `redis-cli ping` answers NOAUTH once requirepass is set, so the bare
+      # probe would never go healthy and `depends_on: service_healthy` would
+      # block the whole stack from starting. It must authenticate.
+      #
+      # `$$REDIS_PASSWORD` (doubled) is escaped for COMPOSE, so the shell inside
+      # the container expands it — compose must not interpolate it into the yaml,
+      # or the password ends up in `docker inspect` output as a literal.
+      # --no-auth-warning keeps the credential out of the container's stderr.
+      test:
+        [
+          'CMD',
+          'sh',
+          '-c',
+          'redis-cli -a "$$REDIS_PASSWORD" --no-auth-warning ping | grep -q PONG',
+        ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -44,7 +73,10 @@ services:
       # Overrides whatever REDIS_URL is in .env — the worker must talk to
       # THIS compose stack's redis service (by its service name on the
       # compose network), not localhost or a dev instance.
-      REDIS_URL: redis://redis:6379
+      # Password from the same env var redis-server requires above. The
+      # `:?` form fails the deploy loudly if it is unset, rather than silently
+      # connecting without credentials to a server that now demands them.
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
       # One render at a time on a render box. The code default is 4, which is
       # right for the cheap tools and wrong for matrix: a single Remotion render
       # already drives Chromium and ffmpeg to near-100% on every core and wants
@@ -97,7 +129,10 @@ services:
     environment:
       # Same reasoning as the worker: the app must reach THIS stack's redis by
       # service name, not whatever REDIS_URL the .env carries for local dev.
-      REDIS_URL: redis://redis:6379
+      # Password from the same env var redis-server requires above. The
+      # `:?` form fails the deploy loudly if it is unset, rather than silently
+      # connecting without credentials to a server that now demands them.
+      REDIS_URL: redis://:${REDIS_PASSWORD:?REDIS_PASSWORD must be set}@redis:6379
       NODE_ENV: production
     ports:
       # Port 80 straight to Next, no reverse proxy yet: there is no domain, so

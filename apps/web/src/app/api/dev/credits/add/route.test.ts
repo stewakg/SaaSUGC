@@ -61,11 +61,18 @@ beforeEach(() => {
   rateLimitMock.mockResolvedValue({ allowed: true, resetSeconds: 0 });
   rpcMock.mockResolvedValue({ error: null });
   isAdminEmailMock.mockReturnValue(false);
+  // Stated explicitly rather than inherited from the runner. The gate now
+  // admits a non-admin ONLY under NODE_ENV=development (it used to admit
+  // everything that was not "production", which is the fail-open bug), and
+  // vitest's own NODE_ENV is "test" — so without this the tests below would
+  // 404 before reaching the pack/RPC behaviour they exist to cover. The gate's
+  // own tests stub their own value on top of this.
+  vi.stubEnv('NODE_ENV', 'development');
 });
 
 afterEach(() => {
-  // Clear any per-test NODE_ENV stubs so the next test starts from the default
-  // (vitest runs with NODE_ENV='test', i.e. NOT 'production').
+  // Clear any per-test NODE_ENV stubs; beforeEach reinstalls the explicit
+  // 'development' default for the next one.
   vi.unstubAllEnvs();
 });
 
@@ -117,13 +124,53 @@ describe('GET /api/dev/credits/add — authentication and the production admin g
   });
 
   it('4. development + non-admin ⇒ proceeds (the route is deliberately open locally)', async () => {
-    // No env stub: vitest runs with NODE_ENV='test', which is not 'production',
-    // so the route stays open the same way it does in local development.
+    // Stubbed EXPLICITLY to 'development'. This test used to rely on vitest's
+    // own NODE_ENV='test' falling through — which was the fail-open bug: the
+    // gate asked "is this production?" and treated every other value as safe to
+    // mint. The test encoded the vulnerability, so it had to change with it.
+    vi.stubEnv('NODE_ENV', 'development');
     isAdminEmailMock.mockReturnValue(false);
 
     await GET(req(CREDIT_PACKS[0].id));
 
     expect(rpcMock).toHaveBeenCalledTimes(1);
+  });
+
+  /*
+   * The fail-closed property. `/api/dev/credits/add` creates credits from
+   * nothing, so the question it asks must be "are we provably in development?"
+   * — never "are we provably in production?". Every value below is one a real
+   * deployment can end up with: a container started without the var, an empty
+   * assignment, a typo, or a CI/test runner. Each one used to mean unlimited
+   * minting for ANY authenticated user.
+   */
+  it.each([
+    ['test', 'a test runner'],
+    ['', 'an empty assignment in an env file'],
+    ['produciton', 'a typo — the classic'],
+    ['staging', 'an environment nobody enumerated'],
+    ['Production', 'wrong case, so not an exact match either'],
+  ])('4b. NODE_ENV=%s + non-admin ⇒ 404, nothing minted (%s)', async (value) => {
+    vi.stubEnv('NODE_ENV', value);
+    isAdminEmailMock.mockReturnValue(false);
+
+    const res = await GET(req(CREDIT_PACKS[0].id));
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: 'not_available' });
+    expect(rpcMock).not.toHaveBeenCalled();
+  });
+
+  it('4c. an ADMIN still mints under any NODE_ENV — the gate must not lock the owner out', async () => {
+    for (const value of ['production', 'test', '', 'staging']) {
+      vi.stubEnv('NODE_ENV', value);
+      isAdminEmailMock.mockReturnValue(true);
+      rpcMock.mockClear();
+
+      await GET(req(CREDIT_PACKS[0].id));
+
+      expect(rpcMock, `admin should mint under NODE_ENV=${value}`).toHaveBeenCalledTimes(1);
+    }
   });
 });
 

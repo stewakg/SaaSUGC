@@ -16,6 +16,8 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: 2026-08-17 — full security review of the site (apps/web/src/lib/safe-url.{ts,test.ts} + apps/web/src/app/api/import-clip/route.ts + apps/web/src/app/api/ssrf-routes.test.ts + apps/web/src/app/api/dev/credits/add/route.{ts,test.ts} + infra/docker-compose.prod.yml + .env.example; READ-ONLY over apps/web/src/middleware.ts, lib/{safe-redirect,admin,asset-url,rate-limit,yt-dlp}.ts, all 13 api routes, packages/core/src/providers/{billing.lemonsqueezy,scraper.real,storage.r2}.ts, apps/worker/src/{job-state,pipelines,scene-detect}.ts, supabase/migrations/*) — ISSUES FOUND AND FIXED: 1 HIGH, 2 MED, 1 LOW @ 76dbb1d + this session's commit (2026-08-17). Six parallel read-only sweeps, then every claim re-verified by hand — which is the whole reason the HIGH surfaced: FIVE reviewers said IPv4-mapped IPv6 was handled and ONE said it was not, and the one that had actually RUN the guard was right. **HIGH:** `isPrivateAddress` matched mapped IPv6 only in decimal, but `new URL()` normalises every mapped literal to hex, so `assertPublicHost('http://[::ffff:7f00:1]/')` returned TRUE — no-prerequisite SSRF to loopback (Redis) and cloud metadata via /api/scrape and /api/import-clip. A passing unit test was the disguise: it fed the decimal string straight in and never saw the normalisation. **MED:** yt-dlp follows redirects with no way to forbid them, so an attacker-owned public host was a redirect into the private range; fixed with a platform whitelist matching what the paste box advertises. **MED:** credit minting gated on `NODE_ENV === 'production'`, i.e. fail-OPEN on unset/empty/typo/test; inverted to `!== 'development'` — and six downstream tests failed because the suite had ENCODED the bug. **LOW:** Redis had no password; added with compose's `${VAR:?}` so an unset value fails the deploy instead of starting an open queue, and the healthcheck now authenticates or `depends_on: service_healthy` would have blocked the stack. Mutations: hex branch disabled → exactly the 10 new safe-url tests; whitelist removed → exactly the 6 unsupported_host cases; gate polarity reverted → exactly the 5 fail-closed cases. Gates: typecheck clean, core 385 / worker 123 / web 576 = **1084**, web build passes. CONFIRMED SOLID (do not re-audit): RLS on money tables, webhook HMAC/idempotency/variant cross-check, `reserve_credits` row lock, no IDOR on jobs/[id], no secret in git history, service-role server-only, worker spawnSync argv-only, `describeImage` does not fetch from our VPS. NOT FIXED, recorded: `generate-scripts` unmetered spend (a pricing decision), plain HTTP (needs the domain), CSRF-able dev GET, client-only password rules. ⛔ REDIS_PASSWORD is not on the VPS — the next deploy fails until it is added.
+
 REVIEWED: 2026-08-17 — icons + robots.txt, the dev-CSP hydration fix, Storage.delete (NEW apps/web/src/app/{icon.svg,favicon.ico,apple-icon.png,robots.ts,robots.test.ts} + apps/web/src/middleware.{ts,test.ts} + packages/core/src/interfaces.ts + packages/core/src/providers/{mocks.ts,storage.r2.ts,storage.r2.test.ts,renderer.local.test.ts,renderer.lambda.test.ts} + NEW packages/core/src/providers/mocks.storage.test.ts + scratchpad/gen-icons.mjs) — CLEAN @ 1cb185b, 98e668b, ea1fcca (2026-08-17). One Cline run (the first attempt died in a Bun panic having written nothing; the retry wrote all five files correctly) plus the icons, robots and CSP fix written by Claude. Six mutations, each failing exactly its own test and nothing else: removing MockStorage's traversal guard fails only the escape test (which asserts the outside file SURVIVES, not merely that it throws); dropping `force: true` fails only the idempotency test; a wrong bucket on DeleteObjectCommand fails only the bucket/key test; swallowing the SDK error fails only the rejection test; flipping `ALLOW_INDEXING` to true fails only the disallow-all test; making `'unsafe-eval'` unconditional fails the production-policy test and the two-policies-identical test. Gates re-run independently: typecheck clean on all five projects, **core 385 / web 551 / worker 123 = 1059**, web build passes and `.next/server/app` contains favicon.ico, icon.svg and apple-icon.png (checked on purpose — this is where `.dockerignore` hid `/api/storage`). **RUNTIME-VERIFIED in a real browser**, not merely built: all four asset paths answer 200 with the right content types, robots.txt reads `Disallow: /`, and after the CSP fix `window.next` exists and a theme click sets `data-theme` and the cookie. `Storage.delete` itself is CODE-COMPLETE — no real R2 object has been deleted, and nothing calls it. ⚠️ Cline's run reported success while leaving `pnpm -r typecheck` RED (two `satisfies Storage` fakes in the renderer tests lacked the new member) — its own definition of done said to run typecheck, so its self-report was wrong; Claude fixed the two fakes.
 
 REVIEWED: the rest of 2026-08-16 — direct upload, streamed import, bounded cache, CSP, billing dormancy, render fan-out, landing (NEW apps/web/src/app/api/upload/sign/route.{ts,test.ts} + NEW apps/web/src/lib/upload-constraints.ts + apps/web/src/lib/upload-file.{ts,test.ts} + apps/web/src/app/api/upload/route.ts + apps/web/src/app/api/import-clip/route.ts + apps/web/src/app/api/ssrf-routes.test.ts + apps/web/src/app/api/search-clips/route.ts + apps/web/src/lib/clip-search.ts + apps/web/src/app/api/remaining-routes.test.ts + apps/web/src/middleware.{ts,test.ts} + NEW apps/web/src/app/page.test.tsx + apps/web/src/app/page.tsx + apps/web/src/components/tool-cards.{tsx,test.tsx} + packages/core/src/providers/{storage.r2,factory,renderer.lambda}.{ts,test.ts} + packages/core/src/env.ts + .dockerignore + .env.example) — CLEAN @ b174e3e, b3db997, 3149141, 930d9e2, be22b61, 16dee4f, d76bf5b, 844c1c8, 2741dba (2026-08-16). Seven Cline runs plus two I wrote after provider timeouts; every one audited by MUTATION and every mutation failed exactly its own tests: sending `file.type` instead of the route's contentType on the PUT; letting a sign refusal fall back through the server; dropping the byte length from the import upload; disabling the cache eviction loop; a fixed nonce, and a redirect that skips the CSP stamp; forcing the billing dormancy guard false with a full key set present; reverting the landing's live-tools filter. Two mutations that changed NOTHING are recorded as findings rather than passes: `content-length` in `signableHeaders` is redundant (the binding comes from the command input), and the landing had no test at all until one was written here. Gates re-run independently: typecheck clean, core 379 / worker 119 / web 543, lint clean, web build passes. **Runtime-verified, not just typechecked:** the storage route and the CSP were both exercised against the deployed site. CODE-COMPLETE for everything else — no upload has yet gone browser→R2 for real, and no render has run at concurrency 25.
@@ -61,6 +63,86 @@ REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,v
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
 
 ---
+
+## 2026-08-17 (seventeenth session) — a security review, and the bug six reviewers disagreed about
+**Account:** _(unrecorded)_ · **Machine:** primary. **Deliberately left uncommitted: nothing.**
+
+The owner asked for a full security review of the site. Six read-only sweeps ran in parallel (auth
+×2, API routes, storage/SSRF, money, infra/RLS), and then **every claim was re-verified by hand**,
+which is the only reason the real bug was found: two reviewers contradicted each other about
+IPv4-mapped IPv6, five said the guard handled it, one said it did not. The one that was right had
+RUN the guard rather than read it.
+
+**The HIGH, and why five careful readers missed it.** `isPrivateAddress` matched IPv4-mapped IPv6
+only in its DECIMAL spelling — `::ffff:127.0.0.1` — and there was even a unit test asserting exactly
+that, passing. But `new URL()` NORMALISES every mapped literal to HEX, including when the user types
+the decimal form. So the regex could never match a host that arrived through a URL; the address fell
+through to the IPv6 branch, whose default for anything unrecognised is "public". Measured, not
+argued:
+
+```
+assertPublicHost('http://[::ffff:7f00:1]/')    -> true   (127.0.0.1)
+assertPublicHost('http://[::ffff:a9fe:a9fe]/') -> true   (169.254.169.254)
+```
+
+No DNS record to control, no redirect to arrange: a signed-in user posts the URL and `/api/scrape`
+or `/api/import-clip` connects to our own loopback — Redis sits on `127.0.0.1:6379` — or to the
+cloud metadata endpoint. **The passing test was the disguise.** It fed the decimal string straight
+into `isPrivateAddress` and therefore never saw the normalisation that made the check dead in
+production. Every new case goes through `new URL()` the way a route does.
+
+**The MED it exposed next to it.** `assertPublicHost` only ever judges the host the USER typed, and
+yt-dlp then follows redirects with no flag to forbid them or pin a resolved IP — so
+`http://evil.example/clip` passed (that host really is public) and its 302 into the private range
+was fetched from inside the VPS. `/api/scrape` closes the same gap with `redirect: 'manual'`, which
+a spawned binary cannot use. The durable fix is to deny the attacker the FIRST hop:
+`isAllowedClipHost` requires a platform we advertise. I checked the wizard before narrowing anything
+— the paste box is labelled "TikTok / YouTube / Instagram" and its placeholder is a TikTok URL, so a
+YouTube-only lock would have broken a shipped feature; the list matches what is offered, and a test
+walks all six URL shapes to prove nothing stopped working. Exact-match, never a suffix test, because
+`endsWith('tiktok.com')` also accepts `eviltiktok.com`.
+
+**A third one, found by asking a different question.** `/api/dev/credits/add` gated credit minting on
+`NODE_ENV === 'production' && !isAdminEmail`. That fails OPEN: unset, empty, a typo, `NODE_ENV=test`,
+a container started without the var — every one of them left unlimited minting open to any
+authenticated user. Now `!== 'development'`, so anything unrecognised lands on the safe side while
+`next dev` (which sets `development` itself) is unaffected. **The test suite had encoded the bug** —
+test 4 relied on vitest's own `NODE_ENV=test` falling through to prove the route was "open locally"
+— so six downstream tests failed on the fix and had to state their environment explicitly. A test
+that passes because of a vulnerability is not a test.
+
+**Redis got a password.** Loopback-bound is genuinely enough today, but the queue is the whole job
+pipeline and the owner's own notes contemplate joining this box with `aikutak`. `--requirepass` plus
+both `REDIS_URL`s built from `REDIS_PASSWORD`, using compose's `${VAR:?}` so an unset value fails
+the deploy loudly rather than starting an open queue — verified on the box, exit 1 with the named
+error when unset, exit 0 when set. The healthcheck had to move with it: `redis-cli ping` answers
+NOAUTH once a password exists, so the bare probe would never go healthy and
+`depends_on: service_healthy` would have blocked the entire stack from starting. That is the kind of
+detail that turns a security fix into an outage, and it was caught by rendering the compose file on
+the real box rather than trusting it.
+
+⛔ **`REDIS_PASSWORD` is NOT on the VPS yet, and the next deploy fails until it is.** Checked:
+`/srv/adgen/.env` has no such line. This is deliberate — the alternative was a compose file that
+silently starts an unauthenticated queue — but it means the fix and the deploy cannot happen in
+either order. `openssl rand -base64 32`, add the line, then deploy.
+
+**Two things I deliberately did NOT fix**, both recorded in `TODO.md` §1b rather than acted on:
+`generate-scripts` spends real OpenRouter money with no credit charge (its docstring blames
+migration 0005, which now exists — but charging per script is a pricing decision the owner parked,
+not a security patch); and production is still plain HTTP, which is correctly gated behind the
+inert `tls` profile until a domain exists.
+
+**Three false alarms worth recording so they are not re-investigated.** The storage dev-bypass reads
+alarming but sits on the MockStorage branch only, which production with R2 never reaches.
+`NODE_ENV=production` is already set in both Dockerfiles AND compose, so the fail-open above was the
+fourth layer, not the first. And `describeImage` does not fetch `sourceImages` from our VPS at all —
+it hands the URL to OpenRouter, who fetch it, which is exactly why that key is exempt from the
+origin whitelist in `asset-url.ts`; the comment there was right.
+
+Everything was mutation-audited: disabling the hex branch fails exactly the 10 new safe-url tests;
+removing the whitelist fails exactly the 6 `unsupported_host` cases; reverting the credit gate's
+polarity fails exactly the 5 fail-closed cases. Gates: typecheck clean, **1084 tests** (core 385,
+worker 123, web 576), web build passes.
 
 ## 2026-08-17 (sixteenth session) — the small leftovers, and the one that turned out not to be small
 **Account:** _(unrecorded)_ · **Machine:** primary. **Deliberately left uncommitted: nothing.**

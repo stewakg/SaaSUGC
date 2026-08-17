@@ -36,11 +36,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'rate_limited', retryAfterSeconds: rl.resetSeconds }, { status: 429 });
   }
 
-  // In production this route mints credits out of nothing, so it is for listed
-  // admins only. The check lives HERE and not only in the UI — hiding the
-  // button hides nothing from anyone who knows the URL. Outside production it
-  // stays open, because that is what makes local testing painless.
-  if (process.env.NODE_ENV === 'production' && !isAdminEmail(user.email)) {
+  /*
+   * This route mints credits out of nothing, so it is for listed admins only —
+   * and the check lives HERE, not just in the UI, because hiding the button
+   * hides nothing from anyone who knows the URL.
+   *
+   * The condition is deliberately `!== 'development'` and NOT
+   * `=== 'production'`. It used to be the latter, which FAILS OPEN: every
+   * value other than "production" — unset, empty, a typo, `NODE_ENV=test`, a
+   * container started without the var — left unlimited credit minting open to
+   * any authenticated user. Asking "are we provably in development?" instead
+   * means anything unrecognised lands on the SAFE side. `next dev` sets
+   * `development` itself, so local testing is exactly as painless as before.
+   *
+   * (NODE_ENV=production is separately set in both Dockerfiles and in
+   * docker-compose.prod.yml. This is the fourth layer, and the only one that
+   * holds if the other three are misconfigured at once.)
+   */
+  if (process.env.NODE_ENV !== 'development' && !isAdminEmail(user.email)) {
     return NextResponse.json({ error: 'not_available' }, { status: 404 });
   }
 
