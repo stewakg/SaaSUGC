@@ -76,6 +76,38 @@ Verdict format (one line):
 
 ## Code changes go through Cline (CLI-automated, since 2026-07-21)
 
+> ⚠️ **2026-08-18 — SECOND MACHINE, and `-P openai-compatible` is now WRONG here.**
+> The rule below was written on the primary machine and does not survive the move. On the
+> second machine the CLI was installed fresh (`npm i -g cline` → **3.0.55**, Node 22.19.0) and
+> `cline auth` was run, and the wallet that came out is a **native `zai-coding-plan` provider** —
+> a provider id this CLI version ships with, which did not exist when the line below was
+> written. There is **no `openai-compatible` entry at all**, so the documented invocation would
+> fail outright. On this machine the flag is:
+>
+> ```
+> cline --json -P zai-coding-plan -c "<repo>" "<one-line prompt>"
+> ```
+>
+> **The two-wallet trap survives, in a new shape.** `providers.json` holds BOTH a `zai` entry
+> and a `zai-coding-plan` entry carrying the SAME key — same account, different endpoint: the
+> coding plan is the subscription, plain `zai` bills pay-as-you-go against a balance that is
+> empty. Worse here than on the primary machine, the two state files DISAGREE:
+> `providers.json` says `lastUsedProvider: zai-coding-plan` while `globalState.json` still says
+> `actModeApiProvider: zai` / `glm-5.2`, migrated from the VSCode extension. So **never invoke
+> bare** — always pass `-P` explicitly, or a run can land on the empty wallet and fail in a way
+> that looks like a provider outage.
+>
+> **VERIFIED, not assumed** (probe run 2026-08-18 in a scratchpad cwd so the repo was
+> untouchable): the run completed and `run_result` reported `model.id: glm-5.3`,
+> `provider: zai-coding-plan`, `contextWindow: 1000000`, `totalCost: 0`, 5.4s. So on this
+> machine the model name is no longer a lie — it asks for 5.3 and gets 5.3.
+>
+> ⚠️ One open discrepancy: the entry sets `reasoning: { enabled: true, effort: "xhigh" }`, but
+> the provider's own `reasoningOptions` in that same response advertise `["low","high","max"]`
+> — no `xhigh`. It did not error and reasoning tokens did stream, but whether `xhigh` maps to
+> `max` or silently falls back is UNKNOWN. Use `max` if the effort level has to be certain.
+> Same lesson as the `glm-5.2`/`glm-5.3` alias below: the config's word is not proof.
+
 > ✅ **UNBLOCKED 2026-08-12 (later the same day): the owner recharged and delegation works.**
 > The earlier "insufficient balance" block is history. **Always pass `-P openai-compatible`** —
 > there are TWO wallets, and the `zai` entry is the empty one; worse, running `-P zai` once to

@@ -16,6 +16,8 @@ area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>`
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
 
+REVIEWED: 2026-08-18 — the charge-once re-entry guard, CI scanning, and the last two spellings the Rev. 3 audit left open (apps/worker/src/job-state.ts + apps/worker/src/processor.test.ts + .github/workflows/ci.yml + apps/web/src/lib/safe-url.{ts,test.ts} + apps/web/src/app/api/storage/[...path]/route.{ts,test.ts} + CLAUDE.md) — CLEAN @ 10bd75a, e3ddd57, 871bae0, 16a3551 (2026-08-18). **The re-entry guard is the one with money attached** and it closes residual risk #5: `processJob` set `status='running'` unconditionally, so a stalled re-delivery re-ran the whole pipeline — real TTS, a real Lambda render, real R2 copies — before hitting a charge that 0011 rejects, after which the existing charge-failure path deletes assets by `job_id` and takes the FIRST attempt's rows with it: charged, error, nothing. Gated on the LEDGER, not on status, because in that crash window the row still says `running`. Both reads fail CLOSED (an unreadable ledger throws before any row patch — guessing "not charged" spends provider money that cannot be recovered, refusing costs a retry), and the charged-but-empty state throws so BullMQ marks it failed and `alertJobFailed` fires, carrying the one message in the app that must NOT say "nije naplaćen". Four mutations, each failing exactly its own tests: fail-open on the ledger error → 1, guard branch disabled → exactly its 6, `Math.abs` dropped → 1, silent `return` replacing the `throw` → 1. **Teredo** (`2001:0::/32`, sixth spelling in the family) blocked as a whole prefix rather than decoded — the client v4 is bit-inverted and every decoding step is another spelling to get wrong; mutations: widening the mask to `g[0]` alone fails three tests INCLUDING the pre-existing `2001:4860:4860::8888`, removing the branch fails exactly the three Teredo cases. **Storage traversal guard written by CLINE** (`zai-coding-plan`/glm-5.3, first delegated run on the second machine), audited by mutation not by reading: `authorise()`'s upload branch inspects only the first two segments, so `uploads/<own-id>/../../renders/<other>.mp4` passed ownership and the `..` reached the signer — safe today only because R2 treats keys literally, i.e. the guard rested on a third party's behaviour. Placed AFTER `authorise` deliberately, preserving the 401-not-400 discriminator TODO.md uses to prove the signing branch is live. Cline touched exactly its two specified files and weakened nothing. Gates re-run independently: typecheck clean on all 5, **core 385 / worker 131 / web 608 = 1124** (was 1101), web build passes. NOT DONE, with reasons: `/api/dev/credits/add` GET→POST was REFUSED as not worth it (MockBilling points the BROWSER at that url, so POST needs an interstitial, and the CSRF payoff is credits on the victim's OWN account, admin-only in production); an app-side rate limit on password reset is IMPOSSIBLE as the flow stands (`zaboravljena-lozinka/page.tsx:33` calls `resetPasswordForEmail` straight from the browser — our server is not in the path; the lever is Supabase's own Auth rate limits, owner action). Still open from the audit: migration 0011 not applied, TLS/domain.
+
 REVIEWED: 2026-08-17 — full security review of the site (apps/web/src/lib/safe-url.{ts,test.ts} + apps/web/src/app/api/import-clip/route.ts + apps/web/src/app/api/ssrf-routes.test.ts + apps/web/src/app/api/dev/credits/add/route.{ts,test.ts} + infra/docker-compose.prod.yml + .env.example; READ-ONLY over apps/web/src/middleware.ts, lib/{safe-redirect,admin,asset-url,rate-limit,yt-dlp}.ts, all 13 api routes, packages/core/src/providers/{billing.lemonsqueezy,scraper.real,storage.r2}.ts, apps/worker/src/{job-state,pipelines,scene-detect}.ts, supabase/migrations/*) — ISSUES FOUND AND FIXED: 1 HIGH, 2 MED, 1 LOW @ 76dbb1d + this session's commit (2026-08-17). Six parallel read-only sweeps, then every claim re-verified by hand — which is the whole reason the HIGH surfaced: FIVE reviewers said IPv4-mapped IPv6 was handled and ONE said it was not, and the one that had actually RUN the guard was right. **HIGH:** `isPrivateAddress` matched mapped IPv6 only in decimal, but `new URL()` normalises every mapped literal to hex, so `assertPublicHost('http://[::ffff:7f00:1]/')` returned TRUE — no-prerequisite SSRF to loopback (Redis) and cloud metadata via /api/scrape and /api/import-clip. A passing unit test was the disguise: it fed the decimal string straight in and never saw the normalisation. **MED:** yt-dlp follows redirects with no way to forbid them, so an attacker-owned public host was a redirect into the private range; fixed with a platform whitelist matching what the paste box advertises. **MED:** credit minting gated on `NODE_ENV === 'production'`, i.e. fail-OPEN on unset/empty/typo/test; inverted to `!== 'development'` — and six downstream tests failed because the suite had ENCODED the bug. **LOW:** Redis had no password; added with compose's `${VAR:?}` so an unset value fails the deploy instead of starting an open queue, and the healthcheck now authenticates or `depends_on: service_healthy` would have blocked the stack. Mutations: hex branch disabled → exactly the 10 new safe-url tests; whitelist removed → exactly the 6 unsupported_host cases; gate polarity reverted → exactly the 5 fail-closed cases. Gates: typecheck clean, core 385 / worker 123 / web 576 = **1084**, web build passes. CONFIRMED SOLID (do not re-audit): RLS on money tables, webhook HMAC/idempotency/variant cross-check, `reserve_credits` row lock, no IDOR on jobs/[id], no secret in git history, service-role server-only, worker spawnSync argv-only, `describeImage` does not fetch from our VPS. NOT FIXED, recorded: `generate-scripts` unmetered spend (a pricing decision), plain HTTP (needs the domain), CSRF-able dev GET, client-only password rules. ⛔ REDIS_PASSWORD is not on the VPS — the next deploy fails until it is added.
 
 REVIEWED: 2026-08-17 — icons + robots.txt, the dev-CSP hydration fix, Storage.delete (NEW apps/web/src/app/{icon.svg,favicon.ico,apple-icon.png,robots.ts,robots.test.ts} + apps/web/src/middleware.{ts,test.ts} + packages/core/src/interfaces.ts + packages/core/src/providers/{mocks.ts,storage.r2.ts,storage.r2.test.ts,renderer.local.test.ts,renderer.lambda.test.ts} + NEW packages/core/src/providers/mocks.storage.test.ts + scratchpad/gen-icons.mjs) — CLEAN @ 1cb185b, 98e668b, ea1fcca (2026-08-17). One Cline run (the first attempt died in a Bun panic having written nothing; the retry wrote all five files correctly) plus the icons, robots and CSP fix written by Claude. Six mutations, each failing exactly its own test and nothing else: removing MockStorage's traversal guard fails only the escape test (which asserts the outside file SURVIVES, not merely that it throws); dropping `force: true` fails only the idempotency test; a wrong bucket on DeleteObjectCommand fails only the bucket/key test; swallowing the SDK error fails only the rejection test; flipping `ALLOW_INDEXING` to true fails only the disallow-all test; making `'unsafe-eval'` unconditional fails the production-policy test and the two-policies-identical test. Gates re-run independently: typecheck clean on all five projects, **core 385 / web 551 / worker 123 = 1059**, web build passes and `.next/server/app` contains favicon.ico, icon.svg and apple-icon.png (checked on purpose — this is where `.dockerignore` hid `/api/storage`). **RUNTIME-VERIFIED in a real browser**, not merely built: all four asset paths answer 200 with the right content types, robots.txt reads `Disallow: /`, and after the CSP fix `window.next` exists and a theme click sets `data-theme` and the cookie. `Storage.delete` itself is CODE-COMPLETE — no real R2 object has been deleted, and nothing calls it. ⚠️ Cline's run reported success while leaving `pnpm -r typecheck` RED (two `satisfies Storage` fakes in the renderer tests lacked the new member) — its own definition of done said to run typecheck, so its self-report was wrong; Claude fixed the two fakes.
@@ -61,6 +63,72 @@ REVIEWED: script.claude.ts — refusal gap CLOSED @ e388114 (2026-07-23): added 
 REVIEWED: F5/F6 infra (packages/core/src/{env,logger}.ts, packages/core/src/providers/factory.ts, apps/web/src/lib/rate-limit.ts, apps/web/src/app/api/billing/{checkout,webhook}/route.ts, apps/worker/Dockerfile, infra/docker-compose.prod.yml) — CLEAN @ 4500e0e (2026-07-23) EXCEPT one ISSUE: **billing/webhook/route.ts is not idempotent** — Lemon Squeezy retries/replays the same paid order (at-least-once + retry-on-non-2xx), and each valid delivery re-runs `add_credits` → credits granted 2+ times per purchase. `parseWebhook` doesn't even return the order id (`data.id`) to dedup on. Latent (F6 billing not live yet) but WILL fire on first real launch. Everything else correct: env optionalUrl empty-string fix, factory partial-config fallbacks + warnings, rate-limit EXPIRE-NX race fix + fail-open, Docker (Node22/pnpm/monorepo-layout/loopback-Redis).
 REVIEWED: F5 real provider clients (packages/core/src/providers/{script.claude,voice.elevenlabs,storage.r2,billing.lemonsqueezy,renderer.lambda}.ts) — static CLEAN @ 591e2cd (2026-07-23). Auth headers, endpoints, request/response shapes, Lemon Squeezy HMAC-SHA256 webhook (timing-safe), and the Remotion Lambda poll loop all match the real APIs. One low-pri gap: ClaudeScriptProvider has no `stop_reason:"refusal"` handling (degrades to a thrown parse error, not a crash). NONE ever called with a real key — static review only. **✅ voice.elevenlabs.ts LIVE-TESTED 2026-07-19**: `listVoices()` (58 real voices) + `tts()` (Serbian sentence, 1.5s, real ID3 MP3 verified on disk) both succeeded via a throwaway script driving `createProviders().voice`. `speed` field re-verified against current ElevenLabs docs beforehand — correct. The other 4 clients (script.claude, storage.r2, billing.lemonsqueezy, renderer.lambda) remain static-only — no key/account for any of them yet.
 NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewed as of the verdicts above. Re-review any file whose latest REVIEWED anchor is older than its last commit (git log <anchor>..HEAD -- <path>).
+
+---
+
+## 2026-08-18 (eighteenth session) — the second machine catches up, and Cline runs here for the first time
+**Account:** _(unrecorded)_ · **Machine:** SECOND. **Deliberately left uncommitted: nothing.**
+
+This session started as a sync and turned into the audit's open code items.
+
+**The sync, and what does not travel with git.** `main` was **241 commits behind** with a clean
+tree, so a plain fast-forward `10c17c1 → 16bc121` took it: 209 files, +30 930 / −1 780. Two things
+had to be redone by hand on this machine, exactly as `TODO.md` §8 predicts: `pnpm install`
+(8m 44s — and `pnpm` is NOT on PATH here, so every command in this session went through
+`corepack pnpm`), and the `.env`, which is gitignored and therefore did not arrive. **Seven keys
+in `.env.example` have no counterpart in the local `.env`** — `REDIS_PASSWORD`, `R2_ENDPOINT`,
+`REMOTION_LAMBDA_CONCURRENCY`, `BILLING_PROVIDER`, `ADMIN_EMAILS`, `WORKER_CONCURRENCY`,
+`ALERT_WEBHOOK_URL` — and they can only be carried across by hand. Flagged to the owner, not
+invented.
+
+**Cline now runs on this machine, and `CLAUDE.md` was wrong about how.** There was no `cline`
+binary here at all and no `providers.json` — only VSCode-extension state migrated from the
+sibling `aikutak` repo. Installed fresh (`npm i -g cline` → **3.0.55**, Node 22.19.0), and the
+owner ran `cline auth` himself (a TTY is required, and a key passed as `-k` would land in
+PowerShell's `ConsoleHost_history.txt` in plain text, permanently — the interactive path leaves
+nothing behind). What came out is **not** what the docs described: this CLI version ships a
+native **`zai-coding-plan`** provider, and there is **no `openai-compatible` entry at all**, so
+the invocation `CLAUDE.md` documented in three places would simply have failed. `CLAUDE.md` now
+carries a dated correction at the top of its Cline section.
+
+**The two-wallet trap survived the move, in a worse shape.** `providers.json` holds a `zai` entry
+AND a `zai-coding-plan` entry carrying the same key — same account, different endpoint: the
+coding plan is the subscription, plain `zai` bills against a balance that is empty. And the two
+state files **disagree**: `providers.json` says `lastUsedProvider: zai-coding-plan` while
+`globalState.json` still says `actModeApiProvider: zai` / `glm-5.2`. So a bare `cline "task"` can
+land on the wrong endpoint. Always pass `-P` explicitly.
+
+**Verified rather than assumed, and this time the model name is honest.** A probe run in a
+scratchpad cwd (so the repo was untouchable) came back `model.id: glm-5.3`,
+`provider: zai-coding-plan`, `contextWindow: 1000000`, `totalCost: 0`, 5.4s. Unlike the primary
+machine's `glm-5.2`→`glm-5.3` alias, this asks for 5.3 and gets 5.3. ⚠️ One discrepancy left
+OPEN: the entry sets `reasoning.effort: "xhigh"`, but the provider's own `reasoningOptions` in
+that same response advertise `["low","high","max"]` — no `xhigh`. It did not error and reasoning
+tokens streamed, but whether it maps to `max` or silently falls back is UNKNOWN. Use `max` if the
+level has to be certain.
+
+**A process note worth recording honestly:** the first three items (the guard, the CI job,
+Teredo) were written by Claude directly, before the owner asked whether the Cline rule was being
+followed. It was not — the rule had been read as satisfied by "the owner asked me to do it". The
+work was mutation-audited to the same standard and kept on the owner's decision; only the fourth
+item was delegated. The rule stands, and it now has a machine-specific note attached.
+
+**Two of the four "small gaps" turned out not to exist as described.** `/api/dev/credits/add`
+GET→POST was refused: `MockBilling.createCheckout()` points the BROWSER at that url, so POST
+needs an interstitial page, and the CSRF payoff is credits on the victim's OWN account — the
+route is admin-only in production. An app-side rate limit on password reset is not
+implementable as the flow stands: the browser calls `resetPasswordForEmail` directly and our
+server is never in the path, so there is nothing to attach a limiter to. The real lever is
+Supabase's own Auth rate limits, which is a dashboard setting and the owner's call.
+
+Gates at the end: typecheck clean on all five, **core 385 / worker 131 / web 608 = 1124** (was
+1101 at `3088624`), web build passes in 36.1s over 38 static pages. Details of each fix and every
+mutation are in the Review ledger above.
+
+⚠️ **Still open and unchanged by this session:** migration 0011 is NOT applied, so the
+double-charge window the guard narrows is still open at the database; and TLS/domain remains the
+one deployment blocker. Nothing here was deployed — production is still at `c3c2012` plus
+`731175b`.
 
 ---
 
