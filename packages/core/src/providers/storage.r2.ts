@@ -6,7 +6,12 @@
  * Written now so it's ready to wire in once R2_BUCKET or AWS_S3_BUCKET
  * exists (see ACCOUNTS.md) — never instantiated until then. NOT live-tested.
  */
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  DeleteObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Readable } from 'node:stream';
 import type { Storage } from '../interfaces.ts';
@@ -93,6 +98,17 @@ export class S3CompatibleStorage implements Storage {
    */
   getUrl(key: string): string {
     return `${this.config.publicBaseUrl.replace(/\/$/, '')}/${key}`;
+  }
+
+  /**
+   * Removes one object.
+   *
+   * S3 and R2 both answer 204 for a key that does not exist, so the interface's
+   * idempotency contract needs no extra check here — but a permission or
+   * network failure still rejects, which is the half that matters.
+   */
+  async delete(key: string): Promise<void> {
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }));
   }
 
   /**

@@ -30,6 +30,9 @@ function makeStorage() {
     name: 'fake',
     upload: vi.fn().mockResolvedValue({ url: STORAGE_URL }),
     getUrl: vi.fn(),
+    // Interface completeness only — the local renderer never deletes. See the
+    // same note in renderer.lambda.test.ts.
+    delete: vi.fn(),
   } satisfies Storage;
 }
 

@@ -127,6 +127,20 @@ export interface Storage {
     contentLength?: number,
   ): Promise<{ url: string }>;
   getUrl(key: string): string;
+  /**
+   * Removes one object.
+   *
+   * IDEMPOTENT by contract: deleting a key that is not there is a SUCCESS, not
+   * an error. Every caller that would ever exist here (retention cleanup, a
+   * GDPR erasure, a retry after a partial failure) runs at least twice on the
+   * same key sooner or later, and making the second run throw would turn a
+   * completed erasure into a failed one.
+   *
+   * A transport failure (no credentials, network, permission denied) still
+   * REJECTS — "the object is not there" and "we could not reach the bucket"
+   * are not the same answer and must not be flattened into one.
+   */
+  delete(key: string): Promise<void>;
 }
 
 /** Mock (instant credit in dev) → Lemon Squeezy (launch). */

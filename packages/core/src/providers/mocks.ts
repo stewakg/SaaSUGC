@@ -157,6 +157,21 @@ export class MockStorage implements Storage {
   getUrl(key: string): string {
     return `${this.publicPrefix}/${key}`;
   }
+
+  async delete(key: string): Promise<void> {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const root = path.resolve(this.rootDir);
+    const abs = path.resolve(root, key);
+    // Keys are server-minted today, but delete is the one operation where a
+    // traversing key destroys a file OUTSIDE the storage tree rather than
+    // merely writing inside it. Refuse instead of trusting the caller.
+    if (abs !== root && !abs.startsWith(root + path.sep)) {
+      throw new Error('storage key escapes the storage directory');
+    }
+    // force: true is what makes a missing key a success rather than ENOENT.
+    await fs.promises.rm(abs, { force: true });
+  }
 }
 
 // ----------------------------------------------------------------------------

@@ -99,6 +99,11 @@ function makeStorage() {
     name: 'fake-storage',
     upload: vi.fn().mockResolvedValue({ url: STORAGE_URL }),
     getUrl: vi.fn().mockReturnValue(STORAGE_URL),
+    // Present only to satisfy the interface: the renderer never deletes. It is
+    // a `vi.fn()` rather than a throwing stub on purpose — `satisfies Storage`
+    // is what keeps this fake honest, and a renderer that started calling
+    // delete should be caught by a test asserting the call, not by a crash.
+    delete: vi.fn(),
   } satisfies Storage;
 }
 

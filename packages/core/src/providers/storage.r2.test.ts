@@ -11,7 +11,7 @@
  * these signatures. That needs a real bucket (RELEASE_PLAN L1.3).
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Readable } from 'node:stream';
 import {
   S3CompatibleStorage,
@@ -250,5 +250,38 @@ describe('upload — ContentLength on the PUT (the streamed-body signing fix)', 
 
     await storage().upload('a/c.png', Buffer.from('x'), 'image/png');
     expect((send.mock.calls[1][0] as PutObjectCommand).input.ContentLength).toBeUndefined();
+  });
+});
+
+describe('delete — removes one object', () => {
+  /** Same prototype seam as the upload suite above: the spy swallows the send, no socket opens. */
+  function createSendSpy() {
+    return vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({} as never);
+  }
+  let send: ReturnType<typeof createSendSpy>;
+  beforeEach(() => {
+    send = createSendSpy();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a DeleteObjectCommand carrying the CONFIGURED bucket and the EXACT key', async () => {
+    await storage().delete('uploads/user-1/123.mp4');
+    const cmd = send.mock.calls[0][0] as DeleteObjectCommand;
+    expect(cmd).toBeInstanceOf(DeleteObjectCommand);
+    // Both asserted on purpose: a test that only checks the key would pass if
+    // the bucket were wrong — and delete in the wrong bucket is data loss.
+    expect(cmd.input.Bucket).toBe('adgen-test');
+    expect(cmd.input.Key).toBe('uploads/user-1/123.mp4');
+  });
+
+  it('resolves when the SDK resolves', async () => {
+    await expect(storage().delete('renders/a.mp4')).resolves.toBeUndefined();
+  });
+
+  it('REJECTS when the SDK rejects — an error here must not be swallowed', async () => {
+    send.mockRejectedValueOnce(new Error('AccessDenied'));
+    await expect(storage().delete('renders/a.mp4')).rejects.toThrow('AccessDenied');
   });
 });
