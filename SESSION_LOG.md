@@ -126,6 +126,33 @@ the real box rather than trusting it.
 silently starts an unauthenticated queue — but it means the fix and the deploy cannot happen in
 either order. `openssl rand -base64 32`, add the line, then deploy.
 
+**Then it was deployed, and generating the password went wrong first.**
+`openssl rand -base64 32` is the obvious command and it is the wrong one here: base64 emits `+`, `/`
+and `=`, and this value is embedded in a URL — `redis://:PASSWORD@redis:6379` — where `/` and `@`
+terminate the userinfo section. The client would not have errored; it would have connected to a
+WRONG HOST derived from the password's own characters, which is about the most confusing outage
+shape available. Caught by checking the generated value's charset before deploying instead of after.
+`openssl rand -hex 32` is URL-safe by construction and still 256 bits. `.env` was backed up first
+(`.env.bak-20260817-093102`) and the other 56 keys were confirmed untouched by line count.
+
+Deployed at `731175b`. All three containers `healthy`, `/` and `/robots.txt` and `/favicon.ico` all
+200. **The Redis lock is proven from both sides**, which one check alone would not do:
+`redis-cli ping` inside the container answers `NOAUTH Authentication required` (the password is
+enforced) while the worker connects and logs `listening` on both queues (the password is also
+correct). Disk 42% after the build.
+
+⚠️ **One ergonomic consequence, now in `TODO.md` §8:** every compose command against this file needs
+the env sourced — `ps` and `logs`, not just `up`. `${VAR:?}` means compose refuses to interpolate
+the file at all without it, so a bare `docker compose … ps` errors where it used to work. That is
+the guard working; it is still a change to the runbook.
+
+**What the deploy did NOT prove.** I probed `/api/import-clip` on the live box with the mapped-IPv6
+payloads and got 401 — the auth gate fires before the SSRF guard, which is correct behaviour and
+proves nothing about the fix. **The mapped-IPv6 and whitelist fixes are verified by tests and by
+running the real module locally, NOT against production**, and saying otherwise would be exactly the
+CODE-COMPLETE-dressed-as-VERIFIED mistake this log exists to prevent. Proving them live needs a
+signed-in session.
+
 **Two things I deliberately did NOT fix**, both recorded in `TODO.md` §1b rather than acted on:
 `generate-scripts` spends real OpenRouter money with no credit charge (its docstring blames
 migration 0005, which now exists — but charging per script is a pricing decision the owner parked,
