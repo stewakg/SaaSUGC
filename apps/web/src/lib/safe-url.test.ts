@@ -188,6 +188,13 @@ describe('isPrivateAddress', () => {
     ['2002:a00:1::1', '6to4-embedded private 10.0.0.1'],
     ['2002:a9fe:a9fe::1', '6to4-embedded cloud metadata'],
     ['2002:c0a8:101::1', '6to4-embedded private 192.168.1.1'],
+    // Teredo (2001:0::/32) — the sixth and last v4-embedding transition
+    // mechanism. Blocked as a whole prefix rather than decoded: the client v4
+    // is bit-inverted in the last two groups, and there is no product case for
+    // fetching a clip over Teredo, so refusing the /32 costs nothing.
+    ['2001:0::807f:fffe', 'Teredo-embedded loopback (127.0.0.1, bit-inverted)'],
+    ['2001:0:0:0:0:0:0:1', 'Teredo prefix, fully expanded'],
+    ['2001:0:4136:e378:8000:63bf:3fff:fdd2', 'a real-world-shaped Teredo address'],
   ])('blocks %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(true);
   });
@@ -207,6 +214,10 @@ describe('isPrivateAddress', () => {
     ['2001:4860:4860::8888', 'public IPv6 (Google DNS) — must stay allowed'],
     ['64:ff9b::808:808', 'NAT64-embedded PUBLIC 8.8.8.8 — must stay allowed'],
     ['2002:808:808::1', '6to4-embedded PUBLIC 8.8.8.8 — must stay allowed'],
+    // The Teredo block must be TWO groups wide. A 2001::/16 mask would take the
+    // whole of ordinary global v6 with it — these two prove it did not.
+    ['2001:db8::1', 'documentation prefix, second group non-zero — not Teredo'],
+    ['2001:4860::8888', 'Google v6, second group non-zero — must stay allowed'],
   ])('allows %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(false);
   });

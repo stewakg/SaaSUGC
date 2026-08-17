@@ -162,6 +162,21 @@ export function isPrivateAddress(ip: string): boolean {
     if (g[0] === 0x2002) {
       return isPrivateAddress(v4FromGroups(g[1], g[2]));
     }
+    // Teredo (2001:0::/32) — the SIXTH member of the same family, and the last
+    // transition mechanism that embeds a v4 address. Blocked wholesale rather
+    // than decoded, which is a deliberate trade:
+    //
+    // Teredo hides the client's IPv4 in the last two groups BIT-INVERTED
+    // (`2001:0::807f:fffe` is 127.0.0.1), and the server's in groups 2-3 plainly.
+    // Decoding is fiddly and each fiddly step is another spelling to get wrong —
+    // this file has now had five of those. The product case decides it: nothing
+    // we fetch (a TikTok/YouTube/Instagram clip, a shop page) is ever legitimately
+    // reachable only over Teredo, so refusing the whole /32 costs nothing real
+    // and cannot be got wrong.
+    //
+    // Note the mask must be BOTH groups: 2001::/16 alone would also swallow
+    // 2001:db8:: and much of the ordinary global v6 space.
+    if (g[0] === 0x2001 && g[1] === 0x0000) return true;
     return false;
   }
 
