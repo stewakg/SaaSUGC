@@ -181,6 +181,13 @@ describe('isPrivateAddress', () => {
     ['64:ff9b::7f00:1', 'NAT64-embedded loopback'],
     ['64:ff9b::a9fe:a9fe', 'NAT64-embedded cloud metadata'],
     ['not-an-address::zzz', 'unparseable but colon-bearing — must fail CLOSED'],
+    // 6to4 (2002::/16) — embedded IPv4 lives in groups 1-2, not 6-7 like NAT64
+    // and the mapped forms, so it needed its own branch. Fifth spelling in this
+    // family; each of the previous four was also "surely the last one".
+    ['2002:7f00:1::1', '6to4-embedded loopback'],
+    ['2002:a00:1::1', '6to4-embedded private 10.0.0.1'],
+    ['2002:a9fe:a9fe::1', '6to4-embedded cloud metadata'],
+    ['2002:c0a8:101::1', '6to4-embedded private 192.168.1.1'],
   ])('blocks %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(true);
   });
@@ -199,6 +206,7 @@ describe('isPrivateAddress', () => {
     ['::ffff:1.1.1.1', 'public 1.1.1.1 as decimal-mapped — must stay allowed'],
     ['2001:4860:4860::8888', 'public IPv6 (Google DNS) — must stay allowed'],
     ['64:ff9b::808:808', 'NAT64-embedded PUBLIC 8.8.8.8 — must stay allowed'],
+    ['2002:808:808::1', '6to4-embedded PUBLIC 8.8.8.8 — must stay allowed'],
   ])('allows %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(false);
   });

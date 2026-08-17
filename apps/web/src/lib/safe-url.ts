@@ -151,6 +151,17 @@ export function isPrivateAddress(ip: string): boolean {
     if (g[0] === 0x0064 && g[1] === 0xff9b) {
       return isPrivateAddress(v4FromGroups(g[6], g[7]));
     }
+    // 6to4 (2002::/16) — the embedded IPv4 sits in groups 1-2, NOT 6-7 like the
+    // two prefixes above, which is why it needed its own branch and not another
+    // entry in theirs. `2002:7f00:1::1` is loopback and used to read as public.
+    // Fifth spelling in this family, found by an external audit probing 6to4
+    // specifically after the fourth. Reachability is lower than the others — the
+    // host has to actually route 2002::/16, which Hetzner does not by default —
+    // but "does not route it today" is a property of the network, not of this
+    // guard, and the guard is the thing that has to stay true.
+    if (g[0] === 0x2002) {
+      return isPrivateAddress(v4FromGroups(g[1], g[2]));
+    }
     return false;
   }
 
