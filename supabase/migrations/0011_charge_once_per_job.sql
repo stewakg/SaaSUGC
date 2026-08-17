@@ -1,0 +1,73 @@
+-- 0011 — one job_spend charge per job, enforced by the database.
+--
+-- THE BUG THIS CLOSES (found by an external security audit, 2026-08-17, and
+-- confirmed against the code before writing this):
+--
+-- `apps/worker/src/job-state.ts` charges at ~L127, releases the credit hold at
+-- ~L158, and only then marks the job `done` at ~L165. Nothing guards re-entry:
+-- L79 sets `status = 'running'` unconditionally, without ever asking whether
+-- this job has already been charged. So if the worker dies between the charge
+-- and the `done` update, BullMQ treats the job as STALLED, re-delivers it
+-- (default `maxStalledCount` 1), and the whole pipeline runs a second time —
+-- second `charge_credits`, second set of assets. The customer pays twice for
+-- one job and gets duplicates.
+--
+-- The 0010 credit HOLD does not stop this, and it is worth being precise about
+-- why: the hold is released at L158 as soon as the charge succeeds, which is
+-- correct (the money has moved, the reservation has done its work). By the time
+-- the re-delivered attempt runs, there is no hold left to block it.
+--
+-- The aggravating detail, also verified: the worker calls ffmpeg through
+-- `spawnSync` (`apps/worker/src/scene-detect.ts`), which BLOCKS the event loop.
+-- A long scene-detect can therefore stop BullMQ renewing its lock past the
+-- 30s `lockDuration` WITHOUT the process crashing — so this does not need a
+-- server failure to trigger, only a slow enough video.
+--
+-- WHY A PARTIAL UNIQUE INDEX RATHER THAN AN APPLICATION CHECK: the two attempts
+-- can overlap, so any `select … then insert` in the worker has the same race it
+-- is trying to fix. Only the database can make "at most one job_spend row per
+-- job" true under concurrency. This is the same reasoning that put the credit
+-- reservation in `reserve_credits` (0010) rather than in the route.
+--
+-- SCOPED TO reason = 'job_spend' ON PURPOSE. 0005 added `p_reason` so a job can
+-- be charged per STAGE later (scripts, then audio, then video), and that design
+-- must stay possible: those rows carry different reasons and are unaffected by
+-- this index. What is forbidden is charging the SAME job twice for the SAME
+-- stage.
+--
+-- SAFE TO RUN ON EXISTING DATA: `create unique index concurrently` would be
+-- preferable on a hot table, but Supabase's SQL editor runs inside a
+-- transaction, where CONCURRENTLY is not permitted. This table is tiny (one row
+-- per charge, no real traffic yet), so a plain index build is a sub-second lock.
+-- If it FAILS with a duplicate-key error, that is not a migration problem — it
+-- means a double charge has ALREADY happened in production and those rows must
+-- be reconciled and refunded before this can be applied. The query to find them
+-- is at the bottom of this file.
+
+create unique index if not exists credits_ledger_one_job_spend_per_job
+  on public.credits_ledger (job_id)
+  where reason = 'job_spend' and job_id is not null;
+
+-- What the worker sees after this lands: the second `charge_credits` call
+-- raises a unique_violation instead of succeeding. `charge_credits` (0005)
+-- inserts the ledger row FIRST and only then updates the balance, so the
+-- violation aborts the function before any credits are deducted — the customer
+-- is not charged twice, and the re-delivered attempt fails loudly with the
+-- error surfaced through the worker's existing charge-failure path (which
+-- already deletes the orphaned assets and releases the hold).
+--
+-- That is the correct outcome for the money, and it is deliberately NOT the
+-- whole fix: the re-delivered attempt still re-ran the pipeline and spent real
+-- provider credits before reaching the charge. Making the worker skip a job it
+-- has already completed is an application change, tracked separately — this
+-- migration guarantees only that the CUSTOMER is never billed twice.
+
+-- Reconciliation query — run it BEFORE applying if you want to check first, or
+-- after a failure to find what to fix:
+--
+--   select job_id, count(*), sum(amount), min(created_at), max(created_at)
+--   from public.credits_ledger
+--   where reason = 'job_spend' and job_id is not null
+--   group by job_id
+--   having count(*) > 1
+--   order by max(created_at) desc;

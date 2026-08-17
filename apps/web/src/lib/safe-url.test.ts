@@ -167,6 +167,20 @@ describe('isPrivateAddress', () => {
     ['0000:0000:0000:0000:0000:ffff:7f00:0001', 'loopback, expanded and zero-padded'],
     ['0:0:0:0:0:ffff:127.0.0.1', 'loopback, expanded with a dotted quad'],
     ['0:0:0:0:0:ffff:a9fe:a9fe', 'cloud metadata, fully expanded'],
+    // The UNMAPPED branch, second family of the same bug. `::1` used to be a
+    // string compare, so only the compressed spelling was caught — while
+    // assertPublicHost hands this function raw DNS resolver output, which may
+    // use any valid form. Found by an external audit probing rather than
+    // reading, after the mapped branch alone had been rewritten.
+    ['0:0:0:0:0:0:0:1', 'loopback, fully expanded'],
+    ['0000:0000:0000:0000:0000:0000:0000:0001', 'loopback, expanded and zero-padded'],
+    ['0:0:0:0:0:0:0:0', 'unspecified, fully expanded'],
+    ['fe80:0:0:0:0:0:0:1', 'link-local, fully expanded'],
+    ['fc00:0:0:0:0:0:0:1', 'unique-local, fully expanded'],
+    ['::127.0.0.1', 'deprecated IPv4-compatible form of loopback'],
+    ['64:ff9b::7f00:1', 'NAT64-embedded loopback'],
+    ['64:ff9b::a9fe:a9fe', 'NAT64-embedded cloud metadata'],
+    ['not-an-address::zzz', 'unparseable but colon-bearing — must fail CLOSED'],
   ])('blocks %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(true);
   });
@@ -183,6 +197,8 @@ describe('isPrivateAddress', () => {
     ['::ffff:0808:0808', 'public 8.8.8.8 as hex-mapped IPv6 — must stay allowed'],
     ['0:0:0:0:0:ffff:0808:0808', 'public 8.8.8.8, fully expanded — must stay allowed'],
     ['::ffff:1.1.1.1', 'public 1.1.1.1 as decimal-mapped — must stay allowed'],
+    ['2001:4860:4860::8888', 'public IPv6 (Google DNS) — must stay allowed'],
+    ['64:ff9b::808:808', 'NAT64-embedded PUBLIC 8.8.8.8 — must stay allowed'],
   ])('allows %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(false);
   });

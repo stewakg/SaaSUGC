@@ -49,7 +49,7 @@ export function isSafeTargetUrl(raw: string): boolean {
  * Deliberately NOT a regex. Two successive regexes here each missed a different
  * spelling of loopback, and each miss was a live SSRF.
  */
-function mappedIPv4(addr: string): string | null {
+function expandIPv6(addr: string): number[] | null {
   if (!addr.includes(':')) return null;
 
   // A trailing dotted quad (`::ffff:127.0.0.1`) is the one form that is not pure
@@ -81,11 +81,11 @@ function mappedIPv4(addr: string): string | null {
   if (groups.length !== 8) return null;
   if (!groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return null;
 
-  const value = groups.map((g) => parseInt(g, 16));
-  const isMapped = value.slice(0, 5).every((v) => v === 0) && value[5] === 0xffff;
-  if (!isMapped) return null;
+  return groups.map((g) => parseInt(g, 16));
+}
 
-  const [hi, lo] = [value[6], value[7]];
+/** The IPv4 that the last two groups of an expanded IPv6 encode. */
+function v4FromGroups(hi: number, lo: number): string {
   return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
 }
 
@@ -117,13 +117,40 @@ export function isPrivateAddress(ip: string): boolean {
   // hand back raw, and `assertPublicHost` passes resolver output straight in.
   // Two regexes missing two spellings is the signal to stop pattern-matching and
   // parse the address properly.
-  const mappedV4 = mappedIPv4(addr);
-  if (mappedV4) return isPrivateAddress(mappedV4);
-
   if (addr.includes(':')) {
-    if (addr === '::' || addr === '::1') return true; // unspecified, loopback
-    if (/^f[cd]/.test(addr)) return true; // fc00::/7 unique-local
-    if (/^fe[89ab]/.test(addr)) return true; // fe80::/10 link-local
+    const g = expandIPv6(addr);
+    // Not a parseable IPv6 but contains a colon: fail CLOSED. An address we
+    // cannot understand is not an address we can vouch for.
+    if (!g) return true;
+
+    // IPv4-MAPPED (::ffff:a.b.c.d) — first five groups zero, sixth ffff.
+    if (g.slice(0, 5).every((v) => v === 0) && g[5] === 0xffff) {
+      return isPrivateAddress(v4FromGroups(g[6], g[7]));
+    }
+
+    // Everything else with the top six groups zero. This is where the SECOND
+    // family of spelling bugs lived: the check used to be `addr === '::1'`, a
+    // STRING compare, so the unabbreviated `0:0:0:0:0:0:0:1` — which a DNS
+    // resolver may return and which `assertPublicHost` passes in raw — read as
+    // public. Same class as the mapped bug, missed because only the mapped
+    // branch got rewritten. Judged numerically now, so every spelling agrees.
+    if (g.slice(0, 6).every((v) => v === 0)) {
+      if (g[6] === 0 && g[7] === 0) return true; // :: unspecified
+      if (g[6] === 0 && g[7] === 1) return true; // ::1 loopback
+      // ::a.b.c.d — deprecated IPv4-compatible, still routed via the v4 stack
+      // on some hosts. Judge it as the IPv4 rather than trusting the form.
+      return isPrivateAddress(v4FromGroups(g[6], g[7]));
+    }
+
+    // Numeric prefix tests, not string prefixes — `/^f[cd]/` on the text would
+    // also have to be re-taught every alternative spelling.
+    if ((g[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
+    if ((g[0] & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+    // NAT64 (64:ff9b::/96) carries an embedded IPv4 that the translator will
+    // reach on our behalf, so judge the address it actually delivers to.
+    if (g[0] === 0x0064 && g[1] === 0xff9b) {
+      return isPrivateAddress(v4FromGroups(g[6], g[7]));
+    }
     return false;
   }
 
