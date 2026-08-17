@@ -120,6 +120,29 @@ on 2026-08-16 while still reading as open questions; the phone-frame line number
 test census was 67 tests stale before this session touched it** — the file said 979, a real run says
 **1059** (core 385, web 551, worker 123). A census in a document is a claim to re-measure.
 
+**Then it was deployed, and the deploy found a documentation bug.** `/srv/adgen` pulled from
+`4507717` to `c3c2012`, both images rebuilt, all three containers healthy. The first build attempt
+FAILED: `TODO.md` §8's deploy commands omit `set -a && . ./.env && set +a`, so the web build reached
+`apps/web/Dockerfile:68` and stopped with *"NEXT_PUBLIC_SUPABASE_URL build arg is empty"*. Compose
+reads its own default `.env` relative to the compose FILE (`infra/`), where there is none, and the
+two `NEXT_PUBLIC_*` values are BUILD args baked into the image. The compose file's own comment above
+its `args:` block has always documented this; the deploy recipe was the thing that was wrong, and it
+is now fixed in §8. Worth noting the guard did exactly what it exists for — the alternative failure
+is an image that builds cleanly and serves an app with no Supabase URL compiled in.
+
+**Verified against production, not against localhost:** `/` 200; `/robots.txt` 200 serving
+`User-Agent: *` / `Disallow: /`; `/favicon.ico` 200 `image/x-icon` 2543 B; `/icon.svg` 200
+`image/svg+xml`; `/apple-icon.png` 200 `image/png` 4347 B; `/apple-touch-icon.png` 404 as expected.
+The production CSP reads `script-src … 'unsafe-inline'` and `connect-src 'self' https:` — **no
+`'unsafe-eval'`, no `ws:`**, which is the half of the CSP change that actually needed proving: the
+development loosening is absent from the shipped app, not merely absent from a test. The worker came
+up on real providers (`s3-storage`, `remotion-lambda-renderer`, `elevenlabs-voice`,
+`openrouter-script`, `kie-fal-router`) and its startup line reads
+`concurrency: 1, lightConcurrency: 4` — the two-lane setup confirmed live, which is the same claim
+§7 of `TODO.md` had listed as future work. Build cache pruned afterwards: **11.15 GB reclaimed, disk
+54% → 33%**, with images, containers and the redis volume all reporting 0 B reclaimable, exactly as
+the runbook requires.
+
 **What is still open on my side is honestly nothing that does not need the owner first:** the landing's
 empty 9:16 frame needs him to pick which real render is the shop window; the expired-asset UI would
 lie until the R2 lifecycle rule exists; account deletion needs the policy decision above; the
