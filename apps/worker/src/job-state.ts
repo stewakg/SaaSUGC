@@ -21,7 +21,21 @@ const USER_FACING_ERROR_CODES = new Set([
   'source_not_public',
   'video_not_supported',
   'tool_not_implemented',
+  'charged_no_result',
 ]);
+
+/**
+ * The one state where "nije naplaćen" would be a lie.
+ *
+ * Reached only by the re-entry guard below: the ledger says this job WAS
+ * charged, but no asset row survived to deliver. Every other failure path can
+ * honestly tell the customer they were not billed; this one must not, because
+ * they were. It deliberately does not promise a refund — there is no refund
+ * path in the app yet, and a promise the product cannot keep is worse than an
+ * honest dead end.
+ */
+export const CHARGED_NO_RESULT_ERROR =
+  'charged_no_result: Posao je naplaćen, ali rezultat nije sačuvan. Javi nam se pre nego što pokušaš ponovo.';
 
 /** What the customer sees when the real reason is not theirs to read. */
 export const GENERIC_JOB_ERROR =
@@ -74,6 +88,109 @@ export function makeProcessor(
     const { data: job, error } = await db.from('jobs').select('*').eq('id', jobId).single();
     if (error || !job) {
       throw new Error(`[worker] job ${jobId} not found: ${error?.message ?? 'no row'}`);
+    }
+
+    /**
+     * RE-ENTRY GUARD — has this job already been charged?
+     *
+     * BullMQ re-delivers a STALLED job (default `maxStalledCount` 1), and a
+     * stall does not need a crash: `scene-detect.ts` runs ffmpeg through
+     * `spawnSync`, which blocks the event loop, so a long enough video can stop
+     * the lock being renewed past the 30s `lockDuration` on a perfectly healthy
+     * worker. Until this guard existed, that re-delivery re-ran the WHOLE
+     * pipeline — real TTS characters, a real Lambda render, real R2 copies —
+     * before reaching a charge that migration 0011 then rejects.
+     *
+     * Gating on `status` would miss the case that matters: in the crash window
+     * between the charge (L~127) and the `done` update (L~165) the row still
+     * says `running`. The ledger is what 0011 makes authoritative, so that is
+     * what is asked. Doing this BEFORE the `running` patch also stops a
+     * finished job flickering back to "u obradi" on the customer's screen.
+     *
+     * `delta` is what 0005 wrote — NEGATIVE (`-p_amount`) — so the charged cost
+     * is its magnitude.
+     */
+    const { data: charged, error: ledgerError } = await db
+      .from('credits_ledger')
+      .select('delta')
+      .eq('job_id', jobId)
+      .eq('reason', 'job_spend')
+      .limit(1)
+      .maybeSingle();
+
+    if (ledgerError) {
+      /**
+       * Fail CLOSED. An unreadable ledger means "already charged?" is
+       * unanswerable, and the two ways of being wrong are not symmetric:
+       * running the pipeline anyway spends provider money that cannot be
+       * recovered, while refusing costs a retry. Thrown before any row patch —
+       * same shape as the not-found case above — so the job keeps its current
+       * status and BullMQ owns what happens next.
+       */
+      throw new Error(
+        `[worker] job ${jobId}: could not read the charge ledger: ${ledgerError.message}`,
+      );
+    }
+
+    if (charged) {
+      const { data: existingAssets, error: existingError } = await db
+        .from('assets')
+        .select('kind, storage_key, url')
+        .eq('job_id', jobId);
+
+      if (existingError) {
+        // Same fail-closed reasoning: without the asset rows there is nothing
+        // to rebuild from, and re-running is the one thing that must not happen.
+        throw new Error(
+          `[worker] job ${jobId}: charged, but its assets could not be read: ${existingError.message}`,
+        );
+      }
+
+      if (!existingAssets || existingAssets.length === 0) {
+        /**
+         * Charged, and nothing survived to deliver. The audit named this state:
+         * the re-delivered attempt's charge-failure path deletes assets by
+         * `job_id`, which takes the FIRST attempt's rows with it. Re-running is
+         * not the answer — the customer would be charged a second time or, with
+         * 0011 applied, land right back here having spent more provider money.
+         *
+         * So it ends loudly instead: the row carries a message that admits the
+         * charge, and the throw makes BullMQ mark the job failed, which is what
+         * fires `alertJobFailed`. A human has to decide the refund; the app has
+         * no path for one.
+         */
+        consoleLogger.error('job was charged but has no assets to deliver', { jobId });
+        await db
+          .from('jobs')
+          .update({ status: 'error', error: CHARGED_NO_RESULT_ERROR })
+          .eq('id', jobId);
+        await releaseHold();
+        throw new Error(
+          `charged_no_result: job ${jobId} has a job_spend ledger row but no assets — needs a manual refund decision`,
+        );
+      }
+
+      const assets = existingAssets.map((a) => ({
+        kind: a.kind,
+        url: a.url,
+        storageKey: a.storage_key,
+      }));
+      consoleLogger.warn('job was already charged — rebuilding from assets, pipeline skipped', {
+        jobId,
+        assets: assets.length,
+      });
+      await db
+        .from('jobs')
+        .update({
+          status: 'done',
+          result: { assets } as unknown as Json,
+          cost: Math.abs(charged.delta),
+        })
+        .eq('id', jobId);
+      // The charge already happened, so any hold left over from the enqueue is
+      // pure overhead on the customer's balance until it expires.
+      await releaseHold();
+      return;
     }
 
     await db.from('jobs').update({ status: 'running' }).eq('id', jobId);

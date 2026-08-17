@@ -11,7 +11,12 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { consoleLogger } from '@adgen/core';
-import { GENERIC_JOB_ERROR, jobErrorForUser, makeProcessor } from './job-state.ts';
+import {
+  CHARGED_NO_RESULT_ERROR,
+  GENERIC_JOB_ERROR,
+  jobErrorForUser,
+  makeProcessor,
+} from './job-state.ts';
 
 /**
  * A fake Supabase client whose shape matches exactly what `processJob` calls:
@@ -26,21 +31,53 @@ function makeDb(opts: {
   chargeError?: { message: string } | null;
   /** Per-RPC errors, keyed by function name — lets release_credits fail alone. */
   rpcErrors?: Record<string, { message: string } | null>;
+  /**
+   * The re-entry guard's two reads. `ledgerRow` non-null means this job has
+   * already been charged (0005 writes `delta` NEGATIVE); `existingAssets` is
+   * what survived for it. Both default to "never charged", so every test
+   * written before the guard existed takes the normal path unchanged.
+   */
+  ledgerRow?: { delta: number } | null;
+  ledgerError?: { message: string } | null;
+  existingAssets?: unknown[] | null;
+  existingAssetsError?: { message: string } | null;
 } = {}) {
   const calls = {
     jobUpdates: [] as any[], // every patch passed to jobs.update(...)
     assetInserts: [] as any[], // every rows[] passed to assets.insert(...)
     assetDeletes: [] as any[], // every {col,val} passed to assets.delete().eq(...)
     rpc: [] as any[], // every {name,args} passed to rpc(...)
+    selects: [] as any[], // every {table,cols} passed to from(t).select(cols)
   };
   const db = {
     from(table: string) {
       return {
-        select: (_cols?: string) => ({
-          eq: (_c: string, _v: unknown) => ({
-            single: async () => ({ data: opts.job ?? null, error: opts.jobError ?? null }),
-          }),
-        }),
+        /**
+         * One builder for all three read shapes the worker uses:
+         * `jobs … .single()`, `credits_ledger … .limit().maybeSingle()`, and
+         * `assets … .eq()` awaited directly — hence `eq` returns the builder
+         * and the builder itself is thenable.
+         */
+        select: (cols?: string) => {
+          calls.selects.push({ table, cols });
+          const result = () => {
+            if (table === 'credits_ledger') {
+              return { data: opts.ledgerRow ?? null, error: opts.ledgerError ?? null };
+            }
+            if (table === 'assets') {
+              return { data: opts.existingAssets ?? [], error: opts.existingAssetsError ?? null };
+            }
+            return { data: opts.job ?? null, error: opts.jobError ?? null };
+          };
+          const builder: any = {
+            eq: (_c: string, _v: unknown) => builder,
+            limit: (_n: number) => builder,
+            single: async () => result(),
+            maybeSingle: async () => result(),
+            then: (resolve: any, reject: any) => Promise.resolve(result()).then(resolve, reject),
+          };
+          return builder;
+        },
         update: (patch: any) => {
           if (table === 'jobs') calls.jobUpdates.push(patch);
           return { eq: async (_c: string, _v: unknown) => ({ error: null }) };
@@ -278,6 +315,134 @@ describe('processJob — the enqueue-time credit hold (release_credits)', () => 
       expect.objectContaining({ jobId: 'j1' }),
     );
     warnSpy.mockRestore();
+  });
+});
+
+/**
+ * The re-entry guard. BullMQ re-delivers a stalled job, and a stall needs no
+ * crash here — `spawnSync` in scene-detect blocks the event loop past the lock
+ * duration on a slow enough video. Before this guard, that re-delivery re-ran
+ * the whole pipeline and spent provider money a second time; migration 0011
+ * then rejects the second charge, and the charge-failure path deletes assets by
+ * `job_id`, taking the FIRST attempt's rows with it — "charged, error, nothing".
+ */
+describe('processJob — the re-entry guard (a job that was already charged)', () => {
+  /** What the DB returns for a job charged 30 credits: delta is negative. */
+  const chargedLedger = { delta: -30 };
+  const storedAssets = [
+    { kind: 'video', storage_key: 'renders/v.mp4', url: 'https://x/v.mp4' },
+    { kind: 'video', storage_key: 'renders/w.mp4', url: 'https://x/w.mp4' },
+  ];
+
+  it('does not re-run the pipeline, and never charges a second time', async () => {
+    const runPipelineFn = vi.fn();
+    const { db, calls } = makeDb({ job, ledgerRow: chargedLedger, existingAssets: storedAssets });
+
+    await makeProcessor(db as any, runPipelineFn)(bullJob);
+
+    expect(runPipelineFn).not.toHaveBeenCalled();
+    expect(calls.rpc.filter((c) => c.name === 'charge_credits')).toHaveLength(0);
+    expect(calls.assetInserts).toHaveLength(0);
+  });
+
+  it('rebuilds the result from the surviving asset rows and marks the job done', async () => {
+    const { db, calls } = makeDb({ job, ledgerRow: chargedLedger, existingAssets: storedAssets });
+
+    await makeProcessor(db as any, vi.fn())(bullJob);
+
+    const doneUpdate = calls.jobUpdates[calls.jobUpdates.length - 1];
+    expect(doneUpdate.status).toBe('done');
+    // The DB column shape (storage_key) is mapped back to the pipeline shape
+    // (storageKey) — the wizard reads `result.assets[].url`, so getting this
+    // wrong delivers a job with unreadable assets.
+    expect(doneUpdate.result).toEqual({
+      assets: [
+        { kind: 'video', url: 'https://x/v.mp4', storageKey: 'renders/v.mp4' },
+        { kind: 'video', url: 'https://x/w.mp4', storageKey: 'renders/w.mp4' },
+      ],
+    });
+    // Cost is the MAGNITUDE of the ledger delta, which 0005 stores negative.
+    expect(doneUpdate.cost).toBe(30);
+  });
+
+  it('never flips the job back to running — the customer does not see a finished job restart', async () => {
+    const { db, calls } = makeDb({ job, ledgerRow: chargedLedger, existingAssets: storedAssets });
+
+    await makeProcessor(db as any, vi.fn())(bullJob);
+
+    expect(calls.jobUpdates.some((u) => u.status === 'running')).toBe(false);
+  });
+
+  it('releases the enqueue hold — the charge already moved the money', async () => {
+    const { db, calls } = makeDb({ job, ledgerRow: chargedLedger, existingAssets: storedAssets });
+
+    await makeProcessor(db as any, vi.fn())(bullJob);
+
+    expect(calls.rpc).toEqual([{ name: 'release_credits', args: { p_job_id: 'j1' } }]);
+  });
+
+  it('charged with NO surviving assets: admits the charge, releases the hold, and throws so the operator is alerted', async () => {
+    const errorSpy = vi.spyOn(consoleLogger, 'error').mockImplementation(() => {});
+    const runPipelineFn = vi.fn();
+    const { db, calls } = makeDb({ job, ledgerRow: chargedLedger, existingAssets: [] });
+
+    // The throw is what makes BullMQ mark the job failed, which is what fires
+    // alertJobFailed. Returning quietly would leave nobody knowing.
+    await expect(makeProcessor(db as any, runPipelineFn)(bullJob)).rejects.toThrow(
+      /charged_no_result/,
+    );
+
+    expect(runPipelineFn).not.toHaveBeenCalled();
+    const stored = calls.jobUpdates[calls.jobUpdates.length - 1];
+    expect(stored.status).toBe('error');
+    expect(stored.error).toBe(CHARGED_NO_RESULT_ERROR);
+    // Every other failure path says "nije naplaćen". This one must not — the
+    // customer WAS charged, and telling them otherwise is the actual defect.
+    expect(stored.error).not.toContain('nije naplaćen');
+    expect(calls.rpc).toEqual([{ name: 'release_credits', args: { p_job_id: 'j1' } }]);
+    errorSpy.mockRestore();
+  });
+
+  it('an unreadable ledger fails CLOSED: nothing runs, nothing is charged, the row is not touched', async () => {
+    const runPipelineFn = vi.fn();
+    const { db, calls } = makeDb({ job, ledgerError: { message: 'connection reset' } });
+
+    await expect(makeProcessor(db as any, runPipelineFn)(bullJob)).rejects.toThrow(
+      /could not read the charge ledger/,
+    );
+
+    // Refusing costs a retry; guessing "not charged" spends provider money that
+    // cannot be recovered. The row keeps whatever status it had.
+    expect(runPipelineFn).not.toHaveBeenCalled();
+    expect(calls.jobUpdates).toHaveLength(0);
+    expect(calls.rpc).toHaveLength(0);
+  });
+
+  it('a charged job whose assets cannot be read fails closed too, rather than re-running', async () => {
+    const runPipelineFn = vi.fn();
+    const { db, calls } = makeDb({
+      job,
+      ledgerRow: chargedLedger,
+      existingAssetsError: { message: 'timeout' },
+    });
+
+    await expect(makeProcessor(db as any, runPipelineFn)(bullJob)).rejects.toThrow(
+      /assets could not be read/,
+    );
+    expect(runPipelineFn).not.toHaveBeenCalled();
+    expect(calls.jobUpdates).toHaveLength(0);
+  });
+
+  it('an UNCHARGED job is unaffected — the ledger is consulted, then the normal path runs', async () => {
+    const runPipelineFn = vi.fn().mockResolvedValue([asset]);
+    const { db, calls } = makeDb({ job }); // ledgerRow defaults to null
+
+    await makeProcessor(db as any, runPipelineFn)(bullJob);
+
+    expect(calls.selects.some((s) => s.table === 'credits_ledger')).toBe(true);
+    expect(runPipelineFn).toHaveBeenCalledTimes(1);
+    expect(calls.jobUpdates[0]).toEqual({ status: 'running' });
+    expect(calls.jobUpdates[calls.jobUpdates.length - 1].status).toBe('done');
   });
 });
 
