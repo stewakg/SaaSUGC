@@ -1,0 +1,21 @@
+<!--
+  The app mark. Next serves this at /icon.svg and emits the <link rel="icon">
+  itself, so nothing in layout.tsx references it.
+
+  The gradient is obsidian's own `--action-grad` (globals.css): #7c5cff → #4dd6ff
+  at 92deg. The mark carries its OWN background rather than being a transparent
+  glyph, because a tab strip can be white or near-black and a transparent mark
+  disappears into one of the two. `favicon.ico` and `apple-icon.png` are the
+  same geometry rasterised — regenerate all three together with
+  `node scratchpad/gen-icons.mjs` if this file changes.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="AdGen">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="3.5%">
+      <stop offset="0" stop-color="#7c5cff" />
+      <stop offset="1" stop-color="#4dd6ff" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14.08" fill="url(#g)" />
+  <path d="M24.64 17.6 48.32 32 24.64 46.4Z" fill="#ffffff" />
+</svg>
