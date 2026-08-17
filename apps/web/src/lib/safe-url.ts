@@ -36,6 +36,60 @@ export function isSafeTargetUrl(raw: string): boolean {
 }
 
 /**
+ * If `addr` is an IPv4-mapped IPv6 address, return the IPv4 it maps to;
+ * otherwise null.
+ *
+ * Expands the address to its eight 16-bit groups first, so EVERY spelling of the
+ * same address reduces to the same answer — `::ffff:127.0.0.1`, its hex
+ * `::ffff:7f00:1`, the unabbreviated `0:0:0:0:0:ffff:7f00:1`, and zero-padded
+ * variants like `0000:0000:0000:0000:0000:ffff:7f00:0001`. Mapped means the
+ * first five groups are zero and the sixth is ffff (RFC 4291 §2.5.5.2); the last
+ * two groups carry the four IPv4 octets.
+ *
+ * Deliberately NOT a regex. Two successive regexes here each missed a different
+ * spelling of loopback, and each miss was a live SSRF.
+ */
+function mappedIPv4(addr: string): string | null {
+  if (!addr.includes(':')) return null;
+
+  // A trailing dotted quad (`::ffff:127.0.0.1`) is the one form that is not pure
+  // hex groups. Convert it to two hex groups up front so the expansion below
+  // sees a uniform shape.
+  let normalised = addr;
+  const dotted = /^(.*:)(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(addr);
+  if (dotted) {
+    const octets = [dotted[2], dotted[3], dotted[4], dotted[5]].map(Number);
+    if (octets.some((o) => !Number.isInteger(o) || o < 0 || o > 255)) return null;
+    const hi = ((octets[0] << 8) | octets[1]).toString(16);
+    const lo = ((octets[2] << 8) | octets[3]).toString(16);
+    normalised = `${dotted[1]}${hi}:${lo}`;
+  }
+
+  // Expand `::` into the zero groups it stands for.
+  const halves = normalised.split('::');
+  if (halves.length > 2) return null; // more than one `::` is not a valid address
+  const head = halves[0] ? halves[0].split(':') : [];
+  const tail = halves.length === 2 ? (halves[1] ? halves[1].split(':') : []) : [];
+  let groups: string[];
+  if (halves.length === 2) {
+    const missing = 8 - head.length - tail.length;
+    if (missing < 0) return null;
+    groups = [...head, ...Array<string>(missing).fill('0'), ...tail];
+  } else {
+    groups = head;
+  }
+  if (groups.length !== 8) return null;
+  if (!groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return null;
+
+  const value = groups.map((g) => parseInt(g, 16));
+  const isMapped = value.slice(0, 5).every((v) => v === 0) && value[5] === 0xffff;
+  if (!isMapped) return null;
+
+  const [hi, lo] = [value[6], value[7]];
+  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+}
+
+/**
  * True when an IP literal points somewhere only this server can reach.
  *
  * Covers both families, because a v6-only check that forgets `::ffff:10.0.0.1`
@@ -44,33 +98,27 @@ export function isSafeTargetUrl(raw: string): boolean {
 export function isPrivateAddress(ip: string): boolean {
   const addr = ip.toLowerCase().replace(/^\[|\]$/g, '');
 
-  // IPv4-mapped IPv6 in DECIMAL form, e.g. ::ffff:127.0.0.1 — judge as the IPv4.
-  const mappedDecimal = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(addr);
-  if (mappedDecimal) return isPrivateAddress(mappedDecimal[1]);
-
-  // IPv4-mapped IPv6 in HEX form. This is the one that mattered: `new URL()`
-  // NORMALIZES every mapped literal to hex (`::ffff:127.0.0.1` -> `::ffff:7f00:1`),
-  // so the decimal regex above NEVER matches a URL-sourced host, and the address
-  // fell through to the IPv6 branch below which returned "public". Verified
-  // exploit before this fix: `assertPublicHost('http://[::ffff:7f00:1]/')` was
-  // true (loopback — Redis, the app itself) and `::ffff:a9fe:a9fe` reached the
-  // cloud metadata endpoint 169.254.169.254 — no DNS, no redirect, a signed-in
-  // user just posts the URL. Decode the two trailing 16-bit groups to the four
-  // IPv4 octets and judge as the IPv4 the kernel actually routes to.
-  const mappedHex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(addr);
-  if (mappedHex) {
-    const hi = parseInt(mappedHex[1], 16);
-    const lo = parseInt(mappedHex[2], 16);
-    const v4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
-    return isPrivateAddress(v4);
-  }
-  // Any OTHER `::ffff:` form we could not decode still denotes an IPv4 address
-  // the kernel routes through the v4 stack. Fail CLOSED — treat it as private —
-  // rather than let it fall through to the IPv6 branch below, whose default is
-  // "public" for anything it does not recognise. A genuinely public mapped
-  // address (`::ffff:8.8.8.8` or its hex `::ffff:0808:0808`) is already handled
-  // by the two branches above, so nothing legitimate is lost here.
-  if (addr.startsWith('::ffff:')) return true;
+  // IPv4-mapped IPv6, in EVERY spelling. Judged as the IPv4 the kernel actually
+  // routes to.
+  //
+  // This is the check that was broken, and the history is worth keeping because
+  // it explains why it is written as an expansion and not as a regex. It used to
+  // match only the literal decimal form `::ffff:127.0.0.1` — and `new URL()`
+  // NORMALISES every mapped literal to hex (`::ffff:7f00:1`), even when the user
+  // types decimal, so the pattern could never match a URL-sourced host. The
+  // address fell through to the IPv6 branch below, whose default is "public":
+  //
+  //   assertPublicHost('http://[::ffff:7f00:1]/')    -> true   (127.0.0.1)
+  //   assertPublicHost('http://[::ffff:a9fe:a9fe]/') -> true   (169.254.169.254)
+  //
+  // A no-prerequisite SSRF on /api/scrape and /api/import-clip. Fixing it with a
+  // second regex for the hex form then left a THIRD hole — the unabbreviated
+  // `0:0:0:0:0:ffff:7f00:1`, which `new URL()` compresses but a DNS resolver can
+  // hand back raw, and `assertPublicHost` passes resolver output straight in.
+  // Two regexes missing two spellings is the signal to stop pattern-matching and
+  // parse the address properly.
+  const mappedV4 = mappedIPv4(addr);
+  if (mappedV4) return isPrivateAddress(mappedV4);
 
   if (addr.includes(':')) {
     if (addr === '::' || addr === '::1') return true; // unspecified, loopback

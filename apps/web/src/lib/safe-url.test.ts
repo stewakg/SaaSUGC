@@ -158,6 +158,15 @@ describe('isPrivateAddress', () => {
     ['::ffff:a9fe:a9fe', 'cloud metadata as hex-mapped IPv6 (169.254.169.254)'],
     ['::ffff:0a00:0001', 'private 10.0.0.1 as hex-mapped IPv6'],
     ['::ffff:c0a8:0101', 'private 192.168.1.1 as hex-mapped IPv6'],
+    // UNABBREVIATED spellings. `new URL()` compresses these, so the route path
+    // never produced them — but assertPublicHost feeds DNS resolver output
+    // straight to this function, and a resolver may answer in any valid form.
+    // This was the third spelling to slip through, and the reason the check is
+    // now an address expansion rather than a pattern match.
+    ['0:0:0:0:0:ffff:7f00:1', 'loopback, fully expanded'],
+    ['0000:0000:0000:0000:0000:ffff:7f00:0001', 'loopback, expanded and zero-padded'],
+    ['0:0:0:0:0:ffff:127.0.0.1', 'loopback, expanded with a dotted quad'],
+    ['0:0:0:0:0:ffff:a9fe:a9fe', 'cloud metadata, fully expanded'],
   ])('blocks %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(true);
   });
@@ -172,6 +181,8 @@ describe('isPrivateAddress', () => {
     ['2606:4700::1111', 'public IPv6'],
     ['::ffff:8.8.8.8', 'public IPv4 written as IPv6'],
     ['::ffff:0808:0808', 'public 8.8.8.8 as hex-mapped IPv6 — must stay allowed'],
+    ['0:0:0:0:0:ffff:0808:0808', 'public 8.8.8.8, fully expanded — must stay allowed'],
+    ['::ffff:1.1.1.1', 'public 1.1.1.1 as decimal-mapped — must stay allowed'],
   ])('allows %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(false);
   });
