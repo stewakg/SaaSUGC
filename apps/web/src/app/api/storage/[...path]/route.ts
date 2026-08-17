@@ -74,6 +74,25 @@ const CONTENT_TYPES: Record<string, string> = {
   '.m4a': 'audio/mp4',
 };
 
+/**
+ * A storage key is a flat, literal object name — never a filesystem path. These
+ * four shapes are the ones that mean something OTHER than themselves to anything
+ * that normalises paths, so they are refused rather than passed on.
+ *
+ * This is defence in depth, not a live exploit today: R2 and S3 treat keys as
+ * literal strings, so `uploads/<id>/../../renders/x` is a key that simply does
+ * not exist rather than a path to someone else's render. It is refused anyway,
+ * because `authorise()`'s upload branch only inspects the first two segments —
+ * so the ownership decision is made on a prefix while the SIGNED key is the
+ * whole string, and the only thing keeping those two in agreement is a storage
+ * backend's behaviour we do not control.
+ */
+function hasUnsafeSegment(segments: string[]): boolean {
+  return segments.some(
+    (s) => s === '' || s === '.' || s === '..' || s.includes('\\') || s.includes('\0'),
+  );
+}
+
 export async function GET(_request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const { path: segments } = await context.params;
   const key = segments.join('/');
@@ -109,6 +128,16 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ pa
   // arrives here, so there is nothing to bypass and every caller is a browser.
   const denied = await authorise(segments);
   if (denied) return denied;
+
+  // Checked AFTER authorise on purpose. Doing it first would answer an
+  // UNAUTHENTICATED traversal probe with 400 instead of 401, which leaks that
+  // the route exists — and it would also break the deploy check recorded in
+  // TODO.md, where a traversal payload returning 401 rather than
+  // 400 invalid_path is the discriminator proving the signing branch is live
+  // and not the local-disk one.
+  if (hasUnsafeSegment(segments)) {
+    return NextResponse.json({ error: 'invalid_path' }, { status: 400 });
+  }
 
   // A redirect, not a proxy: the bytes go straight from R2 to the customer
   // instead of through this process, and the url stops working within the hour.

@@ -324,3 +324,86 @@ describe('GET /api/storage/[...path] — the signing branch (real R2/S3 storage)
     expect(readFileMock).not.toHaveBeenCalled();
   });
 });
+
+describe('GET /api/storage/[...path] — the signing branch traversal guard (runs after authorise)', () => {
+  /**
+   * Same memoisation problem as the describe above: getSigner() caches its
+   * result at module scope, so each test here re-imports the route after
+   * vi.resetModules() to observe a signing storage. Same freshRoute +
+   * callGET pattern, verbatim.
+   */
+  const signedDownloadUrl = vi.fn();
+
+  /** A fresh route module bound to the signing storage above. */
+  async function freshRoute() {
+    vi.resetModules();
+    signedDownloadUrl.mockResolvedValue('https://signed.example/obj?sig=abc');
+    createProvidersMock.mockReturnValue({ storage: { signedDownloadUrl } });
+    return (await import('./route.ts')).GET;
+  }
+
+  function callGET(getFn: typeof GET, segments: string[]) {
+    const req = new Request('https://app.example/api/storage/' + segments.join('/')) as unknown as Parameters<typeof GET>[0];
+    return getFn(req, { params: Promise.resolve({ path: segments }) });
+  }
+
+  it('1. own uploads/<uid>/../../renders/other.mp4 ⇒ 400 invalid_path, never signed', async () => {
+    // The defect this guard closes: authorise()'s upload branch inspects only
+    // the FIRST TWO segments, so ownership "passes" on the uploads/<uid>
+    // prefix while the traversal rides the whole key to the signer.
+    const routeGet = await freshRoute();
+
+    const res = await callGET(routeGet, ['uploads', 'u1', '..', '..', 'renders', 'other.mp4']);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'invalid_path' });
+    expect(signedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it('2. UNAUTHENTICATED traversal ⇒ 401, not 400 (the guard runs after authorise)', async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+
+    const routeGet = await freshRoute();
+    const res = await callGET(routeGet, ['uploads', 'u1', '..', '..', 'renders', 'other.mp4']);
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: 'unauthenticated' });
+    expect(signedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it('3. a single .. elsewhere in the key (renders/../uploads/x.mp4) ⇒ 400 invalid_path, never signed', async () => {
+    // Not an own-upload prefix, so authorise needs a visible assets row to
+    // pass — the guard then refuses the key itself.
+    maybeSingle.mockResolvedValue({ data: { id: 'a1' } });
+
+    const routeGet = await freshRoute();
+    const res = await callGET(routeGet, ['renders', '..', 'uploads', 'x.mp4']);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'invalid_path' });
+    expect(signedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it('4. a legitimate nested key is unaffected ⇒ 302, signed for the exact joined key', async () => {
+    const routeGet = await freshRoute();
+
+    const res = await callGET(routeGet, ['uploads', 'u1', 'sub', 'deep.mp4']);
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get('location')).toBe('https://signed.example/obj?sig=abc');
+    expect(signedDownloadUrl).toHaveBeenCalledTimes(1);
+    expect(signedDownloadUrl).toHaveBeenCalledWith('uploads/u1/sub/deep.mp4');
+  });
+
+  it('5. a segment CONTAINING a backslash (uploads/<id>/..\\..\\renders/x.mp4 as ONE segment) ⇒ 400 invalid_path', async () => {
+    // The segment is not equal to '..' — it smuggles one. A backend or proxy
+    // that normalises paths would read it as traversal, so it is refused.
+    const routeGet = await freshRoute();
+
+    const res = await callGET(routeGet, ['uploads', 'u1', '..\\..\\renders/x.mp4']);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'invalid_path' });
+    expect(signedDownloadUrl).not.toHaveBeenCalled();
+  });
+});
