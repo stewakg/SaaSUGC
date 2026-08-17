@@ -65,7 +65,12 @@ create unique index if not exists credits_ledger_one_job_spend_per_job
 -- Reconciliation query — run it BEFORE applying if you want to check first, or
 -- after a failure to find what to fix:
 --
---   select job_id, count(*), sum(amount), min(created_at), max(created_at)
+-- ⚠️ Corrected 2026-08-18: this query named a column `amount` that does not
+-- exist and would have failed with "column amount does not exist" the first
+-- time anyone ran it. The ledger column is `delta`, and 0005 writes it NEGATIVE
+-- (`values (p_user_id, -p_amount, …)`), so the sum below is negative too.
+--
+--   select job_id, count(*), sum(delta), min(created_at), max(created_at)
 --   from public.credits_ledger
 --   where reason = 'job_spend' and job_id is not null
 --   group by job_id

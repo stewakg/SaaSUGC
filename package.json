@@ -47,6 +47,30 @@
         "GHSA-g6pc-6676-c23j"
       ]
     },
+    "_overridesComment": [
+      "Security overrides, added 2026-08-18 after the CI security job's first run. Each one",
+      "forces a transitive dependency past a published advisory that no direct upgrade",
+      "reaches, because the vulnerable copy is pulled by next, cheerio or @remotion/bundler",
+      "rather than declared by us.",
+      "undici is why this was done now rather than 'later': cheerio uses it to fetch URLs the",
+      "CUSTOMER supplies via /api/scrape - the same surface that produced five SSRF spellings",
+      "in safe-url.ts - so an outdated HTTP client sits directly on it.",
+      "WARNING 1 - ranges are CARET-pinned to the major the consumer declares, never a bare",
+      ">=. The first attempt used >=7.29.0 for undici and pnpm resolved 8.10.0, while cheerio",
+      "declares ^7.19.0 - a major swapped underneath the library that fetches customer URLs.",
+      "No unit test would catch that: the scraper's tests mock the fetch.",
+      "WARNING 2 - these live HERE and not in pnpm-workspace.yaml with the older overrides.",
+      "pnpm 10.0.0 applied the package.json ones and did NOT apply the same entries written",
+      "in the yaml (sharp stayed 0.34.5 there and moved to 0.35.x here). Verify any change by",
+      "reading pnpm-lock.yaml, never by trusting 'Already up to date'."
+    ],
+    "overrides": {
+      "undici": "^7.29.0",
+      "sharp": "^0.35.0",
+      "postcss": "^8.5.23",
+      "nanoid": "^3.3.18",
+      "fast-uri": "^3.1.5"
+    },
     "onlyBuiltDependencies": [
       "esbuild",
       "ffmpeg-static",
