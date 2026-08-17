@@ -29,6 +29,24 @@
     "typescript-eslint": "^8.15.0"
   },
   "pnpm": {
+    "_auditConfigComment": [
+      "Two advisories `pnpm audit` reports that DO NOT APPLY here, verified against the",
+      "lockfile BEFORE silencing them. Both are Remotion criticals whose stated range is",
+      "<4.0.410; the only `remotion` in pnpm-lock.yaml is 4.0.490. The tell is in the audit",
+      "output itself: every genuine finding prints a dependency Paths chain, and these two",
+      "print an EMPTY Paths - pnpm could not resolve them to anything installed and reported",
+      "them anyway.",
+      "WARNING: only ever add a GHSA here that has been checked against the LOCKFILE, with the",
+      "reason written down. An entry justified by 'it was noisy' is how a real advisory gets",
+      "silenced. If Remotion is ever downgraded below 4.0.410, DELETE both entries - they",
+      "would then be hiding a live RCE."
+    ],
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-2jqp-f4gr-44fr",
+        "GHSA-g6pc-6676-c23j"
+      ]
+    },
     "onlyBuiltDependencies": [
       "esbuild",
       "ffmpeg-static",

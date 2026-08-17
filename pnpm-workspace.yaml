@@ -32,3 +32,10 @@ overrides:
   # One copy each, and the two packages agree again.
   "@smithy/core": "3.31.1"
   "@smithy/signature-v4": "5.6.12"
+
+# NOTE: `auditConfig` does NOT belong here. It was tried in this file first
+# (alongside `overrides` and `onlyBuiltDependencies`, which pnpm 10 does read
+# from here) and pnpm 10.0.0 ignored it silently — the audit still reported the
+# entries. It lives in the root `package.json` under "pnpm" instead. Recorded so
+# nobody moves it back on the reasonable assumption that all pnpm settings live
+# together.

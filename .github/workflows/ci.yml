@@ -49,12 +49,13 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # 1) Known-vulnerable dependencies. High floor deliberately: lows are
-      #    noise at this stage. Raise to moderate once the backlog is clean.
-      #    Note this GATES — a new advisory in a transitive dep blocks the
-      #    branch until it is dealt with, which is the intended pressure.
-      - run: pnpm audit --audit-level high
-      # 2) Secrets anywhere in history. This repo has had real near-misses —
+      # ORDER MATTERS, and the first run of this job proved it. `pnpm audit` was
+      # first, it failed on a pre-existing dependency backlog, and GitHub
+      # SKIPPED the two steps below it — so the scanners that look for leaked
+      # secrets and taint bugs never ran at all. A dependency backlog must never
+      # be able to silence those: audit is now LAST, after both.
+      #
+      # 1) Secrets anywhere in history. This repo has had real near-misses —
       #    `.env.bak-*` on the VPS, and the `.dockerignore` gap that hid a whole
       #    route — so history is worth scanning, not just the working tree. If
       #    an OLD, already-rotated secret ever trips it, write a `.gitleaks.toml`
@@ -62,7 +63,7 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # 3) CodeQL taint analysis — the SINK side of XSS/SSRF/injection, i.e.
+      # 2) CodeQL taint analysis — the SINK side of XSS/SSRF/injection, i.e.
       #    exactly the family that produced this project's only HIGH finding
       #    (mapped-IPv6 SSRF) and its four follow-ups. The first run is triage;
       #    after that it gates.
@@ -70,3 +71,11 @@ jobs:
         with:
           languages: javascript-typescript
       - uses: github/codeql-action/analyze@v3
+      # 3) Known-vulnerable dependencies, LAST for the reason at the top of this
+      #    job. High floor deliberately: lows are noise at this stage.
+      #
+      #    Two Remotion criticals are ignored via `pnpm.auditConfig.ignoreGhsas`
+      #    in the root package.json — they name `<4.0.410` and the lockfile has
+      #    only 4.0.490, which is why they print an EMPTY dependency path. The
+      #    justification is written there; read it before adding a third.
+      - run: pnpm audit --audit-level high
