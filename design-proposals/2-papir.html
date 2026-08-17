@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AdGen — Predlog 2: Papir</title>
+<style>
+/* ============================================================
+   PREDLOG 2 — "PAPIR"
+   Light, flat, high-contrast. A real departure from dark glass:
+   paper-white surfaces, near-black text, hard 1.5px borders,
+   NO shadows, NO gradients, black primary button. Colour is
+   used only as a thin identity strip + icon on tool cards and
+   the single violet accent on links/active states. The feel of
+   an invoice or a bank app — a tool you can trust with money.
+   ============================================================ */
+:root {
+  --ground: #f7f7f5;
+  --panel: #ffffff;
+  --panel-2: #efefec;
+  --ink: #16161c;         /* 16.6:1 on panel */
+  --ink-mid: #45454f;     /* 8.6:1 */
+  --ink-low: #63636e;     /* 5.4:1 on panel, 4.9:1 on ground */
+  --line: #d9d9d4;
+  --line-strong: #16161c;
+  --accent: #4630d8;      /* violet, 7.6:1 on white — link/active safe */
+  --teal-ink: #0c6b5d;    /* 6.0:1 on white */
+  --orange-ink: #a34808;  /* 5.6:1 on white */
+  --purple-ink: #6431c9;  /* 6.4:1 on white */
+  --teal-bar: #14b8a6;
+  --orange-bar: #f97316;
+  --purple-bar: #8b5cf6;
+  --r: 8px;
+  --font-sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, Menlo, monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+}
+a, button { font-family: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+svg { display: block; }
+
+.divider {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-low);
+  background: var(--panel-2);
+  border-top: 1.5px solid var(--line-strong);
+  border-bottom: 1.5px solid var(--line-strong);
+}
+.divider::after { content: ""; flex: 1; height: 1.5px; background: var(--line); }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+/* ============ SCREEN 1 — LANDING ============ */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 0;
+  border-bottom: 1.5px solid var(--line-strong);
+}
+.logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; letter-spacing: -.02em; text-decoration: none; }
+.logo-mark {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: var(--ink);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+.hero { display: grid; gap: 36px; padding: 48px 0 64px; }
+.hero-copy { display: grid; gap: 20px; justify-items: start; }
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 12px; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+h1 {
+  font-size: clamp(2.4rem, 8vw, 4rem);
+  line-height: 1.05;
+  letter-spacing: -.03em;
+  font-weight: 800;
+  max-width: 14ch;
+}
+h1 .accent {
+  color: var(--accent);
+  box-shadow: inset 0 -0.14em 0 rgba(70, 48, 216, .22);
+}
+.sub { color: var(--ink-mid); font-size: clamp(1.05rem, 2.6vw, 1.2rem); max-width: 52ch; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 50px; padding: 13px 26px;
+  border-radius: var(--r);
+  font-size: 16px; font-weight: 700;
+  text-decoration: none; cursor: pointer;
+  border: 1.5px solid var(--line-strong);
+  transition: background-color .12s ease, color .12s ease;
+}
+.btn-primary { background: var(--ink); color: #ffffff; }
+.btn-primary:hover { background: #000000; }
+.btn-ghost { background: var(--panel); color: var(--ink); }
+.btn-ghost:hover { background: var(--panel-2); }
+.cta-note { font-size: 14px; color: var(--ink-low); }
+
+.phone-frame {
+  width: 100%; max-width: 260px;
+  aspect-ratio: 9 / 16;
+  margin: 0 auto;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 18px;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 14px, rgba(22,22,28,.035) 14px 28px),
+    var(--panel);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+}
+.phone-frame svg { color: var(--ink-low); }
+.phone-frame span {
+  font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em;
+  color: var(--ink-low);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.tools { padding-bottom: 8px; }
+h2 { font-size: clamp(1.5rem, 4vw, 1.9rem); letter-spacing: -.02em; font-weight: 800; }
+.sec-head { border-top: 1.5px solid var(--line-strong); padding-top: 26px; margin-bottom: 4px; }
+.sec-sub { color: var(--ink-mid); margin-bottom: 28px; }
+
+.tool-grid { display: grid; gap: 16px; }
+.card {
+  background: var(--panel);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--r);
+  padding: 22px;
+  position: relative;
+}
+.card::before {
+  content: ""; position: absolute; left: -1.5px; top: 14px; bottom: 14px;
+  width: 5px; border-radius: 0 4px 4px 0;
+}
+.card--teal::before   { background: var(--teal-bar); }
+.card--orange::before { background: var(--orange-bar); }
+.card--purple::before { background: var(--purple-bar); }
+.tool-icon {
+  width: 40px; height: 40px; border-radius: var(--r);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--line);
+  background: var(--ground);
+  margin-bottom: 14px;
+}
+.card--teal   .tool-icon { color: var(--teal-ink); }
+.card--orange .tool-icon { color: var(--orange-ink); }
+.card--purple .tool-icon { color: var(--purple-ink); }
+.card h3 { font-size: 1.25rem; letter-spacing: -.015em; margin-bottom: 6px; font-weight: 800; }
+.card > p { color: var(--ink-mid); font-size: 15px; margin-bottom: 14px; }
+.bullets { list-style: none; display: grid; gap: 8px; }
+.bullets li {
+  display: flex; gap: 10px; align-items: flex-start;
+  font-size: 14px; color: var(--ink-mid);
+  padding-top: 8px; border-top: 1px solid var(--line);
+}
+.bullets svg { flex: none; margin-top: 3px; color: var(--ink); }
+
+.util-list { display: grid; gap: 0; margin-top: 20px; border: 1.5px solid var(--line-strong); border-radius: var(--r); background: var(--panel); overflow: hidden; }
+.util-row {
+  display: flex; gap: 14px; align-items: center;
+  padding: 16px 18px;
+}
+.util-row + .util-row { border-top: 1px solid var(--line); }
+.util-row .tool-icon { width: 36px; height: 36px; margin: 0; color: var(--ink); flex: none; }
+.util-row h3 { font-size: 1rem; font-weight: 800; }
+.util-row p { color: var(--ink-mid); font-size: 14px; }
+
+footer.landing-footer {
+  margin-top: 56px;
+  border-top: 1.5px solid var(--line-strong);
+  padding: 26px 0 40px;
+  display: grid; gap: 12px;
+  font-size: 14px; color: var(--ink-low);
+}
+.footer-links { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+.footer-links a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.footer-links a:hover { color: var(--accent); }
+
+/* ============ SCREEN 2 — DASHBOARD ============ */
+.dash { display: grid; min-height: 640px; background: var(--ground); }
+.sidebar {
+  background: var(--panel);
+  border-bottom: 1.5px solid var(--line-strong);
+  padding: 14px 20px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.side-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.credit-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  color: var(--ink);
+  background: var(--ground);
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 7px 14px;
+  white-space: nowrap;
+}
+.credit-chip svg { color: var(--accent); }
+.nav-group { display: flex; gap: 6px; }
+.nav-link {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--r);
+  font-size: 15px; font-weight: 600;
+  color: var(--ink-mid);
+  text-decoration: none;
+  border: 1.5px solid transparent;
+}
+.nav-link:hover { color: var(--ink); background: var(--panel-2); }
+.nav-link[aria-current="page"] {
+  color: var(--ink);
+  background: var(--ground);
+  border-color: var(--line-strong);
+}
+.nav-link svg { flex: none; }
+.nav-link[aria-current="page"] svg { color: var(--accent); }
+.side-bottom { display: flex; gap: 6px; }
+
+.dash-main { padding: 26px 20px 56px; }
+.dash-head { margin-bottom: 20px; }
+.dash-head h2 { font-size: 1.4rem; }
+
+.dash-grid { display: grid; gap: 12px; }
+.tool-card {
+  display: flex; flex-direction: column; gap: 8px;
+  background: var(--panel);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--r);
+  padding: 18px;
+  text-decoration: none;
+  position: relative;
+  transition: background-color .12s ease;
+}
+a.tool-card:hover { background: #fbfbf9; }
+a.tool-card:hover h3 { color: var(--accent); }
+.tool-card::before {
+  content: ""; position: absolute; left: -1.5px; top: 12px; bottom: 12px;
+  width: 5px; border-radius: 0 4px 4px 0;
+}
+.tool-card--teal::before   { background: var(--teal-bar); }
+.tool-card--orange::before { background: var(--orange-bar); }
+.tool-card--purple::before { background: var(--purple-bar); }
+.tool-card--plain::before  { background: var(--line); }
+.tool-card .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tool-card h3 { font-size: 1.05rem; font-weight: 800; letter-spacing: -.01em; }
+.tool-card .desc { color: var(--ink-mid); font-size: 14px; }
+.tool-card .tool-icon { width: 36px; height: 36px; margin: 0; }
+.tool-card--teal   .tool-icon { color: var(--teal-ink); }
+.tool-card--orange .tool-icon { color: var(--orange-ink); }
+.tool-card--purple .tool-icon { color: var(--purple-ink); }
+.tool-card--plain  .tool-icon { color: var(--ink-mid); }
+.price {
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  color: var(--ink);
+  background: var(--ground);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.uskoro {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .12em; font-weight: 700;
+  color: var(--ink-mid);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+.tool-card--soon { background: var(--ground); border-style: dashed; border-color: #b9b9b2; }
+.tool-card--soon h3, .tool-card--soon .tool-icon { opacity: .65; }
+
+.dash-sec { margin: 32px 0 12px; border-top: 1.5px solid var(--line-strong); padding-top: 18px; }
+.dash-sec h2 { font-size: 1.1rem; }
+.util-row .spacer { flex: 1; }
+a.util-row { text-decoration: none; }
+a.util-row:hover { background: #fbfbf9; }
+a.util-row:hover h3 { color: var(--accent); }
+.util-row--soon { background: var(--ground); }
+.util-row--soon h3, .util-row--soon .tool-icon { opacity: .65; }
+
+/* ============ RESPONSIVE ============ */
+@media (min-width: 640px) {
+  .tool-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 900px) {
+  .hero { grid-template-columns: 1.25fr .75fr; align-items: center; gap: 56px; padding: 72px 0 88px; }
+  .tool-grid { grid-template-columns: repeat(3, 1fr); }
+  .dash { grid-template-columns: 250px 1fr; max-width: 1240px; margin: 0 auto; }
+  .sidebar {
+    border-bottom: 0; border-right: 1.5px solid var(--line-strong);
+    padding: 24px 16px;
+  }
+  .side-top { flex-direction: column; align-items: stretch; }
+  .nav-group { flex-direction: column; flex: 1; margin-top: 8px; }
+  .side-bottom { flex-direction: column; margin-top: auto; border-top: 1px solid var(--line); padding-top: 12px; }
+  .dash-main { padding: 34px 34px 72px; }
+  .dash-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (min-width: 1200px) {
+  .dash-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 899px) {
+  .side-bottom, .nav-group { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<p class="divider">Ekran 1 · Javni landing</p>
+
+<!-- ==================== LANDING ==================== -->
+<section aria-label="Landing stranica">
+  <div class="wrap">
+
+    <div class="topbar">
+      <a class="logo" href="#">
+        <span class="logo-mark" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        </span>
+        AdGen
+      </a>
+      <a class="btn btn-ghost" href="#">Uloguj se</a>
+    </div>
+
+    <div class="hero">
+      <div class="hero-copy">
+        <span class="eyebrow">COD e-commerce · Balkan</span>
+        <h1>AI reklame koje <span class="accent">prodaju</span></h1>
+        <p class="sub">Zalepi link proizvoda, mi generišemo skriptu, glas, titl i CTA. Vertikalni video spreman za TikTok, Reels i Shorts — za minute.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#">Probaj besplatno</a>
+          <a class="btn btn-ghost" href="#">Uloguj se</a>
+        </div>
+        <p class="cta-note">3 besplatna videa na registraciji · Bez kartice</p>
+      </div>
+
+      <div class="phone-frame" role="img" aria-label="Prazan okvir 9:16 — uzorak videa uskoro">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m22 8-6 4 6 4V8Z"/></svg>
+        <span>1080×1920 · uzorak uskoro</span>
+      </div>
+    </div>
+
+    <section class="tools" aria-labelledby="alati-h">
+      <div class="sec-head">
+        <h2 id="alati-h">Alati</h2>
+      </div>
+      <p class="sec-sub">Svaki alat radi zasebno ili u kombinaciji.</p>
+
+      <div class="tool-grid">
+        <article class="card card--teal">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          </span>
+          <h3>Preozvuči</h3>
+          <p>Jedan snimak, više reklama — nova skripta, glas i titlovi na svakoj.</p>
+          <ul class="bullets">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Zadržava tvoj snimak, menja poruku</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Svaka verzija drugi tekst i glas</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Najbrži način do više varijanti</li>
+          </ul>
+        </article>
+
+        <article class="card card--orange">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="7" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="17" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          </span>
+          <h3>Video reklame</h3>
+          <p>Od tvojih klipova pravi 5–15 različitih reklama.</p>
+          <ul class="bullets">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Svaka verzija sa drugim hook-om</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Različite skripte, glasovi i titlovi</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Napravljeno za A/B testiranje</li>
+          </ul>
+        </article>
+
+        <article class="card card--purple">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L6 23"/></svg>
+          </span>
+          <h3>AI slike</h3>
+          <p>Generiši reklamne slike iz URL-a proizvoda.</p>
+          <ul class="bullets">
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Srpski tekst direktno na slici</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Pre/posle, problem, garancija — gotovi šabloni</li>
+            <li><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>Odmah spremne za objavu</li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="util-list">
+        <article class="util-row">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
+          </span>
+          <div>
+            <h3>Poboljšaj kvalitet</h3>
+            <p>Ubaciš mutan ili komprimovan klip → dobiješ oštar HD do 1080p.</p>
+          </div>
+        </article>
+        <article class="util-row">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+          </span>
+          <div>
+            <h3>Ukloni tekst</h3>
+            <p>AI obriše titlove, watermark i svaki tekst sa slike/videa, bez blura i mrlja.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <footer class="landing-footer">
+      <p>Za prodaju pouzećem · Srpski, Bosanski, Hrvatski, Rumunski, Engleski · Tvoj račun, tvoji podaci</p>
+      <nav class="footer-links" aria-label="Pravne stranice">
+        <a href="#">Uslovi korišćenja</a>
+        <a href="#">Privatnost</a>
+        <a href="#">Podaci o firmi</a>
+      </nav>
+    </footer>
+  </div>
+</section>
+
+<p class="divider">Ekran 2 · Dashboard (ulogovan korisnik)</p>
+
+<!-- ==================== DASHBOARD ==================== -->
+<section class="dash" aria-label="Kontrolna tabla">
+  <aside class="sidebar">
+    <div class="side-top">
+      <a class="logo" href="#">
+        <span class="logo-mark" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        </span>
+        AdGen
+      </a>
+      <span class="credit-chip">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M8.5 9.5h5a2 2 0 1 1 0 4h-3a2 2 0 1 0 0 4h5.5"/></svg>
+        128 kredita
+      </span>
+    </div>
+    <nav class="nav-group" aria-label="Glavna navigacija">
+      <a class="nav-link" href="#" aria-current="page">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></svg>
+        Početna
+      </a>
+      <a class="nav-link" href="#">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m10 9 5 3-5 3V9Z"/></svg>
+        Moje reklame
+      </a>
+    </nav>
+    <div class="side-bottom">
+      <a class="nav-link" href="#">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>
+        Moj profil
+      </a>
+      <a class="nav-link" href="#">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Izloguj se
+      </a>
+    </div>
+  </aside>
+
+  <main class="dash-main">
+    <div class="dash-head">
+      <h2>Alati</h2>
+    </div>
+
+    <div class="dash-grid">
+      <a class="tool-card tool-card--teal" href="#">
+        <div class="row">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+          </span>
+          <span class="price">8 kredita</span>
+        </div>
+        <h3>Preozvuči</h3>
+        <p class="desc">Jedan snimak, više reklama — nova skripta, glas i titlovi na svakoj.</p>
+      </a>
+
+      <a class="tool-card tool-card--orange" href="#">
+        <div class="row">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="7" y1="4" x2="7" y2="20"/><line x1="17" y1="4" x2="17" y2="20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          </span>
+          <span class="price">15 kredita</span>
+        </div>
+        <h3>Video reklame</h3>
+        <p class="desc">Od tvojih klipova pravi 5–15 različitih reklama.</p>
+      </a>
+
+      <a class="tool-card tool-card--purple" href="#">
+        <div class="row">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.5-3.5L6 23"/></svg>
+          </span>
+          <span class="price">4 kredita</span>
+        </div>
+        <h3>AI slike</h3>
+        <p class="desc">Generiši reklamne slike iz URL-a proizvoda.</p>
+      </a>
+
+      <div class="tool-card tool-card--plain tool-card--soon">
+        <div class="row">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 7 6 5-6 5V7Z"/><rect x="2" y="3" width="20" height="18" rx="2"/></svg>
+          </span>
+          <span class="uskoro">USKORO</span>
+        </div>
+        <h3>Edit</h3>
+        <div class="row"><span class="price">18 kredita</span></div>
+      </div>
+
+      <div class="tool-card tool-card--plain tool-card--soon">
+        <div class="row">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18h20M2 6h20M7 6v12M17 6v12"/></svg>
+          </span>
+          <span class="uskoro">USKORO</span>
+        </div>
+        <h3>Mix</h3>
+        <div class="row"><span class="price">12 kredita</span></div>
+      </div>
+
+      <div class="tool-card tool-card--plain tool-card--soon">
+        <div class="row">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></svg>
+          </span>
+          <span class="uskoro">USKORO</span>
+        </div>
+        <h3>Brzi test</h3>
+        <div class="row"><span class="price">2 kredita</span></div>
+      </div>
+
+      <div class="tool-card tool-card--plain tool-card--soon">
+        <div class="row">
+          <span class="tool-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.5 5.5 3.5 9S14.5 18.5 12 21c-2.5-2.5-3.5-5.5-3.5-9S9.5 5.5 12 3Z"/></svg>
+          </span>
+          <span class="uskoro">USKORO</span>
+        </div>
+        <h3>Prevod</h3>
+        <div class="row"><span class="price">15 kredita</span></div>
+      </div>
+    </div>
+
+    <div class="dash-sec">
+      <h2>Dodatni alati</h2>
+    </div>
+    <div class="util-list">
+      <a class="util-row" href="#">
+        <span class="tool-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
+        </span>
+        <div>
+          <h3>Poboljšaj kvalitet</h3>
+          <p>Ubaciš mutan ili komprimovan klip → dobiješ oštar HD do 1080p.</p>
+        </div>
+        <span class="spacer" aria-hidden="true"></span>
+        <span class="price">9 kredita</span>
+      </a>
+      <a class="util-row" href="#">
+        <span class="tool-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+        </span>
+        <div>
+          <h3>Ukloni tekst</h3>
+          <p>AI obriše titlove, watermark i svaki tekst sa slike/videa, bez blura i mrlja.</p>
+        </div>
+        <span class="spacer" aria-hidden="true"></span>
+        <span class="price">6 kredita</span>
+      </a>
+      <div class="util-row util-row--soon">
+        <span class="tool-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/><path d="m17 3 1 2 2 1-2 1-1 2-1-2-2-1 2-1 1-2Z"/></svg>
+        </span>
+        <div>
+          <h3>AI influencer</h3>
+        </div>
+        <span class="spacer" aria-hidden="true"></span>
+        <span class="uskoro">USKORO</span>
+      </div>
+    </div>
+  </main>
+</section>
+
+</body>
+</html>
