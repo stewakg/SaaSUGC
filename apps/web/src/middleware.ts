@@ -61,16 +61,33 @@ function withSecurityHeaders(response: NextResponse, csp: string) {
  *   current. Do not "clean it up" — removing it breaks old clients, while
  *   keeping it costs nothing where the nonce is honoured.
  */
-export async function middleware(request: NextRequest) {
-  // A fresh nonce per request. `crypto` is the Web Crypto global, available in
-  // the middleware runtime — do not import node:crypto here.
-  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
-
-  const csp = [
+/**
+ * Builds the policy. Exported and parameterised on `dev` so BOTH policies are
+ * testable — the production one is the one that matters, and the development one
+ * is the one that was silently broken (see `DEV_ONLY` below).
+ */
+export function buildCsp(nonce: string, { dev }: { dev: boolean }): string {
+  return [
     `default-src 'self'`,
     // `strict-dynamic` lets a nonced script load the chunks it needs, which is
     // how Next's own bootstrap works; without it every lazy chunk is blocked.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https: 'unsafe-inline'`,
+    //
+    // ⚠️ DEV_ONLY: `'unsafe-eval'`. `next dev` ships its client bundle through
+    // webpack's eval-based evaluator plus React Refresh, so a policy without it
+    // throws `EvalError` inside main-app.js and the client bootstrap DIES:
+    // `window.next` never appears and nothing hydrates. Measured in a real
+    // browser 2026-08-17 — the markup was perfect, every script had the right
+    // nonce, and clicking a theme switch changed no attribute and set no
+    // cookie, because no React handler was ever attached. It had been that way
+    // since the nonce CSP landed (be22b61), and it made local browser
+    // verification lie: a dead page looks exactly like a broken component.
+    //
+    // The PRODUCTION bundle contains no eval, so this must never reach the
+    // production policy — `'unsafe-eval'` there is what turns an injected
+    // string into running code.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https: 'unsafe-inline'${
+      dev ? ` 'unsafe-eval'` : ''
+    }`,
     // 'unsafe-inline' for styles is deliberate and NOT the same risk as it is
     // for scripts: Next injects inline <style> for the critical CSS, and there
     // is no nonce hook for it.
@@ -82,12 +99,27 @@ export async function middleware(request: NextRequest) {
     `font-src 'self' data:`,
     // Supabase (auth + DB) is a different origin, and the browser talks to it
     // directly; the presigned PUT goes straight to the bucket host.
-    `connect-src 'self' https:`,
+    //
+    // DEV_ONLY `ws:` — HMR is a websocket to the dev server. 'self' is
+    // specified to cover it, but browsers have disagreed about that for years
+    // and a blocked HMR socket costs a reload per edit, so it is stated.
+    `connect-src 'self' https:${dev ? ' ws:' : ''}`,
     `frame-ancestors 'none'`,
     `base-uri 'self'`,
     `form-action 'self'`,
     `object-src 'none'`,
   ].join('; ');
+}
+
+export async function middleware(request: NextRequest) {
+  // A fresh nonce per request. `crypto` is the Web Crypto global, available in
+  // the middleware runtime — do not import node:crypto here.
+  const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
+
+  // `!== 'production'` rather than `=== 'development'`: a test run sets
+  // NODE_ENV=test, and the policy a test exercises should be the one the
+  // developer's browser gets, not a third variant nothing ever serves.
+  const csp = buildCsp(nonce, { dev: process.env.NODE_ENV !== 'production' });
 
   // The nonce rides on the forwarded request too: Next reads it from the
   // request header and puts it on its own injected scripts, so the app's

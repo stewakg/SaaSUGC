@@ -33,7 +33,7 @@ vi.mock('@supabase/ssr', () => ({
   createServerClient: () => ({ auth: { getUser } }),
 }));
 
-import { middleware } from './middleware.ts';
+import { buildCsp, middleware } from './middleware.ts';
 
 /** Build a request for a path, as the type the middleware declares. */
 function req(path: string) {
@@ -92,6 +92,52 @@ describe('middleware — the nonce Content-Security-Policy', () => {
     expect(csp).toContain("frame-ancestors 'none'");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'self'");
+  });
+});
+
+/*
+ * Both branches of the policy, tested through `buildCsp` rather than through
+ * NODE_ENV, because the two failures are opposite and each one is invisible in
+ * the other environment:
+ *
+ * - PRODUCTION with 'unsafe-eval' is a security regression that would never show
+ *   up in a browser, because nothing breaks.
+ * - DEVELOPMENT without it is what shipped from be22b61 until 2026-08-17: the
+ *   dev client bundle runs through eval, the EvalError kills the bootstrap, and
+ *   every page renders correctly while NOTHING hydrates. That cost nothing in
+ *   production and made every dev-mode browser check untrustworthy.
+ */
+describe('CSP — the development loosenings, and that they stay out of production', () => {
+  it("9. production script-src has NO 'unsafe-eval' — an injected string must not become code", () => {
+    const csp = buildCsp('n0nce', { dev: false });
+
+    expect(csp).not.toContain('unsafe-eval');
+    // Not a blanket "no ws:" check: `connect-src 'self' https:` is what
+    // production must say, and asserting the whole directive catches a stray
+    // scheme anywhere in it.
+    expect(csp).toContain(`connect-src 'self' https:;`);
+  });
+
+  it("10. development script-src DOES carry 'unsafe-eval', or nothing on any page hydrates", () => {
+    const csp = buildCsp('n0nce', { dev: true });
+    const scriptSrc = csp.split('; ').find((d) => d.startsWith('script-src ')) ?? '';
+
+    // On script-src specifically — a match anywhere in the policy would also be
+    // satisfied by it landing on the wrong directive.
+    expect(scriptSrc).toContain(`'unsafe-eval'`);
+    expect(csp).toContain(`connect-src 'self' https: ws:`);
+  });
+
+  it('11. the two policies are otherwise identical — dev must not drift into a different app', () => {
+    const strip = (csp: string) => csp.replace(` 'unsafe-eval'`, '').replace(' ws:', '');
+
+    expect(strip(buildCsp('n0nce', { dev: true }))).toBe(buildCsp('n0nce', { dev: false }));
+  });
+
+  it('12. the nonce reaches script-src in both modes', () => {
+    for (const dev of [true, false]) {
+      expect(buildCsp('n0nce', { dev })).toContain(`script-src 'self' 'nonce-n0nce'`);
+    }
   });
 });
 
