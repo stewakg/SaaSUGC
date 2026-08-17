@@ -59,7 +59,14 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: rateLimitMock }));
-vi.mock('@/lib/safe-url', () => ({ assertPublicHost: assertPublicHostMock }));
+// assertPublicHost is mocked (it does DNS); isAllowedClipHost is kept REAL —
+// it is a pure string check with no I/O, and mocking it would mean the platform
+// whitelist that closes the yt-dlp redirect hole was never actually executed by
+// a test. Spreading the original keeps any other export intact.
+vi.mock('@/lib/safe-url', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/safe-url')>()),
+  assertPublicHost: assertPublicHostMock,
+}));
 vi.mock('@/lib/yt-dlp', () => ({ runYtDlp: runYtDlpMock }));
 vi.mock('@adgen/core', () => ({ createProviders: createProvidersMock }));
 vi.mock('node:fs/promises', () => ({
@@ -199,11 +206,58 @@ describe('POST /api/import-clip', () => {
   it('8. assertPublicHost rejecting ⇒ 400 invalid_url (SSRF gate — yt-dlp is NEVER pointed at an internal address)', async () => {
     assertPublicHostMock.mockResolvedValue(false);
 
-    const res = await importPost(importReq({ url: 'http://169.254.169.254/latest/meta-data/' }));
+    // A WHITELISTED host, so the platform check passes and this reaches the DNS
+    // gate — which is the layer under test. (A raw 169.254.169.254 url now stops
+    // at the whitelist one line earlier; that is case 8b.)
+    const res = await importPost(importReq({ url: 'https://www.tiktok.com/@u/video/1' }));
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('invalid_url');
     expect(runYtDlpMock).not.toHaveBeenCalled();
+  });
+
+  /*
+   * The platform whitelist. This is what actually closes the redirect hole:
+   * assertPublicHost only ever judges the host the USER typed, and yt-dlp then
+   * follows redirects with no flag to forbid them. So an attacker-owned public
+   * host was the whole exploit, and it must be refused BEFORE the DNS gate —
+   * note assertPublicHost is left resolving TRUE in these cases, proving the
+   * rejection comes from the whitelist and not from the guard behind it.
+   */
+  it.each([
+    ['http://evil.example/clip', 'attacker-owned host that would 302 to an internal address'],
+    ['http://169.254.169.254/latest/meta-data/', 'cloud metadata, direct'],
+    ['http://127.0.0.1:6379/', 'loopback Redis, direct'],
+    ['https://eviltiktok.com/@u/video/1', 'prefix-glued lookalike — a suffix test would allow this'],
+    ['https://tiktok.com.attacker.example/x', 'suffix-glued lookalike'],
+    ['https://vimeo.com/12345', 'a real video site we do not advertise'],
+  ])('8b. %s ⇒ 400 unsupported_host, yt-dlp never run (%s)', async (url) => {
+    assertPublicHostMock.mockResolvedValue(true);
+
+    const res = await importPost(importReq({ url }));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('unsupported_host');
+    expect(runYtDlpMock).not.toHaveBeenCalled();
+    // The whitelist must reject without even asking DNS — otherwise the order
+    // is wrong and an attacker host still gets resolved.
+    expect(assertPublicHostMock).not.toHaveBeenCalled();
+  });
+
+  it('8c. every advertised platform still works — the fix must not narrow the feature', async () => {
+    for (const url of [
+      'https://www.tiktok.com/@u/video/1',
+      'https://vm.tiktok.com/ZMabc/',
+      'https://www.youtube.com/watch?v=abc',
+      'https://youtu.be/abc',
+      'https://www.youtube.com/shorts/abc',
+      'https://www.instagram.com/reel/abc/',
+    ]) {
+      runYtDlpMock.mockClear();
+      const res = await importPost(importReq({ url }));
+      expect(res.status, `${url} should import`).toBe(200);
+      expect(runYtDlpMock).toHaveBeenCalledTimes(1);
+    }
   });
 
   it('9. happy path ⇒ 200 { url }; yt-dlp called with the submitted url; storage.upload gets uploads/u1/ + video/mp4', async () => {

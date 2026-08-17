@@ -1,6 +1,8 @@
 /**
- * POST /api/import-clip — downloads a user-supplied video link (TikTok /
- * YouTube / Instagram / any direct URL) via yt-dlp (the `youtube-dl-exec` npm
+ * POST /api/import-clip — downloads a user-supplied video link from a SUPPORTED
+ * PLATFORM (TikTok / YouTube / Instagram — see `ALLOWED_CLIP_HOSTS`; "any direct
+ * URL" was true until 2026-08-17 and is what made the redirect SSRF below
+ * possible) via yt-dlp (the `youtube-dl-exec` npm
  * package, which fetches the yt-dlp binary through its postinstall), stores
  * the result through the active Storage provider under
  * `uploads/<user id>/imported-...`, and returns `{ url }` — the SAME response
@@ -8,9 +10,13 @@
  * call this and append the result to its `clips` list, so a link-imported
  * clip flows into the existing montage pool with ZERO worker changes.
  *
- * Server-only: yt-dlp fetches an arbitrary user URL, so it runs the shared SSRF
- * guard (`@/lib/safe-url` — localhost / private ranges / the cloud metadata
- * address), the same guard /api/scrape uses.
+ * Server-only, and it runs TWO gates from `@/lib/safe-url`, in this order:
+ *   1. `isAllowedClipHost` — the host must be a platform we advertise. This is
+ *      what closes the redirect SSRF: yt-dlp follows redirects and has no flag
+ *      to forbid them, so the only durable fix is never letting an
+ *      attacker-owned host be the first hop.
+ *   2. `assertPublicHost` — localhost / private ranges / cloud metadata, DNS
+ *      resolved. The same guard /api/scrape uses, kept as the layer beneath.
  *
  * KNOWN LIMITATION — ffmpeg-free single-file mp4 (do not solve here):
  * apps/web ships no ffmpeg, so we ask yt-dlp for a *progressive* (already
@@ -31,7 +37,7 @@ import { join } from 'node:path';
 import { createProviders } from '@adgen/core';
 import { createServerClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
-import { assertPublicHost } from '@/lib/safe-url';
+import { assertPublicHost, isAllowedClipHost } from '@/lib/safe-url';
 
 /** Hard cap on an imported clip, matching /api/upload's 200MB limit. */
 const MAX_IMPORT_BYTES = 200 * 1024 * 1024;
@@ -53,10 +59,35 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json().catch(() => ({}))) as { url?: unknown };
-  // assertPublicHost, not the string check alone: a perfectly public-looking
-  // hostname can have a DNS record pointing at 127.0.0.1 or the cloud metadata
-  // address, and this server is about to fetch whatever it is given.
-  if (typeof body.url !== 'string' || !(await assertPublicHost(body.url))) {
+  if (typeof body.url !== 'string') {
+    return NextResponse.json({ error: 'invalid_url' }, { status: 400 });
+  }
+  /*
+   * TWO checks, and the platform whitelist is the one that closes the real hole.
+   *
+   * `assertPublicHost` only ever sees the host the USER typed. yt-dlp then
+   * follows redirects itself, and no yt-dlp flag forbids that or pins the
+   * resolved IP — so `http://evil.example/clip` used to pass this guard (that
+   * host really is public) and its 302 to `http://169.254.169.254/…` or
+   * `http://127.0.0.1:6379/` was then fetched from inside the VPS. /api/scrape
+   * closes the same gap with `redirect: 'manual'`, which a spawned binary
+   * cannot use.
+   *
+   * Requiring the first host to be a platform we actually support means the
+   * attacker never gets to host the redirect hop at all. The whitelist is
+   * exactly what the paste box advertises (TikTok / YouTube / Instagram), so
+   * nothing the UI offers stops working.
+   *
+   * `assertPublicHost` is KEPT behind it rather than replaced: defence in depth
+   * costs one DNS lookup, and it is what still catches a supported platform's
+   * hostname resolving somewhere private (a poisoned resolver, a hosts-file
+   * entry on the box, or a future addition to the list that turns out to be a
+   * redirector).
+   */
+  if (!isAllowedClipHost(body.url)) {
+    return NextResponse.json({ error: 'unsupported_host' }, { status: 400 });
+  }
+  if (!(await assertPublicHost(body.url))) {
     return NextResponse.json({ error: 'invalid_url' }, { status: 400 });
   }
 

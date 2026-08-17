@@ -150,6 +150,14 @@ describe('isPrivateAddress', () => {
     ['fe80::1', 'link-local'],
     ['::ffff:127.0.0.1', 'IPv4 loopback written as IPv6'],
     ['::ffff:10.0.0.1', 'IPv4 private written as IPv6'],
+    // The HEX mapped forms — what `new URL()` actually produces. Before the fix
+    // these fell through to the IPv6 branch and returned "public", which is the
+    // whole SSRF bypass.
+    ['::ffff:7f00:1', 'loopback as hex-mapped IPv6 (127.0.0.1)'],
+    ['::ffff:7f00:0001', 'loopback, unabbreviated low group'],
+    ['::ffff:a9fe:a9fe', 'cloud metadata as hex-mapped IPv6 (169.254.169.254)'],
+    ['::ffff:0a00:0001', 'private 10.0.0.1 as hex-mapped IPv6'],
+    ['::ffff:c0a8:0101', 'private 192.168.1.1 as hex-mapped IPv6'],
   ])('blocks %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(true);
   });
@@ -163,8 +171,31 @@ describe('isPrivateAddress', () => {
     ['100.128.0.1', 'just above CGNAT'],
     ['2606:4700::1111', 'public IPv6'],
     ['::ffff:8.8.8.8', 'public IPv4 written as IPv6'],
+    ['::ffff:0808:0808', 'public 8.8.8.8 as hex-mapped IPv6 — must stay allowed'],
   ])('allows %s (%s)', (ip) => {
     expect(isPrivateAddress(ip)).toBe(false);
+  });
+});
+
+describe('assertPublicHost — IPv4-mapped IPv6 bracket bypass (the confirmed HIGH)', () => {
+  // These go through `new URL()` exactly as a route does. `new URL()` normalises
+  // every mapped literal to the HEX form, so passing the decimal-dotted form a
+  // human would type still reaches the guard as hex — the bypass, and the reason
+  // the isPrivateAddress unit tests above are necessary but not sufficient.
+  it.each([
+    ['http://[::ffff:127.0.0.1]/', 'decimal input, normalises to loopback hex'],
+    ['http://[::ffff:7f00:1]/', 'loopback, hex as typed'],
+    ['http://[::ffff:169.254.169.254]/', 'cloud metadata, decimal input'],
+    ['http://[::ffff:a9fe:a9fe]/', 'cloud metadata, hex as typed'],
+    ['http://[::ffff:10.0.0.1]:6379/', 'private range, e.g. an internal service'],
+  ])('blocks %s (%s)', async (url) => {
+    await expect(assertPublicHost(url)).resolves.toBe(false);
+  });
+
+  it('still allows a genuinely public mapped address', async () => {
+    // `::ffff:8.8.8.8` — a real, routable public IPv4. The fix must not turn the
+    // mapped range into a blanket block.
+    await expect(assertPublicHost('http://[::ffff:8.8.8.8]/')).resolves.toBe(true);
   });
 });
 
