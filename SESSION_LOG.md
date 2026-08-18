@@ -42,11 +42,11 @@ said implement.
 - Tests updated where they pinned the old spec: theme list (4 themes), switcher
   indices, neutral card class. All green.
 
-**Deliberately left uncommitted — ALL of the above, owner's explicit instruction**
-("ova mašina kasni za commitima"). Everything lives in the working tree of THIS
-machine only: `design-proposals-v2/` (6 files) + the 8 app files above. Next session
-on this machine: commit + push after the owner reconciles; do NOT start work on the
-other machine before that.
+**Committed and pushed — nothing left uncommitted.** The owner's mid-session "no
+commits, this machine lags" instruction was lifted by the owner asking for the push;
+`git fetch` showed local == origin/main (the lag had already been reconciled — the
+OTHER session committed `design-proposals-v2/` as 35dad3f). The app implementation is
+`393973e` on origin/main.
 
 **Gotchas for next session.** OS-light visitors without a cookie still get poluton
 (pre-existing "OS speaks until the user chooses" rule) — if the owner wants Premijera
