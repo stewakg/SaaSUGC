@@ -262,8 +262,64 @@ applies to, so do A then C, not C then A.
 |---|---|---|
 | ✅ | **The script model sees the product** | Wired 2026-08-14: the first product image is described once per job and appended to the prompt. Degrades to no-extra-context on any failure — a vision hiccup must never fail a paid job |
 | ❌ | **Third-party watermarks in imported clips** | Decision recorded (exclude dirty shots, never erase); nothing built |
-| ❌ | **No music/SFX library** | Bring-your-own only — and the Matrix description no longer claims otherwise |
+| 🟡 | **No music/SFX library — approach DECIDED 2026-08-18, blocked on a key** | Bring-your-own only today, and the Matrix description no longer claims otherwise. **The plumbing is already complete** — `upload-constraints.ts` accepts mp3/wav/ogg/m4a, the wizard has a music picker with a volume slider (warning above 45%, where music starts beating the voice) and an SFX picker, and `MatrixAd.tsx` mounts both. Nothing needs building except a SOURCE of audio. See §4a |
 | 🟡 | **Script quality** | The blind eval concluded "no model produced broken Serbian", NOT "the cheapest is as good as the best". Re-run scoring each axis if a bad script ever ships |
+
+## 4a. Music + SFX — the approach is decided, the blocker is a key
+
+Owner's decision 2026-08-18, after finding that the competitor offers a music picker and we do
+not. **Chosen: generate a small library ONCE, curate it by ear, store it in R2** — not a licensed
+catalogue, and not per-job generation.
+
+| Status | Item | Who |
+|---|---|---|
+| ⛔ | **The local `ELEVENLABS_API_KEY` is a key ID, not a key** | 👤 |
+| ❓ | **Licence question, unanswered — gate before shipping to customers** | 👤 |
+| ❌ | Generate ~6 moods + 4 cues, listen, keep the good ones, upload to R2 | 🤖 after both above |
+| ❌ | Wire the picker to the stored library instead of upload-only | 🤖 |
+
+**Why generate rather than licence a catalogue.** Most "royalty-free" subscriptions (Epidemic,
+Artlist and similar) license the SUBSCRIBER for their own productions — not redistribution to
+customers as part of a SaaS, which is exactly what a music picker inside this product does. That
+distinction is where the money and the risk are, and it is why a catalogue was not chosen.
+
+**Why generate ONCE rather than per job.** Per-job generation adds latency and cost to every paid
+job and another provider in the paid path. A one-time batch costs pennies, adds zero latency, and
+the picker the wizard already has does not change at all.
+
+**The provider is already paid for and already wired**: ElevenLabs does both.
+`POST /v1/music` (3 s–10 min, `force_instrumental` — a vocal track fights the voiceover for the
+same frequencies) and `POST /v1/sound-generation` (0.5–30 s). Music V2 is trained on licensed data
+only, backed by Merlin Network and Kobalt deals, and paid plans carry a commercial licence.
+
+⛔ **BLOCKER, and it is not one of the seven missing keys — it is worse.** The seven are ABSENT;
+this one is PRESENT with the wrong value, which looks correct until it is called. The local `.env`
+holds the key **ID** (83 chars, starts `a38`); the real key is 51 chars and starts `sk_`, and
+ElevenLabs shows it only at creation or rotation. **The working key is already on the VPS** —
+`/srv/adgen/.env` was checked and holds the `sk_` form — so nothing needs rotating, the line just
+has to be copied down:
+
+```bash
+ssh root@5.75.154.153 'grep "^ELEVENLABS_API_KEY=" /srv/adgen/.env'
+```
+
+⚠️ Two traps found while diagnosing this, both worth keeping: the `.env` line carries an **inline
+comment** (`KEY=value  # note`), and a parser that keeps it sends a corrupted key that comes back
+as a flat `401 invalid_api_key` — indistinguishable from a revoked key. Only after stripping the
+comment did the API return the real message (`API key ID used as API key`). **A 401 from this
+provider is not evidence that a key is dead.**
+
+❓ **The licence question that is still open, and it is the one that decides whether this ships.**
+Paid plans grant commercial use of generated output — but our use is not "we put music in our own
+video". We would **redistribute** generated tracks embedded in videos delivered to paying
+customers. Self-serve plans exclude film/TV/Studio Games and point large-scale commercial
+distribution at Enterprise. Where a SaaS music picker falls is not something I can read off the
+docs, and it is not something to assume: it is a question for ElevenLabs' Music Terms or their
+sales. Generating SAMPLES for internal evaluation raises none of this; shipping them to customers
+does.
+
+The generation probe is written and ready to run the moment the key lands:
+`scratchpad/gen-audio-samples.mjs` — 6 moods × 15 s instrumental, plus whoosh/pop/ding/riser.
 
 ## 5. Legal (before any real customer)
 
