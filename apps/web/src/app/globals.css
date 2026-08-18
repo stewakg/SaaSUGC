@@ -268,6 +268,17 @@ body {
     @apply bg-ground text-txt-hi antialiased;
     font-family: var(--font-sans);
   }
+  /* Every heading is display type (Space Grotesk), everywhere — no page gets
+     to opt out and look like a different product (owner's bold pass,
+     2026-08-18). Body copy deliberately stays 400: bold paragraphs kill the
+     hierarchy bold exists for. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
   ::selection {
     background-color: var(--accent-soft);
     color: var(--txt-hi);
@@ -511,8 +522,13 @@ body {
 
   /* MIGRATED to tokens */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium transition;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-sm transition;
     border-radius: var(--radius-control);
+    /* Bold pass 2026-08-18: actions speak in the display face at 700 — the
+       competitor-class "every button is confident" look. */
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
   .btn:focus-visible {
     outline: 2px solid var(--accent-2);
@@ -560,7 +576,7 @@ body {
      and tabular; the text colour is derived from the accent rather than picked
      per theme. */
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-semibold;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     border-radius: 999px;
@@ -582,7 +598,7 @@ body {
 
   /* MIGRATED to tokens — one treatment for every text control in the app. */
   .input {
-    @apply w-full px-3 py-2 text-sm outline-none transition;
+    @apply w-full px-3 py-2 text-sm font-medium outline-none transition;
     background: var(--ground);
     border: 1px solid var(--line);
     border-radius: var(--radius-control);
@@ -660,7 +676,7 @@ body {
     min-width: 0;
   }
   .step-chip {
-    @apply flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-xs transition;
+    @apply flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-xs font-semibold transition;
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: var(--radius-control);

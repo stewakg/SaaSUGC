@@ -100,7 +100,7 @@ export function AppShell({
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
-                  'focus-ring flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition',
+                  'focus-ring flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition',
                   active
                     ? 'step-chip--active'
                     : 'text-txt-mid hover:bg-panel-2 hover:text-txt-hi',
@@ -126,14 +126,14 @@ export function AppShell({
           <Link
             href="/app/profil"
             onClick={() => setMobileOpen(false)}
-            className="focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-txt-mid transition hover:bg-panel-2 hover:text-txt-hi"
+            className="focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold text-txt-mid transition hover:bg-panel-2 hover:text-txt-hi"
           >
             <NavIcon name="user" />
             Moj profil
           </Link>
           <button
             onClick={handleLogout}
-            className="focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-txt-mid transition hover:bg-panel-2 hover:text-txt-hi"
+            className="focus-ring flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold text-txt-mid transition hover:bg-panel-2 hover:text-txt-hi"
           >
             <NavIcon name="logout" />
             Izloguj se
