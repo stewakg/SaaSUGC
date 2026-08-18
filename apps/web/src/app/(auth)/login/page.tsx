@@ -49,6 +49,7 @@ function LoginForm() {
     <main className="relative flex min-h-screen items-center justify-center px-4">
       <div className="ambient ambient--a" aria-hidden="true" />
       <div className="ambient ambient--b" aria-hidden="true" />
+      <div className="spotlight" aria-hidden="true" />
       <div className="panel w-full max-w-sm p-8 animate-fade-in">
         <h1 className="font-display text-2xl font-bold">Uloguj se</h1>
         <p className="mt-1 text-sm text-txt-mid">Dobrodošao nazad.</p>

@@ -451,6 +451,22 @@ body {
     @apply flex-1 p-5 pt-3;
   }
 
+  /* One centred functional spotlight (2026-08-18) — the auth pages' light
+     source now that premijera turns the ambient blobs off. Same language as
+     the landing stage: accent-soft radial, nothing else. Position under a
+     `relative` parent, behind the content. */
+  .spotlight {
+    position: absolute;
+    top: 6%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(640px, 100%);
+    height: 72%;
+    background: radial-gradient(50% 45% at 50% 40%, var(--accent-soft), transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
   /* Tool-identity wash for the wizard panel (2026-08-18, same organic-bleed
      language as .card-strip): the hue enters at the top edge and is gone by
      ~22% of the panel, so only the tool header sits in it. Compose with a

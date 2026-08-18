@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { getJobDescriptor } from '@adgen/core/pricing';
 import { createServerClient } from '@/lib/supabase/server';
 import { costLabel, humanError } from '@/lib/job-display';
+import { ToolIcon } from '@/components/tool-icon';
 import { TIMEZONE_COOKIE, formatDateTime, resolveTimezone } from '@/lib/timezone';
 import type { JobStatus, JobType } from '@adgen/db';
 
@@ -69,9 +70,10 @@ export default async function ReklamePage() {
             const assets = job.status === 'done' ? (job.result?.assets ?? []) : [];
             return (
               <li key={job.id} className="card flex items-center justify-between gap-4">
-                <div className="min-w-0">
+                <ToolIcon icon={getJobDescriptor(job.type).icon} className="shrink-0" />
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-txt-hi">{getJobDescriptor(job.type).label}</span>
+                    <span className="font-semibold text-txt-hi">{getJobDescriptor(job.type).label}</span>
                     <span
                       className={`rounded-full border px-2 py-0.5 text-[11px] font-mono tabular ${STATUS_CLASS[job.status]}`}
                     >
