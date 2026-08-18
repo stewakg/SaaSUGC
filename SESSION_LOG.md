@@ -125,10 +125,54 @@ Gates at the end: typecheck clean on all five, **core 385 / worker 131 / web 608
 1101 at `3088624`), web build passes in 36.1s over 38 static pages. Details of each fix and every
 mutation are in the Review ledger above.
 
-⚠️ **Still open and unchanged by this session:** migration 0011 is NOT applied, so the
-double-charge window the guard narrows is still open at the database; and TLS/domain remains the
-one deployment blocker. Nothing here was deployed — production is still at `c3c2012` plus
-`731175b`.
+**Then the session continued past that point, and three more things landed.**
+
+**The CI security job's first run failed, and the failure was mine.** `pnpm audit` was step 6 of 9,
+it failed on a pre-existing dependency backlog, and GitHub **skipped gitleaks and CodeQL entirely**
+— a dependency backlog silencing the two scanners that actually look for leaked secrets and taint
+bugs. Audit is last now. Of the 26 advisories it reported, **two were false**: both Remotion
+criticals name `<4.0.410` while the lockfile holds 4.0.490, and the tell was in the output — every
+genuine finding prints a dependency path and those two printed an EMPTY one. Ignored via
+`pnpm.auditConfig.ignoreGhsas` with the reason and a deletion condition written down.
+
+**The runtime-path advisories were fixed with pinned overrides, and the first attempt was wrong in
+an instructive way.** `undici` is why this was worth doing at all: cheerio fetches
+customer-supplied URLs with it through `/api/scrape`, the same surface that produced five SSRF
+spellings. The first override said `>=7.29.0` and pnpm resolved **8.10.0** — cheerio declares
+`^7.19.0`, so a MAJOR was swapped underneath the library that fetches customer URLs, and no unit
+test would have caught it because the scraper's tests mock the fetch. Caret-pinned, re-resolved,
+and checked in the lockfile. 26 → 12 findings; what remains traces to two dev-only roots that never
+ship (`vitest` 2.1.9 and `typescript-eslint`).
+
+Two pnpm facts worth keeping, both found the hard way: `auditConfig` **and** `overrides` are read
+from the root `package.json` and NOT from `pnpm-workspace.yaml` on pnpm 10.0.0 (sharp stayed 0.34.5
+written in the yaml and moved to 0.35.x written in package.json), and editing settings alone does
+not invalidate the lockfile — `pnpm install` answers "Already up to date" and keeps the old
+resolution.
+
+**Migration 0011 applied by the owner, and the docs disagreed about where.** `PODSETNIK.md`
+(2026-08-09) said the active project had only 0001–0006; `TODO.md` (2026-08-17) said 0001–0010.
+Neither was trusted — the live database was asked directly and answered 0001–0010 present, 0011
+absent. Reconciliation ran BEFORE applying and returned **zero rows**: no customer has ever been
+double-charged. Then verified in both directions rather than one — the index appears in
+`pg_indexes` with its partial `WHERE`, and a rolled-back transaction duplicating a REAL `job_spend`
+row was refused with `23505`. ⚠️ The migration's own reconciliation query named a column `amount`
+where the ledger column is `delta`; it would have errored the first time anyone ran it, and is
+corrected.
+
+**Deployed at `2484475`, and the verification is the part worth reading.** "Started" is not
+"working", and this repo has the scar to prove it — a `.dockerignore` pattern once kept
+`/api/storage` out of every image ever built while everything looked healthy. So the checks were
+made INSIDE the running containers: the guard's own log strings are in `src/job-state.ts` in the
+worker image, all ten API routes including `storage` are in `.next/server/app/api`, the NAT64
+(`65435`) and Teredo (`8193`) constants are both in the compiled web chunk, and an unauthenticated
+traversal answers **401 rather than 400** — the discriminator proving the signing branch is live
+AND that the new guard runs after `authorise` as designed. Both containers healthy in 20s, worker
+on real providers across both queues. Build cache pruned: 9.03 GB, disk 55% → 33%.
+
+⚠️ **Still open:** TLS/domain (owner deferred it deliberately, along with Stripe); the 10 dev-only
+advisories; and the fact that **no human has clicked a wizard end to end**, which this session did
+not touch.
 
 ---
 
