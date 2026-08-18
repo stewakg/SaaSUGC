@@ -69,7 +69,7 @@ NOT-REVIEWED: the whole F5/F6 code layer (incl. the new ai.kiefal.ts) is reviewe
 ---
 
 ## 2026-08-18 (nineteenth session) — the security question answered from the ledger, and a GDPR pass
-**Account:** _(unrecorded)_ · **Machine:** FIRST (design-proposals-v2 sat here uncommitted). **Deliberately left uncommitted: nothing.**
+**Account:** _(unrecorded)_ · **Machine:** FIRST (design-proposals-v2 sat here uncommitted). **Deliberately left uncommitted: `apps/web/src/app/globals.css` — a "premijera" theme being written by a CONCURRENT session (appeared mid-session, after this session's push; comment cites `design-proposals-v2/5-premijera.html`). Owner's call: that session commits its own work. If a later session finds it still uncommitted with no session running, review it and commit it then.**
 
 **The owner asked "is the site security-ready for release" — and the answer came from the existing
 audits, not a new one.** The tree was 19 commits behind (the second machine's session); pulled
