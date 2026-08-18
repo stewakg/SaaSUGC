@@ -4,6 +4,27 @@
 > up cold, also read `CLAUDE.md` (how to work here) and `INFRASTRUCTURE.md` (living source of
 > truth, phase checkboxes) — this file is narrowly scoped to **VPS access only**.
 
+> ## ⚠️ SUPERSEDED 2026-08-18 — production moved. Read this box, ignore the IPs below.
+>
+> AdGen production now lives on its **own** Hetzner VPS, verified by SSH into both boxes:
+>
+> | | |
+> |---|---|
+> | **AdGen prod** | `ssh root@5.75.154.153` (hostname `adgenwebsaas`), repo at **`/srv/adgen`**, `.env` with `REDIS_PASSWORD` lives there. Runs `adgen-web-prod` + `adgen-worker-prod` + `adgen-redis-prod`; web is the live site at http://5.75.154.153/ |
+> | **aikutak box** | `46.225.214.52` — everything this file says below about AdGen on that box is **history**: the old worker/redis containers there were deleted (stale `/opt/adgen-saas` file copy remains). nginx there serves aikutak.com. **Never deploy AdGen to it.** |
+>
+> **Redeploy ritual (the one that actually works):**
+> ```
+> tar czf - --exclude=node_modules --exclude=.git --exclude=.next --exclude=storage --exclude=.env \
+>   --exclude=.claude --exclude=.vscode -C "<local repo root>" . \
+>   | ssh root@5.75.154.153 "tar xzf - -C /srv/adgen"
+> ssh root@5.75.154.153 "cd /srv/adgen && set -a && . ./.env && set +a && docker compose -f infra/docker-compose.prod.yml -p adgen up -d --build web"
+> ```
+> The `set -a && . ./.env && set +a` sourcing is mandatory — compose interpolates
+> `${REDIS_PASSWORD:?}` and fails without it (that error means wrong box or skipped sourcing).
+> Same ritual with `worker` instead of `web` for the worker. Both SSH keys are already on the
+> owner's machine; `ssh root@<ip>` just works, no password.
+
 ---
 
 ## 1. What the VPS is for

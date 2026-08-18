@@ -48,6 +48,18 @@ commits, this machine lags" instruction was lifted by the owner asking for the p
 OTHER session committed `design-proposals-v2/` as 35dad3f). The app implementation is
 `393973e` on origin/main.
 
+**Deployed to production — VERIFIED 2026-08-18.** Synced to the AdGen VPS and rebuilt
+the `web` container; live site (http://5.75.154.153/) returns HTTP 200 and serves the
+Premijera markup (`stage-frame`/`stage-mark` present), container healthy. Theme cookie
+bumped to `adgen-theme-v2` (28c0151) so every pre-redesign visitor resets to Premijera
+once. **Deploy-target discovery, the expensive kind:** howto.md pointed at
+46.225.214.52 — that is the AIKUTAK box; its old AdGen worker containers are deleted
+and its nginx serves aikutak.com. AdGen prod actually lives on **5.75.154.153**
+(hostname `adgenwebsaas`), repo at **`/srv/adgen`**, and compose REQUIRES
+`set -a && . ./.env && set +a` before `up` (interpolates `${REDIS_PASSWORD:?}`).
+howto.md now carries a SUPERSEDED banner with the working ritual; the memory file
+`two-vps-option` was updated to match.
+
 **Gotchas for next session.** OS-light visitors without a cookie still get poluton
 (pre-existing "OS speaks until the user chooses" rule) — if the owner wants Premijera
 for everyone, that block in globals.css is the place. Wizard/auth/profil screens
