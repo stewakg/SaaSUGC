@@ -193,7 +193,7 @@ export default function PrivatnostPage() {
               <td className="py-2">do odjave</td>
             </tr>
             <tr className="border-t border-line">
-              <td className="py-2 pr-4 font-mono text-xs">adgen-theme</td>
+              <td className="py-2 pr-4 font-mono text-xs">adgen-theme-v2</td>
               <td className="py-2 pr-4">
                 Pamti temu koju si izabrao. Postavlja se tek kad je sam izabereš — ako je ne diraš, ne postoji.
               </td>

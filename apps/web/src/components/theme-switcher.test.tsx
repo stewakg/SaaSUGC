@@ -21,7 +21,7 @@
  *   the source: ArrowRight/ArrowDown forward, ArrowLeft/ArrowUp back,
  *   Home/End to the ends, all with wraparound) move the selection, the
  *   focus AND the tab stop together.
- * - Choosing a theme persists it: the cookie is named `adgen-theme`
+ * - Choosing a theme persists it: the cookie is named `adgen-theme-v2`
  *   (THEME_COOKIE in lib/theme.ts) and its value is the chosen theme id.
  * - The mount effect adopts a theme already present on <html> without
  *   rewriting anything.
@@ -61,7 +61,7 @@ describe('ThemeSwitcher', () => {
   beforeEach(() => {
     delete document.documentElement.dataset.theme;
     window.localStorage.clear();
-    document.cookie = 'adgen-theme=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+    document.cookie = 'adgen-theme-v2=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
     const active = document.activeElement;
     if (active instanceof HTMLElement) active.blur();
   });
@@ -162,9 +162,9 @@ describe('ThemeSwitcher', () => {
   it('activating a theme writes the adgen-theme cookie with the chosen id and moves the tab stop', () => {
     const { buttons } = mountSwitcher();
     click(buttons[LAST]); // Neon studio
-    expect(document.cookie).toContain('adgen-theme=neon');
+    expect(document.cookie).toContain('adgen-theme-v2=neon');
     expect(document.documentElement.dataset.theme).toBe('neon');
-    expect(window.localStorage.getItem('adgen-theme')).toBe('neon');
+    expect(window.localStorage.getItem('adgen-theme-v2')).toBe('neon');
     // aria-checked follows the active theme — only Neon is checked.
     expect(buttons.map((b) => b.getAttribute('aria-checked'))).toEqual([
       'false',
@@ -184,7 +184,7 @@ describe('ThemeSwitcher', () => {
     expect(document.activeElement).toBe(buttons[0]);
     expect(buttons[0].getAttribute('aria-checked')).toBe('true');
     expect(tabbable(buttons)).toEqual([buttons[0]]);
-    expect(document.cookie).toContain('adgen-theme=premijera');
+    expect(document.cookie).toContain('adgen-theme-v2=premijera');
   });
 
   it('ArrowDown advances without wrapping and moves focus with it', () => {
@@ -193,7 +193,7 @@ describe('ThemeSwitcher', () => {
     expect(document.activeElement).toBe(buttons[1]);
     expect(buttons[1].getAttribute('aria-checked')).toBe('true');
     expect(tabbable(buttons)).toEqual([buttons[1]]);
-    expect(document.cookie).toContain('adgen-theme=obsidian');
+    expect(document.cookie).toContain('adgen-theme-v2=obsidian');
   });
 
   it('ArrowLeft steps back one option', () => {
@@ -202,7 +202,7 @@ describe('ThemeSwitcher', () => {
     press(buttons[1], 'ArrowLeft');
     expect(document.activeElement).toBe(buttons[0]);
     expect(buttons[0].getAttribute('aria-checked')).toBe('true');
-    expect(document.cookie).toContain('adgen-theme=premijera');
+    expect(document.cookie).toContain('adgen-theme-v2=premijera');
   });
 
   it('ArrowUp on the first theme wraps to the last', () => {
@@ -210,7 +210,7 @@ describe('ThemeSwitcher', () => {
     press(buttons[0], 'ArrowUp');
     expect(document.activeElement).toBe(buttons[LAST]);
     expect(buttons[LAST].getAttribute('aria-checked')).toBe('true');
-    expect(document.cookie).toContain('adgen-theme=neon');
+    expect(document.cookie).toContain('adgen-theme-v2=neon');
   });
 
   it('Home jumps to the first theme and End to the last', () => {
@@ -228,7 +228,7 @@ describe('ThemeSwitcher', () => {
     const { buttons } = mountSwitcher();
     const event = press(buttons[0], 'Enter');
     expect(event.defaultPrevented).toBe(false);
-    expect(document.cookie).not.toContain('adgen-theme=');
+    expect(document.cookie).not.toContain('adgen-theme-v2=');
     expect(buttons.map((b) => b.getAttribute('aria-checked'))).toEqual([
       'false',
       'false',

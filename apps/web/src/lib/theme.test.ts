@@ -21,7 +21,9 @@ describe('THEME_IDS / THEME_COOKIE', () => {
   it('uses the documented cookie (and localStorage) key', () => {
     // The root layout reads this exact name server-side; renaming it silently
     // orphans every existing preference cookie.
-    expect(THEME_COOKIE).toBe('adgen-theme');
+    // -v2 since 2026-08-18: the rename deliberately orphans pre-redesign
+    // preference cookies so existing visitors reset once to Premijera.
+    expect(THEME_COOKIE).toBe('adgen-theme-v2');
   });
 });
 
