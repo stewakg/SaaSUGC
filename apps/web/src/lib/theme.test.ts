@@ -13,8 +13,9 @@ import { describe, expect, it } from 'vitest';
 import { isThemeId, THEME_COOKIE, THEME_IDS } from './theme';
 
 describe('THEME_IDS / THEME_COOKIE', () => {
-  it('lists exactly the three shipped themes', () => {
-    expect([...THEME_IDS]).toEqual(['obsidian', 'poluton', 'neon']);
+  it('lists exactly the four shipped themes, premijera (the default) first', () => {
+    // premijera added 2026-08-18 (owner's call — the v5 "Premijera" design).
+    expect([...THEME_IDS]).toEqual(['premijera', 'obsidian', 'poluton', 'neon']);
   });
 
   it('uses the documented cookie (and localStorage) key', () => {

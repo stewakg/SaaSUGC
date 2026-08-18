@@ -10,6 +10,51 @@ the oldest ones there. **The Review ledger below stays here regardless**; it is 
 
 ---
 
+## 2026-08-18 — Design v2 proposals + "Premijera" implemented as default theme
+
+**Context.** Owner asked for four NEW design directions (`design-proposals-v2/`,
+mockups only), then sent EcomAlati screenshots + public-site fonts were extracted
+(Manrope 800 / Archivo / Inter, warm-orange dark). A fifth direction, **Premijera**
+(their register, our identity: violet, 9:16 stage with crop marks, hue confined to
+card HEADER strips, USKORO in a recessed well), was built and the owner picked it and
+said implement.
+
+**Mockups — VERIFIED** in a real 375px viewport (`scrollWidth === 375` all five):
+`design-proposals-v2/{1-prelom,2-pult,3-studio,4-reflektor,5-premijera}.html` + README
+(per-direction tradeoffs, EcomAlati teardown, what v1 got wrong, recommendation).
+
+**App implementation — VERIFIED** (typecheck ✓, `pnpm --filter @adgen/web test`
+614/614 ✓, prod build ✓, dev server run live: Space Grotesk on h1, stage renders,
+3 strip cards, zero console errors):
+- `globals.css`: new `[data-theme='premijera']` block is now the `:root` DEFAULT
+  (obsidian keeps its own block, no longer default); `--tool-strip` knob added per
+  hue (contrast notes in the comment); new primitives `.card-strip[-head/-body]`,
+  `.stage` (+ crop marks, spotlight), `.soon-well/.soon-row`; `--font-display` now
+  goes through `--font-display-face`.
+- `layout.tsx`: Space Grotesk via next/font (latin-ext → č ć š ž đ), dark
+  themeColor #0D0C11.
+- `lib/theme.ts` + `theme-switcher.tsx`: 'premijera' added, first + default.
+- `tool-cards.tsx`: MainToolCard is now the strip-header card (hue band carries
+  icon+title+price; body copy on --panel). TOOL_TONE values are hue-var classes only.
+- `app/app/page.tsx`: live main tools = full cards; unreleased = `.soon-well` rows
+  WITH prices (elevation carries availability). `app/page.tsx`: stage replaces
+  phone-frame; main grid 3-col.
+- Tests updated where they pinned the old spec: theme list (4 themes), switcher
+  indices, neutral card class. All green.
+
+**Deliberately left uncommitted — ALL of the above, owner's explicit instruction**
+("ova mašina kasni za commitima"). Everything lives in the working tree of THIS
+machine only: `design-proposals-v2/` (6 files) + the 8 app files above. Next session
+on this machine: commit + push after the owner reconciles; do NOT start work on the
+other machine before that.
+
+**Gotchas for next session.** OS-light visitors without a cookie still get poluton
+(pre-existing "OS speaks until the user chooses" rule) — if the owner wants Premijera
+for everyone, that block in globals.css is the place. Wizard/auth/profil screens
+inherit Premijera via tokens but got no bespoke pass — worth an eyeball. The
+`--tool-strip` alphas were measured for --txt-hi only; don't put quieter text in the
+header band.
+
 ## Review ledger
 Greppable review verdicts, newest first, each anchored to a commit. Before reviewing an
 area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>` — empty

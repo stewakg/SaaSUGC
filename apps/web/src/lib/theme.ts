@@ -10,7 +10,7 @@
  * each one live in globals.css and nowhere else.
  */
 
-export const THEME_IDS = ['obsidian', 'poluton', 'neon'] as const;
+export const THEME_IDS = ['premijera', 'obsidian', 'poluton', 'neon'] as const;
 
 export type ThemeId = (typeof THEME_IDS)[number];
 

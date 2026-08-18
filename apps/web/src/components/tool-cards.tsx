@@ -30,15 +30,20 @@ interface ToolCardProps {
  * pricing.ts without a matching class still renders correctly.
  */
 const TOOL_TONE: Record<string, string> = {
-  orange: 'card-tool card-tool--orange',
-  blue: 'card-tool card-tool--blue',
-  purple: 'card-tool card-tool--purple',
-  teal: 'card-tool card-tool--teal',
-  pink: 'card-tool card-tool--pink',
-  red: 'card-tool card-tool--red',
+  orange: 'card-tool--orange',
+  blue: 'card-tool--blue',
+  purple: 'card-tool--purple',
+  teal: 'card-tool--teal',
+  pink: 'card-tool--pink',
+  red: 'card-tool--red',
 };
+/**
+ * The `.card-tool--<hue>` classes only set custom properties (--tool-strip,
+ * --tool-edge …), so they compose with `.card-strip` directly. No hue class
+ * means the strip header falls back to a neutral --panel-2 band.
+ */
 function toolToneClass(theme?: string): string {
-  return (theme && TOOL_TONE[theme]) || 'card';
+  return (theme && TOOL_TONE[theme]) || '';
 }
 
 /**
@@ -63,27 +68,32 @@ export function MainToolCard({
   className,
 }: ToolCardProps & { benefits?: string[]; className?: string }) {
   const card = (
-    <div className={cn(toolToneClass(theme), 'h-full', href && 'card--lift', soon && 'opacity-80')}>
-      <div className="flex items-start justify-between gap-3">
+    <div className={cn('card-strip', toolToneClass(theme), href && 'card--lift', soon && 'opacity-80')}>
+      {/* Identity hue lives ONLY in this band; body copy sits on --panel. */}
+      <div className="card-strip-head">
         <ToolIcon icon={icon} />
+        <h3 className="font-display min-w-0 flex-1 truncate text-lg font-bold text-txt-hi">
+          {label}
+        </h3>
         {soon ? (
           <span className="badge badge--muted shrink-0">USKORO</span>
         ) : showCost ? (
           <span className="badge shrink-0">{creditsLabel(cost)}</span>
         ) : null}
       </div>
-      <h3 className="font-display mt-4 text-xl font-bold text-txt-hi">{label}</h3>
-      <p className="mt-1 text-sm text-txt-mid">{description}</p>
-      {benefits && benefits.length > 0 && (
-        <ul className="mt-4 space-y-1.5">
-          {benefits.map((b) => (
-            <li key={b} className="flex items-start gap-2 text-sm text-txt-mid">
-              <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} aria-hidden="true" />
-              <span>{b}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="card-strip-body">
+        <p className="text-sm text-txt-mid">{description}</p>
+        {benefits && benefits.length > 0 && (
+          <ul className="mt-4 space-y-1.5">
+            {benefits.map((b) => (
+              <li key={b} className="flex items-start gap-2 text-sm text-txt-mid">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-accent" strokeWidth={2.5} aria-hidden="true" />
+                <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 

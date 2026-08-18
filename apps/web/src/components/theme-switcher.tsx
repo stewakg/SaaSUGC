@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 
 /** Names are product names, not UI copy — they read the same in Serbian. */
 const THEMES: { id: ThemeId; name: string }[] = [
+  { id: 'premijera', name: 'Premijera' },
   { id: 'obsidian', name: 'Obsidian' },
   { id: 'poluton', name: 'Poluton' },
   { id: 'neon', name: 'Neon studio' },

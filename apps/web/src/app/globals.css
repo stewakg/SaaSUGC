@@ -27,8 +27,47 @@
      three themes without a conditional.
    ============================================================================ */
 
-/* --- obsidian (default) --------------------------------------------------- */
+/* --- premijera (default since 2026-08-18, owner's call) --------------------
+   The EcomAlati-class dark look done our way: violet-tinted near-black ground,
+   OPAQUE panels (no glass), flat violet action, hue confined to card header
+   strips, and NO ambient blobs — the landing's single spotlight lives on the
+   9:16 stage instead (--ambient-op: 0 is what turns the blobs off; the .stage
+   component below is the replacement). Values come from
+   design-proposals-v2/5-premijera.html, where the contrast numbers in the
+   token comments were measured. */
 :root,
+[data-theme='premijera'] {
+  color-scheme: dark;
+
+  --ground-c: 13 12 17;
+  --panel-c: 20 19 24;
+  --accent-c: 139 92 255;
+  --accent-2-c: 139 92 255;
+  --live-c: 198 255 77;
+
+  --panel: #141318;
+  --panel-2: #1b1a21;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.15);
+
+  --txt-hi: #f2f1f7; /* 17.4:1 on ground */
+  --txt-mid: #aaa8b8; /* 7.5:1 */
+  --txt-low: #807e90; /* 4.7:1 — meta text only */
+
+  /* White on #6D38EE measures 6.1:1; the lighter #8B5CFF is the TEXT/brand
+     violet (5.2:1 on ground) and would only carry 3.9:1 under white, which is
+     why the button fill and the text accent are two different violets. */
+  --accent-contrast: #ffffff;
+  --action-grad: linear-gradient(92deg, #6d38ee, #6d38ee);
+  --text-grad: linear-gradient(92deg, #8b5cff, #8b5cff);
+
+  --shadow-card: 0 2px 4px rgba(0, 0, 0, 0.45), 0 16px 36px -20px rgba(0, 0, 0, 0.8);
+  --shadow-glow: 0 0 40px -12px rgba(139, 92, 255, 0.5);
+
+  --ambient-op: 0;
+}
+
+/* --- obsidian (dark glass, the pre-2026-08-18 default) -------------------- */
 [data-theme='obsidian'] {
   color-scheme: dark;
 
@@ -206,8 +245,11 @@
 
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', ui-sans-serif, system-ui,
     -apple-system, Inter, Roboto, 'Helvetica Neue', sans-serif;
-  --font-display: 'Segoe UI Variable Display', 'Segoe UI', ui-sans-serif, system-ui,
-    -apple-system, Inter, Roboto, sans-serif;
+  /* --font-display-face is set on <html> by next/font (Space Grotesk — OFL,
+     latin-ext so č ć š ž đ render from the same face). The var() fallback
+     keeps every theme readable if the font ever fails to load. */
+  --font-display: var(--font-display-face, 'Segoe UI Variable Display'), 'Segoe UI',
+    ui-sans-serif, system-ui, -apple-system, Inter, Roboto, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', 'JetBrains Mono', Menlo,
     Consolas, monospace;
 }
@@ -319,35 +361,137 @@ body {
   .card-tool.card--lift:hover {
     border-color: var(--tool-edge);
   }
+  /* `--tool-strip` (added 2026-08-18 for the Premijera strip-header card) is
+     stronger than `--tool-a` because it sits ONLY in the card's header band,
+     which carries nothing but --txt-hi and a self-backgrounded badge. Measured
+     over ground -> panel -> strip at the gradient's strongest edge: --txt-hi
+     lands between 9.3:1 (teal, the lightest wash) and 12:1 (red) in premijera
+     and never below 8.4:1 in the other themes. --txt-mid and --txt-low are NOT
+     cleared for the header band — body copy stays in the body, on --panel. */
   .card-tool--orange {
     --tool-a: rgba(255, 138, 61, 0.16);
     --tool-b: rgba(255, 94, 61, 0.09);
     --tool-edge: rgba(255, 138, 61, 0.55);
+    --tool-strip: rgba(249, 115, 22, 0.26);
   }
   .card-tool--blue {
     --tool-a: rgba(61, 148, 255, 0.16);
     --tool-b: rgba(61, 108, 255, 0.09);
     --tool-edge: rgba(61, 148, 255, 0.55);
+    --tool-strip: rgba(61, 148, 255, 0.26);
   }
   .card-tool--purple {
     --tool-a: rgba(155, 108, 255, 0.16);
     --tool-b: rgba(124, 92, 255, 0.09);
     --tool-edge: rgba(155, 108, 255, 0.55);
+    --tool-strip: rgba(139, 92, 246, 0.28);
   }
   .card-tool--teal {
     --tool-a: rgba(45, 212, 191, 0.16);
     --tool-b: rgba(16, 185, 129, 0.09);
     --tool-edge: rgba(45, 212, 191, 0.55);
+    --tool-strip: rgba(20, 184, 166, 0.28);
   }
   .card-tool--pink {
     --tool-a: rgba(244, 114, 182, 0.16);
     --tool-b: rgba(217, 70, 239, 0.09);
     --tool-edge: rgba(244, 114, 182, 0.55);
+    --tool-strip: rgba(244, 114, 182, 0.26);
   }
   .card-tool--red {
     --tool-a: rgba(248, 113, 113, 0.16);
     --tool-b: rgba(239, 68, 68, 0.09);
     --tool-edge: rgba(248, 113, 113, 0.55);
+    --tool-strip: rgba(248, 113, 113, 0.26);
+  }
+
+  /* ---------------------------------------------------------------------
+     Premijera strip-header card (2026-08-18). The successor to painting a
+     wash across the whole card: identity hue lives in a header BAND above a
+     hairline, and every line of body copy sits on plain --panel with the
+     contrast that was already measured. The hue knobs are the same
+     `.card-tool--<hue>` classes — they only set custom properties, so they
+     compose with `.card-strip` directly.
+     --------------------------------------------------------------------- */
+  .card-strip {
+    @apply relative flex h-full flex-col overflow-hidden;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  }
+  .card-strip.card--lift:hover {
+    border-color: var(--tool-edge, var(--accent));
+  }
+  .card-strip-head {
+    @apply flex items-center gap-3 px-5 py-3;
+    border-bottom: 1px solid var(--line);
+    background-image: linear-gradient(115deg, var(--tool-strip, var(--panel-2)), transparent 75%);
+  }
+  .card-strip-body {
+    @apply flex-1 p-5 pt-4;
+  }
+
+  /* ---------------------------------------------------------------------
+     The stage (2026-08-18): Premijera's replacement for the ambient blobs.
+     One functional spotlight behind the 9:16 frame, crop marks in the accent
+     — built so a real vertical render drops in and owns the hero. Reads
+     tokens only, so it renders sanely in every theme; premijera is simply the
+     one whose --ambient-op: 0 makes it the ONLY light source on the page.
+     --------------------------------------------------------------------- */
+  .stage {
+    @apply relative grid justify-items-center gap-3 py-6;
+  }
+  .stage::before {
+    content: '';
+    position: absolute;
+    top: -8%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(560px, 100%);
+    height: 108%;
+    background: radial-gradient(48% 44% at 50% 42%, var(--accent-soft), transparent 72%);
+    pointer-events: none;
+  }
+  .stage-frame {
+    @apply relative flex items-center justify-center;
+    width: min(272px, 78vw);
+    aspect-ratio: 9 / 16;
+    background: var(--panel);
+    border: 1px solid var(--line-strong);
+    border-radius: 6px;
+    box-shadow: var(--shadow-card);
+  }
+  .stage-mark {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border: 0 solid var(--accent);
+  }
+  .stage-mark--tl { top: -7px; left: -7px; border-top-width: 2px; border-left-width: 2px; }
+  .stage-mark--tr { top: -7px; right: -7px; border-top-width: 2px; border-right-width: 2px; }
+  .stage-mark--bl { bottom: -7px; left: -7px; border-bottom-width: 2px; border-left-width: 2px; }
+  .stage-mark--br { bottom: -7px; right: -7px; border-bottom-width: 2px; border-right-width: 2px; }
+
+  /* ---------------------------------------------------------------------
+     USKORO well (2026-08-18): unreleased tools sit in a panel recessed BELOW
+     the surface instead of occupying dimmed full-size cards — elevation
+     carries availability. Rows keep their prices; the roadmap is honest,
+     just demoted. color-mix keeps it "below ground" in light themes too.
+     --------------------------------------------------------------------- */
+  .soon-well {
+    border-radius: var(--radius-card);
+    background: color-mix(in srgb, var(--ground), #000 25%);
+    box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.5), inset 0 0 0 1px var(--line);
+    padding: 1rem 1.125rem 0.5rem;
+  }
+  .soon-row {
+    @apply flex items-center gap-3 py-2.5;
+    min-height: 48px;
+  }
+  .soon-row + .soon-row {
+    border-top: 1px solid var(--line);
   }
 
   /* MIGRATED to tokens */

@@ -97,12 +97,14 @@ describe('MainToolCard', () => {
     expect(html).toContain('Izvoz u MP4');
   });
 
-  it('a known tone class is applied and an unknown theme falls back to the neutral card', () => {
+  it('a known tone class is applied and an unknown theme falls back to the neutral strip card', () => {
     const toned = renderCard(<MainToolCard {...BASE} href="/alati/x" theme="orange" />);
     expect(toned).toContain('card-tool--orange');
     const unknown = renderCard(<MainToolCard {...BASE} href="/alati/x" theme="chartreuse" />);
     expect(unknown).not.toContain('card-tool--');
-    expect(unknown).toContain('class="card h-full card--lift"');
+    // Since 2026-08-18 the card is the Premijera strip-header card; with no
+    // hue class the header band falls back to a neutral --panel-2 gradient.
+    expect(unknown).toContain('class="card-strip card--lift"');
   });
 
   it('a tool marked soon renders NO link and shows the USKORO badge instead of the cost', () => {

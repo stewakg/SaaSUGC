@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { cookies } from 'next/headers';
+import { Space_Grotesk } from 'next/font/google';
 import { isThemeId, THEME_COOKIE } from '@/lib/theme';
 import { SIGNUP_BONUS_CREDITS, freeVideosLabel } from '@adgen/core/pricing';
 import './globals.css';
@@ -28,13 +29,25 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   // Matches the two grounds a first-time visitor can land on: the OS decides
   // until they pick a theme (globals.css, prefers-color-scheme block).
+  // Dark is premijera's ground since 2026-08-18.
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#F6F6F9' },
-    { media: '(prefers-color-scheme: dark)', color: '#0B0C10' },
+    { media: '(prefers-color-scheme: dark)', color: '#0D0C11' },
   ],
   width: 'device-width',
   initialScale: 1,
 };
+
+// Space Grotesk carries the display type in every theme (see --font-display in
+// globals.css). latin-ext is what keeps č ć š ž đ in the same face instead of
+// falling back mid-word. Self-hosted by next/font at build time — no runtime
+// request to Google.
+const displayFont = Space_Grotesk({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['500', '700'],
+  variable: '--font-display-face',
+  display: 'swap',
+});
 
 export default async function RootLayout({
   children,
@@ -49,7 +62,7 @@ export default async function RootLayout({
   const theme = isThemeId(picked) ? picked : undefined;
 
   return (
-    <html lang="sr" data-theme={theme}>
+    <html lang="sr" data-theme={theme} className={displayFont.variable}>
       <body className="min-h-screen bg-ground text-txt-hi antialiased">
         {children}
       </body>

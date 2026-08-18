@@ -63,12 +63,21 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="animate-fade-in flex justify-center">
-            <div className="phone-frame">
-              {/* txt-mid, not txt-low: the frame is filled with --panel-2, which is
-                  lighter than the ground, so the quietest text token measured
-                  4.32:1 in obsidian against it — under the bar for 12px text. */}
-              <span className="font-mono tabular text-xs text-txt-mid">1080×1920</span>
+          <div className="animate-fade-in">
+            {/* The stage: Premijera's one light source. Crop marks + spotlight
+                frame the 9:16 slot so a real render drops in and owns the hero
+                (globals.css `.stage`). Still deliberately empty — no invented
+                sample ad. */}
+            <div className="stage">
+              <div className="stage-frame">
+                <span className="stage-mark stage-mark--tl" aria-hidden="true" />
+                <span className="stage-mark stage-mark--tr" aria-hidden="true" />
+                <span className="stage-mark stage-mark--bl" aria-hidden="true" />
+                <span className="stage-mark stage-mark--br" aria-hidden="true" />
+                {/* txt-mid, not txt-low: measured 4.32:1 for the quietest token
+                    on the old panel fill — the bar for 12px text still applies. */}
+                <span className="font-mono tabular text-xs text-txt-mid">1080×1920</span>
+              </div>
             </div>
           </div>
         </div>
@@ -94,7 +103,7 @@ export default function LandingPage() {
 
           `showCost` is off on purpose: see the prop's comment in tool-cards.
         */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {mainTools.map((t) => (
             // Every card — main and utility alike — points at /signup: a
             // signed-out visitor cannot open a wizard, so the card is an
@@ -109,7 +118,6 @@ export default function LandingPage() {
               theme={t.theme}
               showCost={false}
               href="/signup"
-              className="xl:col-span-2"
             />
           ))}
         </div>
