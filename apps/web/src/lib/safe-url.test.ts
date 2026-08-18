@@ -180,6 +180,19 @@ describe('isPrivateAddress', () => {
     ['::127.0.0.1', 'deprecated IPv4-compatible form of loopback'],
     ['64:ff9b::7f00:1', 'NAT64-embedded loopback'],
     ['64:ff9b::a9fe:a9fe', 'NAT64-embedded cloud metadata'],
+    // NAT64 local-use (64:ff9b:1::/48, RFC 8215). Blocked wholesale rather
+    // than decoded — the /48 embedding position differs from the /96 one, and
+    // nothing we fetch is reachable only through it. It must be tested before
+    // the /96 branch: they share the first two groups, so the /96 test alone
+    // matches these too and would decode them from the wrong bits.
+    ['64:ff9b:1::1', 'NAT64 local-use prefix (RFC 8215) — blocked wholesale'],
+    [
+      '64:ff9b:1:0:0:0:808:808',
+      'NAT64 local-use carrying a PUBLIC 8.8.8.8 — still blocked, the prefix itself is refused',
+    ],
+    ['64:ff9b:1:ffff::1', 'NAT64 local-use, another spelling'],
+    ['64:ff9b:2::7f00:1', 'unassigned 64:ff9b:X:: prefix embedding loopback — still decoded, still blocked'],
+    ['64:ff9b:ffff::a9fe:a9fe', 'unassigned 64:ff9b:X:: prefix embedding cloud metadata — still blocked'],
     ['not-an-address::zzz', 'unparseable but colon-bearing — must fail CLOSED'],
     // 6to4 (2002::/16) — embedded IPv4 lives in groups 1-2, not 6-7 like NAT64
     // and the mapped forms, so it needed its own branch. Fifth spelling in this
@@ -213,6 +226,7 @@ describe('isPrivateAddress', () => {
     ['::ffff:1.1.1.1', 'public 1.1.1.1 as decimal-mapped — must stay allowed'],
     ['2001:4860:4860::8888', 'public IPv6 (Google DNS) — must stay allowed'],
     ['64:ff9b::808:808', 'NAT64-embedded PUBLIC 8.8.8.8 — must stay allowed'],
+    ['64:ff9b:2::808:808', 'unassigned 64:ff9b:X:: prefix embedding PUBLIC 8.8.8.8 — must stay allowed'],
     ['2002:808:808::1', '6to4-embedded PUBLIC 8.8.8.8 — must stay allowed'],
     // The Teredo block must be TWO groups wide. A 2001::/16 mask would take the
     // whole of ordinary global v6 with it — these two prove it did not.

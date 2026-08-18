@@ -146,8 +146,36 @@ export function isPrivateAddress(ip: string): boolean {
     // also have to be re-taught every alternative spelling.
     if ((g[0] & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
     if ((g[0] & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
-    // NAT64 (64:ff9b::/96) carries an embedded IPv4 that the translator will
-    // reach on our behalf, so judge the address it actually delivers to.
+    // NAT64, local-use (64:ff9b:1::/48, RFC 8215). Blocked WHOLESALE rather
+    // than decoded, and the choice is deliberate.
+    //
+    // RFC 6052 embeds the IPv4 at a position that depends on the prefix
+    // LENGTH — /32, /40, /48, /56, /64 and /96 each put the octets somewhere
+    // different, with a reserved `u` byte interrupting them in the middle
+    // lengths. This file has already produced six spelling bugs by decoding
+    // things one position at a time, and a /48 decoder would be a seventh
+    // candidate for no gain: nothing this product fetches (a TikTok, YouTube
+    // or Instagram clip, a shop page) is ever reachable ONLY through a
+    // local-use NAT64 prefix, so refusing the whole /48 costs nothing real.
+    //
+    // It must be tested BEFORE the /96 branch below and cannot be folded into
+    // it: they share the first two groups, so the /96 test alone matches these
+    // addresses too and would decode them from groups 6-7 — the wrong bits for
+    // a /48 embedding, i.e. a confident answer computed from the wrong place.
+    if (g[0] === 0x0064 && g[1] === 0xff9b && g[2] === 0x0001) return true;
+    // NAT64 well-known (64:ff9b::/96) carries an embedded IPv4 that the
+    // translator will reach on our behalf, so judge the address it actually
+    // delivers to.
+    //
+    // Matched on the first two groups only, on purpose. An earlier version of
+    // this branch also required `g[2] === 0x0000`, to "distinguish it from the
+    // local-use /48 above" — but the /48 branch runs first and already returns
+    // for every 64:ff9b:1:: address, so that condition never separated anything.
+    // What it DID do was let unassigned spellings like `64:ff9b:2::7f00:1` fall
+    // through to "public", where the wider match decodes them and blocks the
+    // embedded loopback. Removing it is the fail-closed direction, and a
+    // mutation audit is what surfaced it: dropping the condition broke zero of
+    // 113 tests, which is how a change that only ever loosens things hides.
     if (g[0] === 0x0064 && g[1] === 0xff9b) {
       return isPrivateAddress(v4FromGroups(g[6], g[7]));
     }
