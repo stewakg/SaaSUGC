@@ -115,6 +115,7 @@ export default function RemoveTextPage() {
   return (
     <div className="py-6">
       <JobWizard
+        toolType="remove_text"
         steps={steps}
         activeIndex={stepIndex}
         onStepSelect={(i) => setStepIndex(i)}

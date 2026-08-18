@@ -159,6 +159,7 @@ export default function TranslatePage() {
   return (
     <div className="py-6">
       <JobWizard
+        toolType="translate"
         steps={steps}
         activeIndex={stepIndex}
         onStepSelect={(i) => setStepIndex(i)}

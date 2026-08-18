@@ -220,6 +220,7 @@ export default function EditPage() {
   return (
     <div className="py-6">
       <JobWizard
+        toolType="edit"
         steps={steps}
         activeIndex={stepIndex}
         onStepSelect={(i) => setStepIndex(i)}

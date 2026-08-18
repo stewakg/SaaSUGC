@@ -440,6 +440,14 @@ body {
     @apply flex-1 p-5 pt-3;
   }
 
+  /* Tool-identity wash for the wizard panel (2026-08-18, same organic-bleed
+     language as .card-strip): the hue enters at the top edge and is gone by
+     ~22% of the panel, so only the tool header sits in it. Compose with a
+     `.card-tool--<hue>` class for the knobs. */
+  .panel-tone {
+    background-image: linear-gradient(178deg, var(--tool-strip, transparent), transparent 22%);
+  }
+
   /* ---------------------------------------------------------------------
      The stage (2026-08-18): Premijera's replacement for the ambient blobs.
      One functional spotlight behind the 9:16 frame, crop marks in the accent

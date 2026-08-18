@@ -149,7 +149,8 @@ describe('RemoveTextPage', () => {
   it('renders the first step with the dropzone and the tool cost visible', () => {
     const container = mountPage();
     const heading = container.querySelector('h1');
-    expect(heading?.textContent).toBe('Uvezi fajl');
+    expect(heading?.textContent).toBe('Ukloni tekst'); // h1 = tool since 2026-08-18
+    expect(container.textContent).toContain('Uvezi fajl');
     expect(container.textContent).toContain('Korak 1/2');
     const zone = container.querySelector('button[data-dropzone]');
     expect(zone).toBeInstanceOf(HTMLButtonElement);

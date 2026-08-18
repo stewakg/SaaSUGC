@@ -228,7 +228,8 @@ describe('MatrixPage', () => {
   it('renders the first step with the dropzone and the montage price visible', async () => {
     const container = mountPage();
     await flush(); // the mount-time /api/voices fetch settles inside act
-    expect(container.querySelector('h1')?.textContent).toBe('Upload klipova');
+    expect(container.querySelector('h1')?.textContent).toBe('Video reklame'); // h1 = tool since 2026-08-18
+    expect(container.textContent).toContain('Upload klipova');
     // Simple mode: clips, import, style, generate — the two tuning steps are hidden.
     expect(container.textContent).toContain('Korak 1/4');
     const zone = container.querySelector('button[data-dropzone]');

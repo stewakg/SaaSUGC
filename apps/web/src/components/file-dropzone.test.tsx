@@ -98,7 +98,10 @@ describe('FileDropzone render (react-dom/server — no DOM events available)', (
     type StaticMarkupInput = Parameters<typeof renderToStaticMarkup>[0];
     const html = renderToStaticMarkup(zone as unknown as StaticMarkupInput);
     expect(html).toContain('Klikni ili prevuci video ovde');
-    expect(html).toContain('MP4, MOV ili WEBM · do 200MB');
+    // Since 2026-08-18 the hint renders as format CHIPS: the same string,
+    // split on '·' — both halves must survive, the separator itself does not.
+    expect(html).toContain('MP4, MOV ili WEBM');
+    expect(html).toContain('do 200MB');
     // A real <button> plus the hidden picker input, sibling not nested.
     expect(html).toContain('<button');
     expect(html).toContain('type="file"');

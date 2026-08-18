@@ -189,7 +189,8 @@ describe('AiSlikePage', () => {
   it('renders the first step with the URL field and the tool cost visible', () => {
     const container = mountPage();
     const heading = container.querySelector('h1');
-    expect(heading?.textContent).toBe('Uvezi proizvod');
+    expect(heading?.textContent).toBe('AI slike'); // h1 = tool since 2026-08-18
+    expect(container.textContent).toContain('Uvezi proizvod');
     expect(container.textContent).toContain('Korak 1/3');
     expect(container.querySelector('input[type="url"]')).toBeInstanceOf(HTMLInputElement);
     // The price a customer would pay for the default count must be on screen,

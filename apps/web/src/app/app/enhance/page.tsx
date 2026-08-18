@@ -160,6 +160,7 @@ export default function EnhancePage() {
   return (
     <div className="py-6">
       <JobWizard
+        toolType="enhance"
         steps={steps}
         activeIndex={stepIndex}
         onStepSelect={(i) => setStepIndex(i)}

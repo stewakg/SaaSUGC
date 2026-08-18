@@ -175,6 +175,7 @@ export default function MixPage() {
   return (
     <div className="py-6">
       <JobWizard
+        toolType="mix"
         steps={steps}
         activeIndex={stepIndex}
         onStepSelect={(i) => setStepIndex(i)}

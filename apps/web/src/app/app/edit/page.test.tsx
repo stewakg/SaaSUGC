@@ -150,7 +150,8 @@ describe('EditPage', () => {
   it('renders the first step with the dropzone and the tool cost visible', () => {
     const container = mountPage();
     const heading = container.querySelector('h1');
-    expect(heading?.textContent).toBe('Uvezi video');
+    expect(heading?.textContent).toBe('Edit'); // h1 = tool since 2026-08-18
+    expect(container.textContent).toContain('Uvezi video');
     expect(container.textContent).toContain('Korak 1/4');
     const zone = container.querySelector('button[data-dropzone]');
     expect(zone).toBeInstanceOf(HTMLButtonElement);

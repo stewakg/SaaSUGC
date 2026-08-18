@@ -1490,6 +1490,7 @@ export default function MatrixPage() {
       </div>
 
       <JobWizard
+        toolType="matrix"
         steps={stepsWithNotice}
         activeIndex={safeIndex}
         onBack={() => setStepIndex(Math.max(0, safeIndex - 1))}

@@ -199,7 +199,9 @@ export function AppShell({
               sidebar, precisely so it is still on screen once the sidebar has
               slid out — a control that disappears when you use it is a one-way
               door. Hidden below lg, where the hamburger already does this job
-              as a modal overlay. */}
+              as a modal overlay. The icon is a DIRECTIONAL chevron, not a
+              hamburger (owner's call 2026-08-18): it points where the sidebar
+              will go — « to tuck it away while open, » to bring it back. */}
           <button
             type="button"
             aria-expanded={!desktopCollapsed}
@@ -207,7 +209,7 @@ export function AppShell({
             className="focus-ring hidden rounded-lg border border-line p-2 lg:block"
             onClick={() => setDesktopCollapsed((collapsed) => !collapsed)}
           >
-            <NavIcon name="menu" />
+            <NavIcon name={desktopCollapsed ? 'chevrons-right' : 'chevrons-left'} />
           </button>
 
           <div className="ml-auto flex items-center gap-3">
@@ -269,6 +271,18 @@ function NavIcon({ name }: { name: string }) {
       return (
         <svg aria-hidden="true" className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
           <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+        </svg>
+      );
+    case 'chevrons-left':
+      return (
+        <svg aria-hidden="true" className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path d="m11 17-5-5 5-5M18 17l-5-5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    case 'chevrons-right':
+      return (
+        <svg aria-hidden="true" className={common} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path d="m13 17 5-5-5-5M6 17l5-5-5-5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       );
     default:

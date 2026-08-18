@@ -233,6 +233,7 @@ export default function AiSlikePage() {
   return (
     <div className="py-6">
       <JobWizard
+        toolType="image_ads"
         steps={steps}
         activeIndex={stepIndex}
         onStepSelect={(i) => setStepIndex(i)}

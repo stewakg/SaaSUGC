@@ -169,15 +169,35 @@ export function FileDropzone({
         onDrop={handleDrop}
         disabled={disabled}
         className={cn(
-          'focus-ring flex w-full flex-col items-center gap-1 rounded-card border-2 border-dashed bg-panel p-8 text-center transition disabled:cursor-not-allowed disabled:opacity-50',
+          'focus-ring flex w-full flex-col items-center gap-3 rounded-card border-2 border-dashed bg-panel px-8 py-12 text-center transition disabled:cursor-not-allowed disabled:opacity-50',
           dragging ? 'border-accent bg-accent-soft' : 'border-line',
         )}
       >
-        <span className="text-sm font-medium text-txt-hi">{title}</span>
+        {/* Big icon plate + bold title + the hint split into format chips —
+            the generous, competitor-class drop area (2026-08-18). The chips
+            are the SAME hint string, split on '·'; no new copy. */}
+        <span className="icon-chip" aria-hidden="true">
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2.5" y="5" width="14" height="14" rx="2.5" />
+            <path d="m21.5 7.5-5 3.5 5 3.5v-7Z" />
+          </svg>
+        </span>
+        <span className="text-base font-semibold text-txt-hi">{title}</span>
         {wrongType ? (
           <span role="alert" className="text-xs text-err-text">Pogrešan tip fajla.</span>
         ) : (
-          hint && <span className="text-xs text-txt-mid">{hint}</span>
+          hint && (
+            <span className="flex flex-wrap items-center justify-center gap-1.5">
+              {hint.split('·').map((part) => (
+                <span
+                  key={part}
+                  className="rounded-lg border border-line bg-panel-2 px-2.5 py-1 font-mono text-[11px] text-txt-mid"
+                >
+                  {part.trim()}
+                </span>
+              ))}
+            </span>
+          )
         )}
       </button>
       {/* Sibling, not a child: nesting <input> inside <button> is invalid HTML. */}
