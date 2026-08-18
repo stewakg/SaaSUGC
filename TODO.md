@@ -112,6 +112,63 @@ Trimmed 2026-08-14 by the functional audit: a card links to a wizard ONLY if a p
 | ❌ | **Brzi test · Edit videi · Mix · Prevod** | Wizard exists, pipeline does not. Now badged USKORO instead of linking to a wizard that ends in an error |
 | ✅ | **Preozvuči** (`revoice`) | ✅ LIVE through the WHOLE pipeline 2026-08-14: 90.7s, 9.6 MB mp4 on our own url (`ttsCharacters 185`, `renderSeconds 81.4`). Reachable via the montage switch in step 3 of the Video-reklame wizard, which sends this job type and quotes its own cheaper price. **All five working tools have now been run end to end through `runPipeline`** |
 
+## 3a. Renaming the two video tools, and telling the customer what each one DOES
+
+Owner's decision, 2026-08-18, after testing the competitor's product by hand. **Names are not
+final — the owner has not settled on them yet.** What IS decided is that both must change and
+that each needs explanatory copy.
+
+| Status | Item | Who |
+|---|---|---|
+| ❌ | **`matrix` — rename away from "Matrix"** | 👤 names it, 🤖 does it |
+| ❌ | **`revoice` — rename, and say plainly that ONLY the audio changes** | 👤 names it, 🤖 does it |
+| ❌ | **Each tool gets instructions + "what you get"** | 👤 approves copy |
+
+**Why now, and it is not the same reason as last time.** The 2026-08-13 rename (Matrix → "Video
+reklame") was about the word telling the customer nothing. This one is worse than a vague name —
+**the same word means the OPPOSITE thing at the competitor.** Established by the owner's hands-on
+test of their product on 2026-08-18:
+
+| Their tool | What it actually does | Our equivalent |
+|---|---|---|
+| **"matrix video"** | ONE clip, not combined with anything: original audio muted, then script + voiceover + music + captions over it | our **`revoice`** |
+| **"edit video"** | joins 2–3 clips, then script + voiceover + music | our **`matrix`** |
+
+So a customer arriving from the competitor reads "Matrix" as *the tool that only changes the
+sound*, and in our product clicks into *the tool that cuts and reassembles their footage*. That is
+not ambiguity, it is a name pointing at the wrong product. Working titles from the owner:
+something like **"Nova reklama"** for `matrix` and **"Voiceover reklama"** for `revoice`.
+
+**The distinction the copy has to carry.** Against their `edit` — the one our `matrix` actually
+competes with — the difference is narrower than "they don't combine, we do", and the copy must not
+overclaim:
+
+- They **concatenate**: whole clip after whole clip.
+- We scene-detect every uploaded clip into a pool of shots (`detectShots`, then `buildMontage` per
+  variant, `apps/worker/src/pipelines.ts`) and assemble each variant from shots taken across ALL
+  the clips, so different variants get genuinely different cuts.
+- **Whole clips joined vs. scenes mixed** is the sentence the card has to say out loud, because a
+  customer cannot see it from a product name. ⚠️ And it is a claim nobody has verified with their
+  eyes yet — see the standing item that no human has run our wizard end to end. If our montage
+  does not visibly beat a concatenation on the same three clips, this copy is a promise the
+  product does not keep.
+
+For `revoice` the copy problem is the opposite — it must UNDERSELL, clearly: the video you get
+back is your own clip, unchanged, with the original audio muted and a new voice, music and
+captions over it. That is exactly what the owner observed the competitor's whole flagship doing.
+A customer who expects new footage from this tool will feel cheated even though the tool did its
+job.
+
+⚠️ **Implementation constraint — rename the LABEL, never the job type.** The display names live in
+`JOB_DESCRIPTORS` in `packages/core/src/pricing.ts:48+` (`label`, `description`, `benefits`). The
+strings `'matrix'` and `'revoice'` are load-bearing identifiers and must NOT be touched: they are
+`jobs.type` in the database (migration 0006 added `revoice`), they key `JOB_COST`, and
+`HEAVY_JOB_TYPES` in `packages/core/src/queue.ts:23` routes both to the heavy lane by that exact
+string. This is the same trap the queue rename hit — a job already sitting in Redis under the old
+name is stranded silently, with no error anywhere. The route path `/app/matrix` is a third,
+separate decision: changing it breaks any bookmark and needs a redirect, and it can be left alone
+even after the label changes.
+
 ## 3b. Profil / podešavanja — MISSING ENTIRELY
 
 Requested by the owner 2026-08-14 and built the same day. **Verified against the code 2026-08-16: all four
