@@ -10,6 +10,31 @@ the oldest ones there. **The Review ledger below stays here regardless**; it is 
 
 ---
 
+## 2026-08-19 — Second-machine sync: repo already at tip, all gates VERIFIED here
+
+**Context.** Owner asked to "update everything — this build is old" and to check GitHub.
+Finding: there was nothing to pull. `git ls-remote origin main` == local `main` ==
+`06ff271` — GitHub's tip is identical to this working tree, single branch, no divergence.
+If another machine holds newer commits, they were never pushed; nothing can arrive here
+until that machine runs `git push origin main`.
+
+**What was actually stale: this machine's toolchain, now fixed.**
+- `pnpm` is NOT on PATH here and `corepack enable` fails with EPERM (no admin write to
+  `C:\Program Files\nodejs`). Working invocation on this machine: **`corepack pnpm <cmd>`**
+  — resolves to pnpm 10.0.0 exactly as `package.json` pins.
+- `gh` CLI exists but is not authenticated (`gh auth login` never run here).
+
+**Gates — all VERIFIED on this machine, 2026-08-19:**
+- `corepack pnpm install` — already up to date (store was current).
+- `corepack pnpm -r typecheck` — clean, all 5 projects.
+- `corepack pnpm -r test` — all pass; web is **614/614** (41 files). Note: CLAUDE.md's
+  "979 tests (web 495)" line predates the Premijera sessions and undercounts web.
+- `corepack pnpm --filter @adgen/web build` — prod build clean (dev server confirmed not
+  running first; port 3000 free).
+
+**No code changes this session** — environment sync + verification only. Nothing left
+uncommitted.
+
 ## 2026-08-18 — Design v2 proposals + "Premijera" implemented as default theme
 
 **Context.** Owner asked for four NEW design directions (`design-proposals-v2/`,
