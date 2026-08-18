@@ -239,9 +239,11 @@
   --warn-text: color-mix(in srgb, var(--warn), var(--txt-hi) 55%);
   --err-text: color-mix(in srgb, var(--err), var(--txt-hi) 55%);
 
+  /* Bumped 2026-08-18 (owner: the strip cards read "boxy"): cards 16→20,
+     controls 10→12. Softer geometry across every theme. */
   --radius-panel: 24px;
-  --radius-card: 16px;
-  --radius-control: 10px;
+  --radius-card: 20px;
+  --radius-control: 12px;
 
   --font-sans: 'Segoe UI Variable Text', 'Segoe UI', ui-sans-serif, system-ui,
     -apple-system, Inter, Roboto, 'Helvetica Neue', sans-serif;
@@ -416,6 +418,13 @@ body {
   .card-strip {
     @apply relative flex h-full flex-col overflow-hidden;
     background: var(--panel);
+    /* The hue BLEEDS from the top edge and is gone by ~45% of the card — no
+       band, no inner hairline, no box-inside-a-box (owner's "kockasto" note,
+       2026-08-18). The title row sits inside the strongest part of the wash
+       and carries only --txt-hi (measured — see --tool-strip above); body copy
+       starts where the wash has faded under the --tool-a alphas that were
+       already cleared for --txt-mid. */
+    background-image: linear-gradient(172deg, var(--tool-strip, var(--panel-2)), transparent 45%);
     border: 1px solid var(--line);
     border-radius: var(--radius-card);
     box-shadow: var(--shadow-card);
@@ -425,12 +434,10 @@ body {
     border-color: var(--tool-edge, var(--accent));
   }
   .card-strip-head {
-    @apply flex items-center gap-3 px-5 py-3;
-    border-bottom: 1px solid var(--line);
-    background-image: linear-gradient(115deg, var(--tool-strip, var(--panel-2)), transparent 75%);
+    @apply flex items-center gap-3 px-5 pt-5;
   }
   .card-strip-body {
-    @apply flex-1 p-5 pt-4;
+    @apply flex-1 p-5 pt-3;
   }
 
   /* ---------------------------------------------------------------------
@@ -460,7 +467,7 @@ body {
     aspect-ratio: 9 / 16;
     background: var(--panel);
     border: 1px solid var(--line-strong);
-    border-radius: 6px;
+    border-radius: 12px;
     box-shadow: var(--shadow-card);
   }
   .stage-mark {
