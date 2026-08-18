@@ -60,6 +60,20 @@ and its nginx serves aikutak.com. AdGen prod actually lives on **5.75.154.153**
 howto.md now carries a SUPERSEDED banner with the working ritual; the memory file
 `two-vps-option` was updated to match.
 
+**Continued same session — the full-app pass, all VERIFIED live (each step:
+614/614 tests, typecheck, prod build, deployed to 5.75.154.153, HTTP 200):**
+- `73182c0` de-box: organic hue bleed replaces the strip band (owner: "previše
+  kockasto"), radii 20/12. Taste memory saved (`design-taste-owner`).
+- `1d9552b` wizard identity: JobWizard `toolType` prop resolves label/icon/hue
+  from JOB_DESCRIPTORS (subpath import — core ROOT drags queue's node: modules
+  into the client bundle and breaks the build), Koraci kicker + live progress,
+  competitor-class dropzone with format chips, chevron « » collapse toggle.
+  All 8 tool pages wired; page tests re-pinned (h1 = tool, step = content).
+- `505a74e` bold pass: h1–h3 = Space Grotesk 700 globally, buttons in display
+  face at 700, semibold nav/badges/step chips. Body copy stays 400 on purpose.
+- `5b1a4e5` auth spotlight (ambient is off in premijera — panels floated in
+  flat black) + Moje reklame rows get ToolIcon + semibold name.
+
 **Gotchas for next session.** OS-light visitors without a cookie still get poluton
 (pre-existing "OS speaks until the user chooses" rule) — if the owner wants Premijera
 for everyone, that block in globals.css is the place. Wizard/auth/profil screens
