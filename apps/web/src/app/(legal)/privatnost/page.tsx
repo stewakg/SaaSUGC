@@ -11,7 +11,7 @@ export default function PrivatnostPage() {
   return (
     <>
       <h1 className="text-2xl font-semibold text-txt-hi">Politika privatnosti</h1>
-      <p className="text-txt-mid">Poslednja izmena: 10. 8. 2026.</p>
+      <p className="text-txt-mid">Poslednja izmena: 18. 8. 2026.</p>
 
       <h2 className="text-lg font-semibold text-txt-hi">1. Ko obrađuje tvoje podatke</h2>
       <p>
@@ -153,6 +153,10 @@ export default function PrivatnostPage() {
         traje obaveza čuvanja poslovne dokumentacije za firmu u SAD. Sadržaj koji si napravio ili otpremio ne spada u
         to: kad se nalog obriše, brišu se i svi vezani fajlovi, bez čekanja na rok od 30 dana.
       </p>
+      <p>
+        Tehničke zapise servera iz odeljka 2 (IP adresa, vreme zahteva, greške) čuvamo najviše 30 dana, posle čega se
+        brišu.
+      </p>
 
       <h2 className="text-lg font-semibold text-txt-hi">5. Tvoja prava</h2>
       <p>
@@ -169,7 +173,7 @@ export default function PrivatnostPage() {
 
       <h2 className="text-lg font-semibold text-txt-hi">6. Kolačići</h2>
       <p>
-        Postoje tačno dva, oba su naša (nema kolačića trećih strana) i nijedan ne prati tvoje ponašanje:
+        Postoje tačno tri, svi su naši (nema kolačića trećih strana) i nijedan ne prati tvoje ponašanje:
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
@@ -192,6 +196,14 @@ export default function PrivatnostPage() {
               <td className="py-2 pr-4 font-mono text-xs">adgen-theme</td>
               <td className="py-2 pr-4">
                 Pamti temu koju si izabrao. Postavlja se tek kad je sam izabereš — ako je ne diraš, ne postoji.
+              </td>
+              <td className="py-2">godinu dana</td>
+            </tr>
+            <tr className="border-t border-line">
+              <td className="py-2 pr-4 font-mono text-xs">adgen_tz</td>
+              <td className="py-2 pr-4">
+                Pamti vremensku zonu u kojoj želiš da vidiš datume. Postavlja se tek kad je izabereš u profilu — ako
+                je ne diraš, ne postoji.
               </td>
               <td className="py-2">godinu dana</td>
             </tr>
