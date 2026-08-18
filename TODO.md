@@ -321,8 +321,17 @@ docs, and it is not something to assume: it is a question for ElevenLabs' Music 
 sales. Generating SAMPLES for internal evaluation raises none of this; shipping them to customers
 does.
 
-The generation probe is written and ready to run the moment the key lands:
-`scratchpad/gen-audio-samples.mjs` — 6 moods × 15 s instrumental, plus whoosh/pop/ding/riser.
+The generation driver is written and ready to run the moment the key lands:
+**`apps/worker/scripts/gen-audio-samples.mjs`** — 6 moods × 15 s instrumental, plus
+whoosh/pop/ding/riser. Run it from the repo root with `node apps/worker/scripts/gen-audio-samples.mjs`.
+
+⚠️ It is kept **in git deliberately**, next to the other drivers, and the reason is worth not
+undoing: it was first written into `scratchpad/`, which is gitignored — while this very row
+pointed at it as "ready to run". The key it needs is most likely on the OTHER machine, where a
+gitignored file simply does not exist. Its OUTPUT still goes to `scratchpad/audio-samples/`,
+because the mp3s are disposable and do not belong in the repo. Note the same trap is still live
+one row over: the icons row in §3c points at `scratchpad/gen-icons.mjs`, which does not travel
+either.
 
 ## 5. Legal (before any real customer)
 
