@@ -20,6 +20,38 @@ break the implementation on purpose, confirm the new tests fail, restore. For a 
 prove the claimed property directly (a throwaway type probe, a runtime probe) and delete the
 probe. Anything the run reports but I did not verify is written here as unverified.
 
+> ⚠️ **2026-08-18 — the invocation below is WRONG on the second machine.** The CLI was installed
+> fresh there (`npm i -g cline` → 3.0.55) and ships a native **`zai-coding-plan`** provider; there
+> is no `openai-compatible` entry at all, so the documented command fails outright. Use
+> `-P zai-coding-plan`. The two-wallet trap survives in a new shape — `providers.json` holds both
+> `zai` and `zai-coding-plan` with the SAME key (one account, two endpoints: the coding plan is
+> the subscription, plain `zai` bills an empty balance) and `globalState.json` still points at
+> `zai`, so a bare invocation can still land on the empty wallet.
+
+## Four failure signatures, and two of them look identical
+
+Six runs on 2026-08-18 produced four distinct failure modes. Written down because telling them
+apart decides whether you retry, change the spec, or fix the machine — and **two of them are
+indistinguishable if you only read `finishReason`**.
+
+| What you see | What it means | How to tell |
+|---|---|---|
+| `run_aborted / external_abort / "aborted by another client"` | two runs overlapped | more than one `cline` process, minus the hub |
+| `"The operation timed out."`, iteration 1, **0 tokens** | the request never reached the model — network or provider | no other error line |
+| `hook dispatch failed: session.hook requires a valid hook event payload` then the SAME timeout at iteration 1, **0 tokens** | **the hub daemon is in a bad state** | the hook line sits ABOVE the timeout |
+| several `read_files: Invalid input`, then abort around iteration 6 | the model is malforming tool calls and hit `--retries` | tokens WERE consumed |
+
+**Token count is the discriminator nobody thinks to check.** Zero tokens means the model was
+never invoked, which rules out a model-side fault entirely — so retrying the same spec is the
+right move, and rewriting the spec is wasted work.
+
+**The hub case cost an extra failed run.** On the first occurrence the `error` line was wrapped
+across two lines in the console output and read as noise, so the diagnosis was "network, retry" —
+and the retry failed the same way. It only became visible by reading the raw JSON output file
+instead of the console. The hub is a background daemon (`--pathname /hub`, port 25463) that the
+CLI starts by itself; killing it is safe and it respawns clean on the next run. `~/.cline/hooks`
+did not even exist, so this was the daemon's own state, not a user hook.
+
 **Invocation** (both traps are real and cost a run each):
 
 ```bash

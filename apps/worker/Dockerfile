@@ -44,10 +44,17 @@ COPY packages/core/package.json packages/core/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY remotion/package.json remotion/package.json
 
-# No --prod: apps/worker's "start" script runs `tsx src/index.ts` directly
-# (no separate compile step) — tsx/typescript (devDependencies) are needed at
-# runtime, not just for typechecking, so they must not be pruned.
-RUN pnpm install --frozen-lockfile
+# --prod, and `tsx` is a runtime dependency for exactly this reason.
+#
+# The CMD below is `node --import tsx src/index.ts` — there is no compile step,
+# so tsx runs in production. It used to sit in devDependencies, which forced
+# this install to keep ALL devDependencies, which meant the production image
+# also shipped vitest, vite, esbuild and jsdom. Those never execute here, but
+# they are what the dependency audit reports findings against, and a production
+# image has no business carrying a test runner. tsx moved to dependencies
+# instead; typescript did NOT need to move, because tsx transpiles through its
+# own bundled esbuild rather than through the TypeScript compiler.
+RUN pnpm install --frozen-lockfile --prod
 
 # LocalRemotionRenderer resolves the /remotion project relative to its OWN
 # file location (packages/core/src/providers/renderer.local.ts, 4 directories
