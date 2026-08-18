@@ -500,3 +500,50 @@ running stack was built from.
 ⚠️ **One Redis, one queue.** If a worker runs on your laptop AND on the VPS against the same Redis,
 both pull from the same queue and whichever grabs a job answers it. That is how a job once got
 answered with mocks. Run one worker at a time, or point them at different Redis instances.
+
+## 9. Verification debt — everything that has NEVER been checked (added 2026-08-18, owner asked for the full list)
+
+Not features — checks. Things that exist or are assumed and have never been proven. Where a row
+already lives elsewhere in this file, the line points there instead of duplicating it.
+
+### Nobody has ever seen or run it
+
+| Status | Check | Who | Note |
+|---|---|---|---|
+| 🟡 ⛔ | **A human clicks a wizard end to end** | 👤 then 🤖 | Already §6 — the biggest hole in the project. One login from the home machine converts all six wizards from "unknown" to "walked page by page" |
+| ❌ | **Signup → job → asset through the real stack** | 🤖 | Already §6 — nothing covers the web→DB→BullMQ→worker hop; the pipeline driver skips DB and queue on purpose |
+| 🟡 | **Password recovery flow** | 👤 | Already §6 — sends a REAL email, which is why nobody has poked it |
+| ❌ | **"Scenes mixed, not clips joined" — proven by eye** | 👤 | §3a plans copy that PROMISES our montage visibly beats concatenation on the same 3 clips. Nobody has looked. If it does not, that copy overclaims |
+
+### Operations — what happens when something breaks
+
+| Status | Check | Who | Note |
+|---|---|---|---|
+| ❌ | **VPS reboot drill** | 🤖 over SSH | Full machine reboot never tested: does the whole stack come back by itself? `restart: unless-stopped` + healthchecks exist; the drill does not. Half an hour, risks nothing while there are no users |
+| ❌ | **Redis persistence config** | 🤖 | Is `appendonly` on? If the box dies with jobs queued, do they vanish silently? Nobody has read the live config. Related: a job lost this way emits no alert |
+| ❌ | **Database backup + restore drill** | 👤 then 🤖 | Supabase free tier — no PITR. No dump has ever been taken, no restore ever rehearsed. The env files got their first backup 2026-08-18 (`/root/backups/` on the VPS); the DB has none. A wiped table on free tier is GONE — this repo has already lived that once (see memory: the LIKE cleanup) |
+| 🟡 | **First alert webhook delivery** | 👤 sets the url | Already §1 — and note that even after `ALERT_WEBHOOK_URL` is set, the first real delivery is still unverified until one failure fires through it |
+| ❌ | **Disk-full + uptime monitoring** | 👤 picks a service, 🤖 wires | Build cache has filled the disk three times (33%→72% once); nothing alarms. No uptime check on `/` either — a down site is currently discovered by a visitor. Register #8 lists this; no concrete row existed until now |
+
+### Money
+
+| Status | Check | Who | Note |
+|---|---|---|---|
+| ❌ | **Per-job cost vs. real invoices** | 👤 | Already §2 — logged units (TTS chars, render seconds) never held next to an ElevenLabs/OpenRouter/AWS bill. Margins in BUSINESS.md are assumptions until this is done once |
+| ❌ | **Run 0011's reconciliation query periodically** | 🤖 | The migration's footer query finds `charged_no_result` states (charged, job error, zero assets). It ran once, at apply time, zero rows. Nothing schedules it — a monthly manual run is enough at this scale |
+| ❌ | **A real hold expiring, observed live** | 🤖 | `reserve_credits`' expired-hold sweep is unit-tested only. One deliberate 1-hour-old hold on the live DB would prove the sweep fires and the balance frees |
+
+### Scale (owner's stated priority)
+
+| Status | Check | Who | Note |
+|---|---|---|---|
+| ❌ | **Two simultaneous customers, measured** | 🤖 then 👤 resizes | Already §1 — quota is 1000, `WORKER_CONCURRENCY=1`, nothing re-measured since. Customer #2 still waits for customer #1. Needs one deliberate parallel-render measurement on this box |
+| ❌ | **Rate-limit fail-open blast radius** | 👤 decides | Already §1b — Redis down ⇒ `generate-scripts` spends OpenRouter money uncapped. Known and recorded; what was never done is deciding whether that is acceptable or the route needs a hard fail-closed switch |
+
+### Small but real
+
+| Status | Check | Who | Note |
+|---|---|---|---|
+| ❌ | **Email deliverability** | 👤 | Supabase default sender — does the signup mail land in spam? One test signup to a Gmail address answers it. Related row in §1: no sending address |
+| ❌ | **Pin yt-dlp + add Dependabot** | 🤖 | Both one-liners from the Rev. 3 audit's optional list: `apps/web/Dockerfile` pulls `releases/latest` (the last unpinned binary entering the web image), and no `dependabot.yml` exists |
+| ❌ | **One pass on a real phone** | 👤 | All mobile verification so far is a 375px emulated viewport. Real iOS Safari (the 16px-zoom platform) has never rendered this site |
