@@ -126,8 +126,9 @@ origin/main` BEFORE the `reset --hard origin/main` that fixed it (never skip tha
 proof); (3) compose needs **`-p adgen`** (howto.md line 21 had it; my first attempt
 without it spawned a parallel `infra_*` project with an EMPTY redis volume that
 name-conflicted against the live containers — network + volume removed same minute,
-old stack was never touched). What remains unverified: /app/admin has still never been
-OPENED by an admin in a browser — the owner's next login is the last step.
+old stack was never touched). **/app/admin OPENED by the owner the same night — credit adjustment VERIFIED live**
+("krediti rade": real add/subtract through `add_credits` on the production DB). Account
+deletion remains never-executed — needs an expendable account to try it on.
 
 **Working-on-Windows gotcha that cost three round-trips:** scripts written locally and
 shipped to the VPS arrive with a UTF-8 BOM + CRLF; bash then fails with
