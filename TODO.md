@@ -136,15 +136,13 @@ that each needs explanatory copy.
 
 | Status | Item | Who |
 |---|---|---|
-| ❌ | **`matrix` — rename away from "Matrix"** | 👤 names it, 🤖 does it |
-| ❌ | **`revoice` — rename, and say plainly that ONLY the audio changes** | 👤 names it, 🤖 does it |
-| ❌ | **Each tool gets instructions + "what you get"** | 👤 approves copy |
+| ✅ | **`matrix` — rename away from "Matrix"** | **DONE 2026-08-19, owner picked "Nova reklama"** — description rewritten to OUR mechanic (scene-detect → montage from shots across all clips), honest variant without the "beats concatenation" claim (that stays unverified by eye, §9). Job type string untouched, route untouched |
+| ✅ | **`revoice` — rename, and say plainly that ONLY the audio changes** | **DONE 2026-08-19, owner picked "Reklama sa novim zvukom"** — copy deliberately undersells ("video ostaje potpuno isti") and closes with the cross-link to „Nova reklama" that catches competitor-trained customers |
+| ❌ | **Each tool gets instructions + "what you get"** | 👤 approves copy — the card copy is done; per-tool INSTRUCTIONS inside the wizards are still open |
 
-**2026-08-19: a concrete proposal now exists — `TOOL_COPY_PROPOSAL.md`** (4 name candidates
-per tool including the owner's working titles, card copy for both — matrix's honest-claim
-variant included, revoice's deliberately underselling copy with the cross-link that catches
-competitor-trained customers). Nothing implemented; the owner picks, then it is one pass over
-`JOB_DESCRIPTORS`.
+**2026-08-19: `TOOL_COPY_PROPOSAL.md` served its purpose the same night** — the owner picked
+names (his own working titles, refined) and the copy shipped at `9663d60`. The doc stays as
+the record of the reasoning; the live source of truth is `JOB_DESCRIPTORS` in pricing.ts.
 
 **Why now, and it is not the same reason as last time.** The 2026-08-13 rename (Matrix → "Video
 reklame") was about the word telling the customer nothing. This one is worse than a vague name —

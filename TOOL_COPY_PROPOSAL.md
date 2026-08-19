@@ -1,6 +1,15 @@
 # Predlog: imena i copy za dva video alata (TODO §3a)
 
-**Status: PREDLOG — čeka tvoju odluku.** Ništa od ovoga nije u kodu. Kad izabereš,
+**Status: REŠENO 2026-08-19 — vlasnik izabrao iste noći.** `matrix` = **„Nova
+reklama"**, `revoice` = **„Reklama sa novim zvukom"**; copy (honest varijanta za
+matrix, undersell + cross-link za revoice) je u kodu od `9663d60`. Živi izvor
+istine je `JOB_DESCRIPTORS` u pricing.ts — ovaj fajl ostaje kao zapis rezona.
+
+Originalni predlog ispod, netaknut:
+
+---
+
+Ništa od ovoga nije u kodu. Kad izabereš,
 menja se SAMO `label`/`description`/`benefits` u `JOB_DESCRIPTORS`
 (`packages/core/src/pricing.ts`) — job type stringovi `'matrix'` i `'revoice'` su
 nosivi identifikatori (DB, queue, cene) i NE diraju se, ruta `/app/matrix` isto ostaje.

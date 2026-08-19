@@ -130,6 +130,26 @@ old stack was never touched). **/app/admin OPENED by the owner the same night �
 ("krediti rade": real add/subtract through `add_credits` on the production DB). Account
 deletion remains never-executed — needs an expendable account to try it on.
 
+**Continued — three owner requests landed in one pass (`9663d60`), all gates green
+(web 647, core 385, worker 131, typecheck, build):**
+- **„Uskoro" sidebar page** (`/app/uskoro`): ALL unreleased tools (main + utility)
+  moved off the dashboard into the recessed soon-well there; Početna now shows only
+  tools that work. Nav got the third item (clock icon); the list derives from
+  `LIVE_TOOL_LINKS` so a tool leaves the page the moment its pipeline lands (pinned
+  by 3 page tests: no live tool may appear there, no soon tool may be missing).
+- **Utility cards re-skinned to the strip system** (owner: "isti sistem, isti
+  kvadratić, ne iste boje") — `UtilityToolCard` now renders `.card-strip` +
+  `toolToneClass` like the main tier, minus benefits; utilities got hues in
+  pricing.ts (enhance blue, remove_text pink, ai_video purple — blue/pink freed by
+  the move of edit/quick_test to /app/uskoro).
+- **§3a rename DECIDED and SHIPPED**: `matrix` → **„Nova reklama"** (description
+  rewritten to our mechanic — scene-detect, montage from shots across all clips —
+  honest variant, no concatenation comparison until an eye verifies it), `revoice` →
+  **„Reklama sa novim zvukom"** (undersells on purpose: "video ostaje potpuno isti",
+  closes with the „Nova reklama" cross-link). Job type strings and routes untouched.
+  Ripples fixed: worker's tool_not_implemented message, reklame empty-state, matrix
+  page-test pin, app-shell nav-svg count 2→3.
+
 **Working-on-Windows gotcha that cost three round-trips:** scripts written locally and
 shipped to the VPS arrive with a UTF-8 BOM + CRLF; bash then fails with
 `$'\r': command not found` and mangles the FIRST line into a bogus command (which is how
