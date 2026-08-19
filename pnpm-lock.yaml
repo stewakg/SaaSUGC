@@ -47,8 +47,8 @@ importers:
         specifier: ^2.1.1
         version: 2.1.1
       ioredis:
-        specifier: ^5.4.1
-        version: 5.11.1
+        specifier: ^6.0.0
+        version: 6.0.0
       lucide-react:
         specifier: ^1.25.0
         version: 1.25.0(react@19.0.0-rc-66855b96-20241106)
@@ -123,8 +123,8 @@ importers:
         specifier: ^3.1.0
         version: 3.1.0
       ioredis:
-        specifier: ^5.4.1
-        version: 5.11.1
+        specifier: ^6.0.0
+        version: 6.0.0
       tsx:
         specifier: ^4.19.1
         version: 4.23.1
@@ -160,8 +160,8 @@ importers:
         specifier: ^1.0.0
         version: 1.2.0
       ioredis:
-        specifier: ^5.4.1
-        version: 5.11.1
+        specifier: ^6.0.0
+        version: 6.0.0
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -775,6 +775,9 @@ packages:
 
   '@ioredis/commands@1.10.0':
     resolution: {integrity: sha512-UmeW7z4LfctwoQ5wkhVzgq8tXkreED2xZGpX+Bg+zA+WJFZCT6c062AfCK/Dfk81xZnnwdhJCUMkitihRaoC2Q==}
+
+  '@ioredis/commands@2.0.0':
+    resolution: {integrity: sha512-vrx0AE/T0h7cRZwfo1M39Cr+ZhZrkf0V8mQN75wucKCxCLD9l/VX6no3gFvrLqD1IlG/1LtzWovqEw3t0Vr9zg==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -2519,6 +2522,10 @@ packages:
   ioredis@5.11.1:
     resolution: {integrity: sha512-ehuGcf94bQXhfagULNXrJdfnWO38v070jxSx/qE87Kjzmu2fU7ro5EFAb+OPituLqgfyuQaym5DlrNydW2sJ9A==}
     engines: {node: '>=12.22.0'}
+
+  ioredis@6.0.0:
+    resolution: {integrity: sha512-f+Dtubxfpf6KYFq7WVXJoOLn0bk4TJrMrN9SzeE+jrWrCWj7XX3fA6vkryafhADX+GMymRxgDJDOI33COkJc0w==}
+    engines: {node: '>=20.0.0'}
 
   is-array-buffer@3.0.5:
     resolution: {integrity: sha512-DDfANUiiG2wC1qawP66qlTugJeL5HyzMpfr8lLK+jMQirGzNod0B12cFB/9q838Ru27sBwfw78/rdoU7RERz6A==}
@@ -4440,6 +4447,8 @@ snapshots:
     optional: true
 
   '@ioredis/commands@1.10.0': {}
+
+  '@ioredis/commands@2.0.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -6615,6 +6624,17 @@ snapshots:
       denque: 2.1.0
       redis-errors: 1.2.0
       redis-parser: 3.0.0
+      standard-as-callback: 2.1.0
+    transitivePeerDependencies:
+      - supports-color
+
+  ioredis@6.0.0:
+    dependencies:
+      '@ioredis/commands': 2.0.0
+      cluster-key-slot: 1.1.1
+      debug: 4.4.3
+      denque: 2.1.0
+      redis-errors: 1.2.0
       standard-as-callback: 2.1.0
     transitivePeerDependencies:
       - supports-color
