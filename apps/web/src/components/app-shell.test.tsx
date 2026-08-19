@@ -261,11 +261,11 @@ describe('AppShell', () => {
 
   it('nav icons are aria-hidden — their text labels stand next to them', () => {
     const { container } = mountShell();
-    // Every svg in the sidebar nav (Početna, Moje reklame) and the hamburger
-    // itself must be hidden from the a11y tree; each has its own visible
-    // text or aria-label.
+    // Every svg in the sidebar nav (Početna, Moje reklame, Uskoro) and the
+    // hamburger itself must be hidden from the a11y tree; each has its own
+    // visible text or aria-label.
     const svgs = container.querySelectorAll('aside nav svg');
-    expect(svgs).toHaveLength(2);
+    expect(svgs).toHaveLength(3);
     svgs.forEach((svg) => {
       expect(svg.getAttribute('aria-hidden')).toBe('true');
     });

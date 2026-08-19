@@ -574,7 +574,7 @@ export async function runPipeline(
   if (!RENDERABLE_COMPOSITIONS.has(type)) {
     throw new Error(
       `tool_not_implemented: "${type}" još nema pravi renderer — posao nije naplaćen. ` +
-        `Alat je u izradi; Video reklame, AI slike i Poboljšaj kvalitet rade.`,
+        `Alat je u izradi; Nova reklama, AI slike i Poboljšaj kvalitet rade.`,
     );
   }
 

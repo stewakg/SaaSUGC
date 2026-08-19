@@ -48,8 +48,15 @@ export function computeJobCost(type: JobType, count = 1): number {
 export const JOB_DESCRIPTORS: JobDescriptor[] = [
   {
     type: 'revoice',
-    label: 'Preozvuči',
-    description: 'Jedan snimak, više reklama — nova skripta, glas i titlovi na svakoj.',
+    // Renamed from "Preozvuči" 2026-08-19 (owner's call, TOOL_COPY_PROPOSAL).
+    // The copy deliberately UNDERSELLS: the video comes back unchanged, only
+    // the sound layer is new — a customer expecting fresh footage from this
+    // tool would feel cheated even though the tool did its job. The closing
+    // sentence is the cross-link that catches competitor-trained customers
+    // (their flagship "matrix video" does exactly this).
+    label: 'Reklama sa novim zvukom',
+    description:
+      'Tvoj video ostaje potpuno isti — mi ugasimo originalni zvuk, a preko idu nova skripta, AI glas i titlovi. Za novi video iz tvojih klipova, to je „Nova reklama".',
     cost: JOB_COST.revoice,
     icon: 'sparkles',
     theme: 'teal',
@@ -62,14 +69,16 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
   },
   {
     type: 'matrix',
-    // Renamed from "Matrix" 2026-08-13. "Matrix" is our internal word for the
-    // job type (and stays as `type: 'matrix'` everywhere) but told a customer
-    // nothing. The description also promised MUSIC, which the product does not
-    // supply — there is no sound library, the user brings their own file
-    // (RELEASE_PLAN: explicitly not in v1). It now names the actual mechanic:
-    // it cuts YOUR clips and assembles several different videos from them.
-    label: 'Video reklame',
-    description: 'Od tvojih klipova pravi 5–15 različitih reklama.',
+    // Renamed twice: "Matrix" → "Video reklame" (2026-08-13, internal word
+    // told a customer nothing) → "Nova reklama" (2026-08-19, owner's call —
+    // the old description was competitor-shaped; at the competitor "matrix"
+    // means the OPPOSITE tool, see TOOL_COPY_PROPOSAL). The description now
+    // names OUR actual mechanic (scene-detect → montage from shots across all
+    // clips), in the honest variant: no "beats concatenation" claim until a
+    // human has verified that by eye (TODO §9).
+    label: 'Nova reklama',
+    description:
+      'Ubaciš 2–3 klipa, a mi ih iseckamo na scene i od najboljih kadrova sklopimo više različitih reklama — svaka sa svojom skriptom, AI glasom i titlovima.',
     cost: JOB_COST.matrix,
     icon: 'video',
     theme: 'orange',
@@ -158,6 +167,10 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     description: 'Ubaciš mutan ili komprimovan klip → dobiješ oštar HD do 1080p.',
     cost: JOB_COST.enhance,
     icon: 'sparkles',
+    // Utilities carry a hue since 2026-08-19 (owner: same card system as the
+    // main tier, "ne iste boje ali isti sistem"). Blue/pink were freed for the
+    // dashboard when edit/quick_test moved to the Uskoro page.
+    theme: 'blue',
     tier: 'utility',
   },
   {
@@ -166,6 +179,7 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     description: 'AI obriše titlove, watermark i svaki tekst sa slike/videa, bez blura i mrlja.',
     cost: JOB_COST.remove_text,
     icon: 'eraser',
+    theme: 'pink',
     tier: 'utility',
   },
   {
@@ -176,6 +190,7 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     description: 'Upload influencer foto + proizvod → video oglas.',
     cost: JOB_COST.ai_video,
     icon: 'user',
+    theme: 'purple',
     tier: 'utility',
   },
 ];

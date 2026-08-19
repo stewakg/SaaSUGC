@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * Tests for the Video reklame (matrix) wizard PAGE — /app/matrix.
+ * Tests for the Nova reklama (matrix) wizard PAGE — /app/matrix.
  *
  * Harness copied from enhance/page.test.tsx / file-dropzone.test.tsx:
  * - jsdom opt-in via the docblock above (suite default is node).
@@ -228,7 +228,7 @@ describe('MatrixPage', () => {
   it('renders the first step with the dropzone and the montage price visible', async () => {
     const container = mountPage();
     await flush(); // the mount-time /api/voices fetch settles inside act
-    expect(container.querySelector('h1')?.textContent).toBe('Video reklame'); // h1 = tool since 2026-08-18
+    expect(container.querySelector('h1')?.textContent).toBe('Nova reklama'); // h1 = tool since 2026-08-18
     expect(container.textContent).toContain('Upload klipova');
     // Simple mode: clips, import, style, generate — the two tuning steps are hidden.
     expect(container.textContent).toContain('Korak 1/4');

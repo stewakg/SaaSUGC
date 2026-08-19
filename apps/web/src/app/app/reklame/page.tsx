@@ -62,7 +62,7 @@ export default async function ReklamePage() {
         <div className="card-gradient p-8 text-center">
           <p className="text-sm text-txt-mid">Još nemaš nijednu reklamu.</p>
           <p className="mt-1 text-sm text-txt-low">
-            Napravi prvu — otvori „Video reklame&rdquo; na početnoj strani.
+            Napravi prvu — otvori „Nova reklama&rdquo; na početnoj strani.
           </p>
         </div>
       ) : (

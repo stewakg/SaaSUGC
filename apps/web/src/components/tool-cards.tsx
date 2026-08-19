@@ -108,8 +108,10 @@ export function MainToolCard({
 }
 
 /**
- * "Utility tier" dashboard card — same neutral `.card` as the main tier, just
- * laid out as a compact horizontal row for a denser grid.
+ * "Utility tier" dashboard card — since 2026-08-19 the SAME strip system as the
+ * main tier (owner: "isti sistem, isti kvadratić", different hues), just
+ * without the benefits list: the hue wash + icon tile in the header band,
+ * description on --panel below. Utilities got their own hues in pricing.ts.
  */
 export function UtilityToolCard({
   icon,
@@ -118,20 +120,25 @@ export function UtilityToolCard({
   cost,
   href,
   soon,
+  theme,
   showCost = true,
 }: ToolCardProps) {
   const card = (
-    <div className={cn('card flex items-center gap-4', href && 'card--lift', soon && 'opacity-80')}>
-      <ToolIcon icon={icon} />
-      <div className="min-w-0 flex-1">
-        <h4 className="font-medium text-txt-hi">{label}</h4>
-        <p className="mt-0.5 text-xs text-txt-mid">{description}</p>
+    <div className={cn('card-strip', toolToneClass(theme), href && 'card--lift', soon && 'opacity-80')}>
+      <div className="card-strip-head">
+        <ToolIcon icon={icon} />
+        <h4 className="font-display min-w-0 flex-1 truncate text-base font-bold text-txt-hi">
+          {label}
+        </h4>
+        {soon ? (
+          <span className="badge badge--muted shrink-0">USKORO</span>
+        ) : showCost ? (
+          <span className="badge shrink-0">{creditsLabel(cost)}</span>
+        ) : null}
       </div>
-      {soon ? (
-        <span className="badge badge--muted shrink-0">USKORO</span>
-      ) : showCost ? (
-        <span className="badge shrink-0">{creditsLabel(cost)}</span>
-      ) : null}
+      <div className="card-strip-body">
+        <p className="text-sm text-txt-mid">{description}</p>
+      </div>
     </div>
   );
 
