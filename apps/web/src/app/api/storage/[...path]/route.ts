@@ -155,8 +155,13 @@ async function authorise(segments: string[]): Promise<NextResponse | null> {
     return NextResponse.json({ error: 'unauthenticated' }, { status: 401 });
   }
 
+  // Voice previews (`previews/voices/<id>.mp3`, written by the kept driver
+  // gen-voice-previews.mjs) are catalogue content, not customer data: the same
+  // file plays for every user, so ANY signed-in caller may fetch under this
+  // prefix. Unauthenticated callers were already refused above.
+  const isSharedPreview = segments[0] === 'previews';
   const isOwnUpload = segments[0] === 'uploads' && segments[1] === user.id;
-  if (!isOwnUpload) {
+  if (!isSharedPreview && !isOwnUpload) {
     // RLS ("assets_select_own") scopes this to the caller's own rows, so a
     // path belonging to another user's asset simply comes back empty.
     const requestedUrl = `/api/storage/${segments.join('/')}`;

@@ -16,6 +16,7 @@ import {
 } from '@adgen/core/constants';
 import { FileDropzone } from '@/components/file-dropzone';
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
+import { VoicePreviewButton } from '@/components/voice-preview-button';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
 import { uploadFile, type UploadedFile } from '@/lib/upload-file';
 import type { ClipSuggestion } from '@/lib/clip-search';
@@ -1022,17 +1023,20 @@ export default function MatrixPage() {
           </label>
           <label className="block">
             <span className="mb-1 block text-sm text-txt-mid">Glas</span>
-            <select
-              value={voiceId}
-              onChange={(e) => setVoiceId(e.target.value)}
-              className="input"
-            >
-              {voices.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <select
+                value={voiceId}
+                onChange={(e) => setVoiceId(e.target.value)}
+                className="input flex-1"
+              >
+                {voices.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+              <VoicePreviewButton voiceId={voiceId} />
+            </div>
           </label>
           {/* Caption look and placement are the definition of a setting most
               people never touch — Simple keeps the defaults. */}

@@ -323,6 +323,29 @@ describe('GET /api/storage/[...path] — the signing branch (real R2/S3 storage)
     expect(res.status).toBe(302);
     expect(readFileMock).not.toHaveBeenCalled();
   });
+
+  it('6. previews/ (voice previews) ⇒ any SIGNED-IN user gets a 302, with NO asset-row lookup', async () => {
+    // Catalogue content, not customer data: the same preview mp3 plays for
+    // every user, so the ownership lookup must be skipped entirely — a DB
+    // round-trip per play button would be pure cost.
+    const routeGet = await freshRoute();
+
+    const res = await callGET(routeGet, ['previews', 'voices', 'v123.mp3']);
+
+    expect(res.status).toBe(302);
+    expect(signedDownloadUrl).toHaveBeenCalledWith('previews/voices/v123.mp3');
+    expect(maybeSingle).not.toHaveBeenCalled();
+  });
+
+  it('7. previews/ for an UNAUTHENTICATED caller ⇒ still 401 — shared is not public', async () => {
+    getUser.mockResolvedValue({ data: { user: null } });
+
+    const routeGet = await freshRoute();
+    const res = await callGET(routeGet, ['previews', 'voices', 'v123.mp3']);
+
+    expect(res.status).toBe(401);
+    expect(signedDownloadUrl).not.toHaveBeenCalled();
+  });
 });
 
 describe('GET /api/storage/[...path] — the signing branch traversal guard (runs after authorise)', () => {
