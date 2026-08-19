@@ -157,6 +157,11 @@ deletion remains never-executed — needs an expendable account to try it on.
   right edge off its `max-w-lg` island. Auth and legal pages deliberately stay
   centred (no sidebar there, prose wants a measure).
 
+**Wizard step 1 now shows the tool's description (`8e9edcb`, deployed + verified)** —
+the approved card copy repeated where the decision happens; only on step 1 so it
+doesn't eat height on every step. This closes the "what you get" half of §3a's third
+row; per-step INSTRUCTIONS remain open.
+
 **Log rotation shipped and applied (`9078a74`)** — the §5 "server logs ≤30 days" claim
 had NOTHING enforcing it (json-file keeps logs forever). Now 10m × 3 on all four
 services; containers recreated, `docker inspect` shows the LogConfig on all three,
