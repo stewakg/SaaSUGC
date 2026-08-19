@@ -11,11 +11,26 @@
 #   docker compose -f infra/docker-compose.prod.yml -p adgen up -d --build
 # =============================================================================
 
+# Log rotation (2026-08-19, TODO §5): Docker's default json-file driver keeps
+# logs FOREVER, while /privatnost §4 states server logs are kept ≤30 days. A
+# 10 MB × 3 cap bounds every container to 30 MB and in practice rotates entries
+# out within days at our volume. Honest caveat: this bounds SIZE, not AGE —
+# json-file has no age option, so a near-silent container could hold entries
+# older than 30 days inside its 30 MB. If strict age-based deletion is ever
+# demanded, the tool is a logrotate cron on /var/lib/docker/containers, not
+# this file. Applies on container RECREATE, not restart.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
 services:
   redis:
     image: redis:7-alpine
     container_name: adgen-redis-prod
     restart: unless-stopped
+    logging: *default-logging
     # `--requirepass` is what makes the loopback bind below a second lock rather
     # than the only one. Today nothing else runs on this box, so the bind is
     # genuinely sufficient — but the queue holds every job and BullMQ trusts
@@ -67,6 +82,7 @@ services:
       dockerfile: apps/worker/Dockerfile
     container_name: adgen-worker-prod
     restart: unless-stopped
+    logging: *default-logging
     env_file:
       - ../apps/worker/.env
     environment:
@@ -124,6 +140,7 @@ services:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
     container_name: adgen-web-prod
     restart: unless-stopped
+    logging: *default-logging
     env_file:
       - ../apps/web/.env
     environment:
@@ -175,6 +192,7 @@ services:
     image: caddy:2-alpine
     container_name: adgen-caddy-prod
     restart: unless-stopped
+    logging: *default-logging
     profiles: ['tls']
     ports:
       - '80:80'
