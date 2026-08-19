@@ -52,7 +52,7 @@ export default async function ReklamePage() {
     .returns<JobRow[]>();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="w-full space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold sm:text-3xl">Moje reklame</h1>
         <p className="mt-1 text-sm text-txt-mid">Istorija generisanih oglasa.</p>

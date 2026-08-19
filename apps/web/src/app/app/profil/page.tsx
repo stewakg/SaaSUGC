@@ -107,7 +107,7 @@ export default function ProfilPage() {
   const canGrantCredits = process.env.NODE_ENV !== 'production' || isAdminEmail(email);
 
   return (
-    <div className="mx-auto max-w-xl space-y-6">
+    <div className="w-full space-y-6">
       <h1 className="font-display text-2xl font-bold sm:text-3xl">Moj profil</h1>
 
       <section className="card space-y-3">

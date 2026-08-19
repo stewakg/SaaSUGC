@@ -1454,7 +1454,9 @@ export default function MatrixPage() {
           rail wearing the same chip styling, so the two read as one row and it
           was impossible to tell which was interactive. A bordered segmented
           control with a filled selection is unambiguous. */}
-      <div className="mx-auto mb-4 flex max-w-lg items-center justify-between gap-3">
+      {/* Full-width layout since 2026-08-19 — the toggle keeps to the right
+          edge instead of floating on a centred max-w-lg island. */}
+      <div className="mb-4 flex items-center justify-end gap-3">
         <span className="text-[11px] uppercase tracking-wide text-txt-low">Režim</span>
         <div
           role="radiogroup"

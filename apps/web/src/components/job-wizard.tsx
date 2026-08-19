@@ -93,7 +93,14 @@ export function JobWizard({
       It stays a single column below `lg`: a vertical rail on a phone would eat
       the screen before the content starts.
     */
-    <div className="mx-auto max-w-6xl lg:flex lg:items-start lg:gap-8">
+    /*
+      2026-08-19, owner's call: the wizard fills the content area edge to edge —
+      the old `mx-auto max-w-6xl` centred it and left a dead gutter between the
+      sidebar and the step rail, which also refused to follow the sidebar
+      collapse. Full width means the rail hugs the left edge and the panel
+      absorbs whatever the collapse frees up.
+    */
+    <div className="w-full lg:flex lg:items-start lg:gap-8">
       <div className="mb-4 lg:mb-0 lg:sticky lg:top-6 lg:w-56 lg:shrink-0">
         <p className="mb-2 hidden px-1 text-[11px] font-semibold uppercase tracking-wide text-txt-low lg:block">
           Koraci
