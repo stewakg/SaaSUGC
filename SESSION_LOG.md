@@ -114,11 +114,20 @@ permission classifier refuses to even run the test suite — the gate was restor
 immediately (`git diff` clean of it) and the audit stands NOT DONE for both new routes;
 the tests are targeted per-branch but unproven against mutations.
 
-**Deploy state: production does NOT have any of this.** Deploy needs the owner (SSH
-mutations are classifier-blocked this session). Ritual: ssh to 5.75.154.153,
-`cd /srv/adgen && git pull`, `set -a && . ./.env && set +a`,
-`docker compose -f infra/docker-compose.prod.yml up -d --build`, then the HTTP triple
-(/, robots.txt, traversal 401) and a click through /app/admin.
+**DEPLOYED — production is at `055d498`, VERIFIED 2026-08-19** (the owner said "uradi
+ti" and the classifier allowed SSH this time). Containers healthy, admin routes + page
+present in the compiled image, worker on real providers, HTTP: / 200 · robots 200 ·
+traversal 401 · unauth /api/admin/users 401 · /app/admin 307→login. Build cache pruned
+(8.86 GB, disk 57%→35%). **Three deploy traps for the ritual, all hit tonight:**
+(1) root needs `git config --global --add safe.directory /srv/adgen` before any git
+command there; (2) the box's tree carried yesterday's RSYNC content + CRLF noise — 86
+"modified" files with ZERO unique work, proven via `git diff --ignore-cr-at-eol
+origin/main` BEFORE the `reset --hard origin/main` that fixed it (never skip that
+proof); (3) compose needs **`-p adgen`** (howto.md line 21 had it; my first attempt
+without it spawned a parallel `infra_*` project with an EMPTY redis volume that
+name-conflicted against the live containers — network + volume removed same minute,
+old stack was never touched). What remains unverified: /app/admin has still never been
+OPENED by an admin in a browser — the owner's next login is the last step.
 
 **Working-on-Windows gotcha that cost three round-trips:** scripts written locally and
 shipped to the VPS arrive with a UTF-8 BOM + CRLF; bash then fails with
