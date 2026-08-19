@@ -538,7 +538,7 @@ already lives elsewhere in this file, the line points there instead of duplicati
 |---|---|---|---|
 | ❌ | **Per-job cost vs. real invoices** | 👤 | Already §2 — logged units (TTS chars, render seconds) never held next to an ElevenLabs/OpenRouter/AWS bill. Margins in BUSINESS.md are assumptions until this is done once |
 | ✅ | **Run 0011's reconciliation query periodically** | 🤖 monthly | **Second run 2026-08-19, clean both ways**: 4 `job_spend` ledger rows total, zero duplicate charges per job, and all 4 charged jobs are `status=done` (no charged-no-result). Ran via PostgREST with the service key, grouped client-side — raw SQL needs the Supabase editor, and the secret key is refused unless the request carries a non-browser User-Agent. Still unscheduled by design; next manual run ~2026-09 |
-| ❌ | **A real hold expiring, observed live** | 🤖 | `reserve_credits`' expired-hold sweep is unit-tested only. One deliberate 1-hour-old hold on the live DB would prove the sweep fires and the balance frees |
+| ✅ | **A real hold expiring, observed live** | — | **VERIFIED on the live DB 2026-08-19** (owner ran `scratchpad/verify-hold-sweep.ps1`; the session classifier refuses direct prod-DB writes from Claude): a deliberately expired 5-credit hold was inserted, `reserve_credits` returned true AND swept it in the same call, only the fresh 1-credit hold remained, `release_credits` emptied the table, balance 687 untouched throughout. All four steps asserted, cleanup verified |
 
 ### Scale (owner's stated priority)
 

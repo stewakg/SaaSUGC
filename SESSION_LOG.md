@@ -62,6 +62,15 @@ recreate the redis container.
   Pre-drill state was ideal (queue empty, 3× healthy) — do it soon.
 - CLAUDE.md's stale test count fixed: 979 → **1130** (core 385, web 614, worker 131),
   re-measured today.
+- **Expired-hold sweep — VERIFIED live** (later in the session): the classifier also
+  refuses direct prod-DB writes from Claude, so the test was packaged as
+  `scratchpad/verify-hold-sweep.ps1` and the OWNER ran it. All four steps PASS:
+  expired 5-credit hold inserted → `reserve_credits` returned true and swept it in
+  the same call → only the fresh 1-credit hold remained → `release_credits` + balance
+  687 unchanged. Two portable lessons in that script: Supabase secret keys are refused
+  on browser-looking User-Agents, and PS 5.1 mangles embedded quotes when passing JSON
+  as a native-exe arg (first run failed with "Empty or invalid json") — send bodies
+  via `-d @file`.
 
 **Working-on-Windows gotcha that cost three round-trips:** scripts written locally and
 shipped to the VPS arrive with a UTF-8 BOM + CRLF; bash then fails with
