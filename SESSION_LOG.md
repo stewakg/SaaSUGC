@@ -149,6 +149,19 @@ deletion remains never-executed — needs an expendable account to try it on.
   closes with the „Nova reklama" cross-link). Job type strings and routes untouched.
   Ripples fixed: worker's tool_not_implemented message, reklame empty-state, matrix
   page-test pin, app-shell nav-svg count 2→3.
+- **Full-width app layout** (`0a4648d`, owner: dead gutter between sidebar and the
+  step rail "bode oči", and it ignored the sidebar collapse; "za SVE strane... uvek
+  može revert"): JobWizard drops `mx-auto max-w-6xl` for `w-full` — the rail now
+  hugs the content edge and the panel absorbs what the collapse frees; reklame,
+  profil and admin lose their centred `max-w`; matrix's REŽIM toggle moves to the
+  right edge off its `max-w-lg` island. Auth and legal pages deliberately stay
+  centred (no sidebar there, prose wants a measure).
+
+**BOTH DEPLOYED — production is at `0a4648d`, VERIFIED** (two builds, `-p adgen`
+ritual): uskoro `page.js` in the image, „Nova reklama" in compiled chunks, HTTP
+/ 200 · robots 200 · traversal 401 · /app/uskoro 307→login, three containers
+healthy, cache pruned 3.18 GB → disk 50%. Not yet seen by a human eye: the
+full-width layout on a real screen — the owner was mid-session, expect feedback.
 
 **Working-on-Windows gotcha that cost three round-trips:** scripts written locally and
 shipped to the VPS arrive with a UTF-8 BOM + CRLF; bash then fails with
