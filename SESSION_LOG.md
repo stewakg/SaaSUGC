@@ -71,6 +71,13 @@ recreate the redis container.
   on browser-looking User-Agents, and PS 5.1 mangles embedded quotes when passing JSON
   as a native-exe arg (first run failed with "Empty or invalid json") — send bodies
   via `-d @file`.
+- **VPS reboot drill — DONE, PASS** (owner sent `reboot`, Claude verified): all three
+  containers self-recovered to `healthy` within ~1 min, worker re-attached to both
+  queues on real providers, HTTP identical to the pre-reboot baseline (200/200/401).
+  The worker logged `"shutting down" signal=SIGTERM` on the way down — the 2026-08-14
+  graceful-drain fix survived its first real machine restart. Worker's
+  `.env not found. Continuing without it.` at boot is benign (`--env-file-if-exists`,
+  env comes from compose).
 
 **Working-on-Windows gotcha that cost three round-trips:** scripts written locally and
 shipped to the VPS arrive with a UTF-8 BOM + CRLF; bash then fails with
