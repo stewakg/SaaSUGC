@@ -17,7 +17,7 @@
 # before building — check https://mcr.microsoft.com/en-us/product/playwright/tags
 # and match it to whatever Playwright version is current when you build this;
 # "v1.48.0-jammy" was current knowledge at write time, not a live check.
-FROM mcr.microsoft.com/playwright:v1.48.0-jammy AS base
+FROM mcr.microsoft.com/playwright:v1.62.1-jammy AS base
 
 # LIVE-VERIFIED FIX (2026-07-18, first real deploy): the Playwright image
 # above ships Node 20.18.0, but @supabase/supabase-js needs Node 22+'s native
