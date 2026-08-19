@@ -12,6 +12,14 @@ the oldest ones there. **The Review ledger below stays here regardless**; it is 
 
 ## 2026-08-19 — Second-machine sync: repo already at tip, all gates VERIFIED here
 
+**SESSION CLOSED (owner signed off, early morning).** Final state: production at
+`496d262`, three containers healthy, HTTP triple clean, nothing uncommitted anywhere,
+local == origin/main. Test count at close: **1169** (core 385, web 653, worker 131).
+The price-defense work the owner asked for on the way out is **TODO §2a** (new
+subsection, one ⛔: cap enhance video input before the first real customer — the only
+loss-capable path in MARGINS.md). Read §2a + MARGINS.md + the §1 production row's
+deploy traps before doing anything money- or deploy-shaped next session.
+
 **Context.** Owner asked to "update everything — this build is old" and to check GitHub.
 Finding: there was nothing to pull. `git ls-remote origin main` == local `main` ==
 `06ff271` — GitHub's tip is identical to this working tree, single branch, no divergence.

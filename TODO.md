@@ -4,17 +4,21 @@ One line per item. **This file is an index, not a second source of truth** — t
 history and the caveats live in `INFRASTRUCTURE.md` and `RELEASE_PLAN.md`. If they ever disagree,
 those win and this file is the one that is stale.
 
-**Updated 2026-08-19.** First bite out of §9's verification debt, from the second machine: Redis
-persistence read off the live container (AOF on — queued jobs survive a box death), the 0011
-reconciliation query run for the second time ever (clean: no double charges, no charged-no-result),
-yt-dlp pinned to the exact version production already runs, and Dependabot added. The reboot drill
-was attempted and blocked by the session's permission classifier — it now needs the owner present.
-Test count re-measured: **1130** (core 385, web 614, worker 131). Later the same day the owner ran
-the blocked pieces themselves: the reboot drill PASSED (stack self-recovers, SIGTERM drain proven
-on a real restart) and the expired-hold sweep was VERIFIED live. Then two features landed
-CODE-COMPLETE: per-job file deletion in „Moje reklame" (§5) and the admin panel at /app/admin
-(§3b), plus the first DB data backup ever (§9) and a §3a naming proposal
-(`TOOL_COPY_PROPOSAL.md`). Web tests 614 → **644**. The previous entry:
+**Updated 2026-08-19 — one very long night, everything below DEPLOYED and verified unless
+marked otherwise.** §9 debt: Redis persistence VERIFIED (AOF on), 0011 reconciliation run
+(clean both ways), yt-dlp pinned + Dependabot added, expired-hold sweep VERIFIED live,
+reboot drill PASSED (stack self-recovers, SIGTERM drain proven), first DB data backup ever
+taken. Features, all live on production: per-job file deletion in „Moje reklame" (§5), the
+admin panel at /app/admin (§3b — credits adjust VERIFIED live by the owner), the „Uskoro"
+sidebar page, §3a renames DECIDED and shipped („Nova reklama" / „Reklama sa novim zvukom"),
+strip-system utility cards (equal heights, new green/gold hues), full-width app layout,
+tool description on wizard step 1, and **voice previews for all 58 voices** (▶ next to the
+picker, mp3s in R2 under `previews/`). Infra: Docker log rotation live on all services
+(§5). Money: **`MARGINS.md` — the first per-tool margin calculation** (~95–99% on
+everything live; the defense mechanisms it demands are §2a, including one ⛔). Deploy trap
+log for this machine is in the production row (§1): safe.directory, `-p adgen`, the rsync'd
+tree. Tests: **1169** (core 385, web 653, worker 131 — was 1130 at dawn). The previous
+entry:
 
 **Updated 2026-08-17.** That day added the site's icons and a deliberately-closed `robots.txt`,
 fixed a CSP that had been stopping `next dev` from hydrating ANY page since `be22b61`, gave
@@ -99,6 +103,24 @@ below was accepted on a reviewer's word.**
 **Confirmed solid, so nobody re-audits them:** RLS on the money tables — a browser client **cannot** UPDATE `profiles.balance` (0007 dropped the policy, 0009 fixed 0007's no-op revoke), `credits_ledger`/`credits_holds` locked, every mutation a `SECURITY DEFINER` RPC revoked from `anon`/`authenticated` · webhook HMAC verified **before** `JSON.parse`, timing-safe, idempotent on `external_ref`, paid variant cross-checked · overspend race closed by `reserve_credits`' `SELECT … FOR UPDATE` · no IDOR on `/api/jobs/[id]` · **no secret ever committed to git history** (the repo is public) · service-role key server-only (`next/headers` forces it) · open-redirect whitelist holds against `//`, `\`, `@`, control chars · Next 15.5 patches CVE-2025-29927 · CI has no secrets and uses plain `pull_request` · both worker `spawnSync` calls are argv arrays with a hardcoded numeric threshold, and ffmpeg only ever receives a worker-created temp path · `describeImage` does **not** fetch `sourceImages` from our VPS — it hands the URL to OpenRouter, who fetch it, which is why that key is exempt from the origin whitelist.
 
 ## 2. Money
+
+### 2a. Price defense — what MARGINS.md (2026-08-19) says must exist
+
+The first per-tool margin calculation is in `MARGINS.md`: everything live today runs at
+~95–99% gross margin at the competitor-copied credit prices. These rows are the DEFENSE
+MECHANISMS it demands — the ways a customer or a provider can silently invert a margin.
+
+| Status | Item | Who | Note |
+|---|---|---|---|
+| ❌ ⛔ | **Cap `enhance` video input — the one loss-capable path** | 🤖 | We charge a FLAT 9 kr; fal Topaz bills PER SECOND and PER RESOLUTION ($0.01/s ≤720p · $0.02/s 1080p · $0.08/s above · ×2 at 60fps). A 60s above-1080p clip costs up to **$9.60 against €1.50–2.70 of revenue**. The 200 MB upload cap bounds file size, not duration or resolution. Fix: refuse clips >60s in the enhance wizard/route AND pin output ≤1080p/30fps in the pipeline parameters (today's code targets 1080p — the cap makes that a guarantee, not a habit). Blocker before the first real customer |
+| ❌ | **Verify MARGINS.md against real invoices** | 👤 opens dashboards, 🤖 reconciles | Same row as §9 "Per-job cost vs. real invoices" — kie/fal/ElevenLabs/AWS usage logs vs the captured list prices. The two numbers that move the model most: **which ElevenLabs PLAN the account is on** (±30% on TTS cost — record it in ACCOUNTS.md when read) and **the Lambda function's memory** (2048 MB assumed; the AWS console knows) |
+| ❌ | **Measure how often the fal video fallback fires** | 🤖 logs, 👤 reads monthly | kie veo3_fast is $0.30/video; the fal fallback is $2–3+ — each fallback run costs ~50 margin points on ai_video. The router already logs `[ai-router] kie.ai video generation failed, falling back`; once ai_video is live, count those lines per month before trusting the 94% figure |
+| ❌ | **Decide generate-scripts metering** | 👤 | Already §1b — the only unmetered provider spend (~$0.0005/call, rate-limited, fail-open if Redis dies). Options: leave free (it sells the paid render), charge 1 kr, or cap harder. A pricing decision, not a bug |
+| ❌ | **Price the USKORO tools BEFORE wiring them** | 👤 + 🤖 | edit (18 kr), mix (12), translate (15), quick_test (2) have prices copied from the competitor and NO pipelines — margin is undefined until "what provider builds this" is decided. If edit rides Veo-class generation, captured prices say $0.30–1.30/video → 85–96% at 18 kr, healthy. Do this table's math per tool as each pipeline lands, in MARGINS.md |
+| ❌ | **Revisit `revoice` at 8 kr** | 👤 | The one price NOT from the competitor (our placeholder, pricing.ts says so). At ~€0.04 COGS it is ~97% margin, so no urgency — but it was never *decided*, only defaulted |
+| 📝 | **Stripe fees enter the margin once the LLC lands** | 👤 | ~1.5% + €0.25 EEA cards (assumption until an account exists) ≈ 2.5% of a Creator pack; MARGINS.md §4 carries the math. Not actionable until §2's LLC row closes |
+
+### 2b. Billing layer
 
 | Status | Item | Who | Note |
 |---|---|---|---|
