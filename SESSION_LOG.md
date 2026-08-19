@@ -157,7 +157,12 @@ deletion remains never-executed — needs an expendable account to try it on.
   right edge off its `max-w-lg` island. Auth and legal pages deliberately stay
   centred (no sidebar there, prose wants a measure).
 
-**BOTH DEPLOYED — production is at `0a4648d`, VERIFIED** (two builds, `-p adgen`
+**Log rotation shipped and applied (`9078a74`)** — the §5 "server logs ≤30 days" claim
+had NOTHING enforcing it (json-file keeps logs forever). Now 10m × 3 on all four
+services; containers recreated, `docker inspect` shows the LogConfig on all three,
+stack healthy. Size-bound, not age-bound — caveat in the compose comment.
+
+**BOTH DEPLOYED — production is at `0a4648d` (+ `9078a74` config), VERIFIED** (two builds, `-p adgen`
 ritual): uskoro `page.js` in the image, „Nova reklama" in compiled chunks, HTTP
 / 200 · robots 200 · traversal 401 · /app/uskoro 307→login, three containers
 healthy, cache pruned 3.18 GB → disk 50%. Not yet seen by a human eye: the
