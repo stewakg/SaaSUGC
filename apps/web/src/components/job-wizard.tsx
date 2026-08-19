@@ -168,17 +168,26 @@ export function JobWizard({
       <div className={cn('panel panel-tone overflow-hidden lg:min-w-0 lg:flex-1', tone)}>
         <div className="p-6 sm:p-8">
           {tool ? (
-            <div className="flex items-center gap-3.5">
-              <ToolIcon icon={tool.icon} />
-              <div className="min-w-0">
-                <h1 className="font-display truncate text-xl font-bold text-txt-hi sm:text-2xl">
-                  {tool.label}
-                </h1>
-                <p className="truncate text-sm text-txt-mid">
-                  {step.label} · Korak {activeIndex + 1}/{steps.length}
-                </p>
+            <>
+              <div className="flex items-center gap-3.5">
+                <ToolIcon icon={tool.icon} />
+                <div className="min-w-0">
+                  <h1 className="font-display truncate text-xl font-bold text-txt-hi sm:text-2xl">
+                    {tool.label}
+                  </h1>
+                  <p className="truncate text-sm text-txt-mid">
+                    {step.label} · Korak {activeIndex + 1}/{steps.length}
+                  </p>
+                </div>
               </div>
-            </div>
+              {/* The card's "what you get" copy, repeated where the decision
+                  actually happens — but only on step 1: that is where someone
+                  in the wrong tool (revoice's cross-link case) needs to find
+                  out, and repeating it on every step would just eat height. */}
+              {activeIndex === 0 && (
+                <p className="mt-3 text-sm text-txt-mid">{tool.description}</p>
+              )}
+            </>
           ) : (
             <>
               <p className="mb-1 text-xs uppercase tracking-wide text-txt-low">
