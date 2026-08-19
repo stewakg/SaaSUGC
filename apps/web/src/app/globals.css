@@ -411,6 +411,22 @@ body {
     --tool-edge: rgba(244, 114, 182, 0.55);
     --tool-strip: rgba(244, 114, 182, 0.26);
   }
+  /* Two hues added 2026-08-19 for the utility tier (owner: distinct NEW colors,
+     not the ones the main row wears). Lime leans yellow-green on purpose so it
+     cannot be mistaken for revoice's teal; gold is the only warm-yellow in the
+     palette. */
+  .card-tool--green {
+    --tool-a: rgba(163, 230, 53, 0.14);
+    --tool-b: rgba(101, 163, 13, 0.09);
+    --tool-edge: rgba(163, 230, 53, 0.5);
+    --tool-strip: rgba(132, 204, 22, 0.24);
+  }
+  .card-tool--gold {
+    --tool-a: rgba(251, 191, 36, 0.15);
+    --tool-b: rgba(217, 119, 6, 0.09);
+    --tool-edge: rgba(251, 191, 36, 0.5);
+    --tool-strip: rgba(245, 158, 11, 0.24);
+  }
   .card-tool--red {
     --tool-a: rgba(248, 113, 113, 0.16);
     --tool-b: rgba(239, 68, 68, 0.09);

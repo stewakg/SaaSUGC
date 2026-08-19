@@ -168,9 +168,9 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     cost: JOB_COST.enhance,
     icon: 'sparkles',
     // Utilities carry a hue since 2026-08-19 (owner: same card system as the
-    // main tier, "ne iste boje ali isti sistem"). Blue/pink were freed for the
-    // dashboard when edit/quick_test moved to the Uskoro page.
-    theme: 'blue',
+    // main tier). Second pass the same night: "dve različite NOVE boje" —
+    // green/gold exist only for this tier, so no clash with the main row.
+    theme: 'green',
     tier: 'utility',
   },
   {
@@ -179,7 +179,7 @@ export const JOB_DESCRIPTORS: JobDescriptor[] = [
     description: 'AI obriše titlove, watermark i svaki tekst sa slike/videa, bez blura i mrlja.',
     cost: JOB_COST.remove_text,
     icon: 'eraser',
-    theme: 'pink',
+    theme: 'gold',
     tier: 'utility',
   },
   {

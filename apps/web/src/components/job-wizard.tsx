@@ -29,6 +29,8 @@ const TOOL_TONE: Record<string, string> = {
   teal: 'card-tool--teal',
   pink: 'card-tool--pink',
   red: 'card-tool--red',
+  green: 'card-tool--green',
+  gold: 'card-tool--gold',
 };
 
 /**

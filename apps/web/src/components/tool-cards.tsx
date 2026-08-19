@@ -36,6 +36,8 @@ const TOOL_TONE: Record<string, string> = {
   teal: 'card-tool--teal',
   pink: 'card-tool--pink',
   red: 'card-tool--red',
+  green: 'card-tool--green',
+  gold: 'card-tool--gold',
 };
 /**
  * The `.card-tool--<hue>` classes only set custom properties (--tool-strip,
@@ -68,7 +70,17 @@ export function MainToolCard({
   className,
 }: ToolCardProps & { benefits?: string[]; className?: string }) {
   const card = (
-    <div className={cn('card-strip', toolToneClass(theme), href && 'card--lift', soon && 'opacity-80')}>
+    <div
+      className={cn(
+        // flex-col + min-h + flex-1 body: every card in a tool grid renders the
+        // SAME height (owner, 2026-08-19), with the body's --panel absorbing
+        // the slack — not the hue wash, which would read as a taller band.
+        'card-strip flex h-full flex-col sm:min-h-[17rem]',
+        toolToneClass(theme),
+        href && 'card--lift',
+        soon && 'opacity-80',
+      )}
+    >
       {/* Identity hue lives ONLY in this band; body copy sits on --panel. */}
       <div className="card-strip-head">
         <ToolIcon icon={icon} />
@@ -81,7 +93,7 @@ export function MainToolCard({
           <span className="badge shrink-0">{creditsLabel(cost)}</span>
         ) : null}
       </div>
-      <div className="card-strip-body">
+      <div className="card-strip-body flex-1">
         <p className="text-sm text-txt-mid">{description}</p>
         {benefits && benefits.length > 0 && (
           <ul className="mt-4 space-y-1.5">
@@ -99,7 +111,7 @@ export function MainToolCard({
 
   if (href) {
     return (
-      <Link href={href} className={cn('block rounded-card focus-ring', className)}>
+      <Link href={href} className={cn('block h-full rounded-card focus-ring', className)}>
         {card}
       </Link>
     );
@@ -124,7 +136,17 @@ export function UtilityToolCard({
   showCost = true,
 }: ToolCardProps) {
   const card = (
-    <div className={cn('card-strip', toolToneClass(theme), href && 'card--lift', soon && 'opacity-80')}>
+    <div
+      className={cn(
+        // Same min-height as MainToolCard — "svi iste veličine" (owner,
+        // 2026-08-19): utilities have no benefits list, so without the shared
+        // min-h their row rendered visibly shorter than the main row.
+        'card-strip flex h-full flex-col sm:min-h-[17rem]',
+        toolToneClass(theme),
+        href && 'card--lift',
+        soon && 'opacity-80',
+      )}
+    >
       <div className="card-strip-head">
         <ToolIcon icon={icon} />
         <h4 className="font-display min-w-0 flex-1 truncate text-base font-bold text-txt-hi">
@@ -136,7 +158,7 @@ export function UtilityToolCard({
           <span className="badge shrink-0">{creditsLabel(cost)}</span>
         ) : null}
       </div>
-      <div className="card-strip-body">
+      <div className="card-strip-body flex-1">
         <p className="text-sm text-txt-mid">{description}</p>
       </div>
     </div>
@@ -144,7 +166,7 @@ export function UtilityToolCard({
 
   if (href) {
     return (
-      <Link href={href} className="block rounded-card focus-ring">
+      <Link href={href} className="block h-full rounded-card focus-ring">
         {card}
       </Link>
     );

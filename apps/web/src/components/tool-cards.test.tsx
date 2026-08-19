@@ -104,7 +104,9 @@ describe('MainToolCard', () => {
     expect(unknown).not.toContain('card-tool--');
     // Since 2026-08-18 the card is the Premijera strip-header card; with no
     // hue class the header band falls back to a neutral --panel-2 gradient.
-    expect(unknown).toContain('class="card-strip card--lift"');
+    // 2026-08-19: equal-height pass added flex/min-h chrome — the assertion
+    // cares that NO card-tool-- hue class sneaks in, not the exact class list.
+    expect(unknown).toContain('card-strip flex h-full flex-col sm:min-h-[17rem] card--lift');
   });
 
   it('a tool marked soon renders NO link and shows the USKORO badge instead of the cost', () => {
