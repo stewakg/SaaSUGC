@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { getJobDescriptor } from '@adgen/core/pricing';
 import { createServerClient } from '@/lib/supabase/server';
 import { costLabel, humanError } from '@/lib/job-display';
+import { DeleteJobFiles } from '@/components/delete-job-files';
 import { ToolIcon } from '@/components/tool-icon';
 import { TIMEZONE_COOKIE, formatDateTime, resolveTimezone } from '@/lib/timezone';
 import type { JobStatus, JobType } from '@adgen/db';
@@ -25,7 +26,7 @@ interface JobRow {
   type: JobType;
   status: JobStatus;
   cost: number;
-  result: { assets?: { kind: string; url: string }[] } | null;
+  result: { assets?: { kind: string; url: string }[]; files_deleted?: boolean } | null;
   error: string | null;
   created_at: string;
 }
@@ -87,7 +88,7 @@ export default async function ReklamePage() {
                   </p>
                 </div>
                 {assets.length > 0 && (
-                  <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                     {assets.map((asset, i) => (
                       <a
                         key={asset.url}
@@ -99,7 +100,11 @@ export default async function ReklamePage() {
                         {assets.length > 1 ? `Otvori #${i + 1}` : 'Otvori'}
                       </a>
                     ))}
+                    <DeleteJobFiles jobId={job.id} />
                   </div>
+                )}
+                {assets.length === 0 && job.result?.files_deleted && (
+                  <span className="shrink-0 text-xs text-txt-low">Fajlovi obrisani</span>
                 )}
               </li>
             );

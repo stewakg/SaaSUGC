@@ -79,6 +79,47 @@ recreate the redis container.
   `.env not found. Continuing without it.` at boot is benign (`--env-file-if-exists`,
   env comes from compose).
 
+**Continued again — "radi sve što sam možeš": two features + a backup + a proposal.
+All CODE-COMPLETE (typecheck ✓, web 644/644 ✓, prod build ✓ with all new routes in the
+manifest), NONE deployed, NOTHING opened in a browser (needs the owner's login):**
+- **Per-job file deletion** (§5 row, owner asked 2026-08-18): `DELETE /api/jobs/:id`
+  (apps/web/src/app/api/jobs/[id]/route.ts) + „Obriši" with window.confirm on every
+  reklame row (`delete-job-files.tsx`). Ordering with teeth: storage objects BEFORE
+  their rows — a mid-flight failure stays retryable; the other order strands objects.
+  409 while queued/running. Uploads (`uploads/<uid>/…`) deliberately not touched —
+  no DB rows, no Storage.list(); the 30-day lifecycle rule is the mechanism. 9 route
+  tests + 4 component tests.
+- **Admin panel** (owner asked mid-session): `/app/admin` + GET/POST `/api/admin/users`
+  + DELETE `/api/admin/users/[id]`. Lists every account (email/balance/created_at,
+  service-role read behind the gate), manual credit adjust via `add_credits` RPC
+  (reason `admin_adjust`, ±100k bound per call, negative = oduzimanje), account
+  deletion (storage first, then `auth.admin.deleteUser` — FK cascades take
+  profiles/jobs/assets/ledger/holds; refuses self and in-flight accounts). Gate:
+  `ADMIN_EMAILS` on page and BOTH routes, no dev carve-out, 404 for non-admins.
+  17 route tests through the REAL isAdminEmail (env-stubbed).
+- **First DB data backup ever** (§9): all 5 tables via PostgREST + service key, counts
+  verified exact (18 rows), at `D:\Projekti\_backups\adgen-db-export-2026-08-19\`
+  (outside the repo — it holds customer emails). pg_dump still needs the DB password
+  (dashboard-only).
+- **§3a naming proposal** written to `TOOL_COPY_PROPOSAL.md` — 4 candidates per tool,
+  card copy (matrix honest-claim variant, revoice undersell + cross-link). Owner picks.
+
+**Two gotchas this stretch:** (1) component tests need BOTH `// @vitest-environment jsdom`
+AND `(globalThis).React = React` — tsconfig `jsx: "preserve"` makes vitest compile
+CLASSIC `React.createElement` into every .tsx, and the global is how sibling tests
+provide it (found by printing `Component.toString()` in a scratch test; "React is not
+defined" otherwise, and the namespace import alone does NOT fix it). (2) The mutation
+audit on the admin gate was ABORTED: with `if (false)` in place of the admin check the
+permission classifier refuses to even run the test suite — the gate was restored
+immediately (`git diff` clean of it) and the audit stands NOT DONE for both new routes;
+the tests are targeted per-branch but unproven against mutations.
+
+**Deploy state: production does NOT have any of this.** Deploy needs the owner (SSH
+mutations are classifier-blocked this session). Ritual: ssh to 5.75.154.153,
+`cd /srv/adgen && git pull`, `set -a && . ./.env && set +a`,
+`docker compose -f infra/docker-compose.prod.yml up -d --build`, then the HTTP triple
+(/, robots.txt, traversal 401) and a click through /app/admin.
+
 **Working-on-Windows gotcha that cost three round-trips:** scripts written locally and
 shipped to the VPS arrive with a UTF-8 BOM + CRLF; bash then fails with
 `$'\r': command not found` and mangles the FIRST line into a bogus command (which is how
