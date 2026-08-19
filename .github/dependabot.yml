@@ -1,0 +1,32 @@
+# Rev. 3 audit follow-up (TODO §9): dependency update surveillance. Weekly and
+# GROUPED on purpose — this repo is reviewed by hand and a PR per package would
+# drown the signal. Security advisories still arrive individually regardless of
+# grouping. NOTE: the pinned yt-dlp curl URL in apps/web/Dockerfile is invisible
+# to Dependabot — bumping that tag stays a manual act.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /apps/web
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /apps/worker
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

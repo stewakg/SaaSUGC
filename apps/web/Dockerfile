@@ -36,11 +36,13 @@ RUN pnpm install --frozen-lockfile
 # reads like a code bug. apps/web/src/lib/yt-dlp.ts invokes YOUTUBE_DL_PATH from
 # that package's own constants, so the binary has to exist at exactly that path.
 # Fetch it here, in the image, rather than leaving it as a manual step somebody
-# has to remember on every rebuild.
+# has to remember on every rebuild. The tag is PINNED — `releases/latest` made
+# this the last unpinned binary entering the image (Rev. 3 audit); Dependabot
+# does not parse curl URLs, so bumping the tag is a deliberate manual act.
 RUN YTDLP_DIR="$(find /app/node_modules/.pnpm -maxdepth 4 -type d -path "*youtube-dl-exec*/bin" | head -1)" \
   && if [ -z "$YTDLP_DIR" ]; then YTDLP_DIR="$(dirname "$(find /app/node_modules/.pnpm -maxdepth 5 -type d -name "youtube-dl-exec" | head -1)/x")/youtube-dl-exec/bin"; mkdir -p "$YTDLP_DIR"; fi \
   && echo "yt-dlp dir: $YTDLP_DIR" \
-  && curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o "$YTDLP_DIR/yt-dlp" \
+  && curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/download/2026.07.04/yt-dlp -o "$YTDLP_DIR/yt-dlp" \
   && chmod +x "$YTDLP_DIR/yt-dlp" \
   && "$YTDLP_DIR/yt-dlp" --version
 

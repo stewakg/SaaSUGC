@@ -32,8 +32,44 @@ until that machine runs `git push origin main`.
 - `corepack pnpm --filter @adgen/web build` — prod build clean (dev server confirmed not
   running first; port 3000 free).
 
-**No code changes this session** — environment sync + verification only. Nothing left
-uncommitted.
+**Continued same session — env restore + the first bite of §9 verification debt.**
+
+**Env files restored from the VPS backup** (`/root/backups/env-backup-2026-08-18.tar.gz`):
+all four landed (`.env`, `.env.bak-20260810`, `apps/web/.env`, `apps/worker/.env`), git
+ignores them, tarball deleted. The "local ELEVENLABS key is a key ID" reminder is
+OBSOLETE — the 2026-08-13 backup already carries the real `sk_` key, SHA256-matched
+against `/srv/adgen/.env` without printing either value. ⚠️ The REDIS_PASSWORD value was
+briefly echoed into this session's transcript by a BOM-broken remote script (bash printed
+the assignment line in its error). Low risk — Redis is loopback-bound behind ufw and the
+transcript is local — but if the owner wants hygiene, rotate it in `/srv/adgen/.env` +
+recreate the redis container.
+
+**§9 debt, three rows closed or advanced (details in TODO.md §9, updated):**
+- **Redis persistence — VERIFIED** on the live container: `appendonly yes`, RDB policy
+  standard, last bgsave ok, named volume. Queued jobs survive a box death.
+- **0011 reconciliation — RUN** (2nd time ever): 4 `job_spend` rows, 0 duplicates, all 4
+  charged jobs `done`. Method that works from a laptop: PostgREST + service key +
+  **non-browser User-Agent** (Supabase refuses secret keys on browser-looking requests;
+  PowerShell's `Invoke-RestMethod` default UA is refused, `curl.exe -A adgen-recon/1.0`
+  passes).
+- **yt-dlp pinned + Dependabot added — CODE-COMPLETE**: Dockerfile pins `2026.07.04`
+  (identical to what `latest` resolves to today, so prod already runs it; URL
+  HEAD-verified 200/3.07MB but no docker build has exercised the line yet — the next
+  deploy proves it). `.github/dependabot.yml`: npm weekly grouped, both Dockerfiles,
+  github-actions.
+- **Reboot drill — BLOCKED**, not skipped: the permission classifier denied
+  `ssh … reboot` (and subsequent scp+bash script runs). Needs the owner in-session.
+  Pre-drill state was ideal (queue empty, 3× healthy) — do it soon.
+- CLAUDE.md's stale test count fixed: 979 → **1130** (core 385, web 614, worker 131),
+  re-measured today.
+
+**Working-on-Windows gotcha that cost three round-trips:** scripts written locally and
+shipped to the VPS arrive with a UTF-8 BOM + CRLF; bash then fails with
+`$'\r': command not found` and mangles the FIRST line into a bogus command (which is how
+the password echoed). Fix that works: `scp` the file, then on the box
+`sed -i 's/\r//g; 1s/^\xEF\xBB\xBF//' file && bash file`.
+
+Nothing left uncommitted.
 
 ## 2026-08-18 — Design v2 proposals + "Premijera" implemented as default theme
 

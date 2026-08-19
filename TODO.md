@@ -4,6 +4,13 @@ One line per item. **This file is an index, not a second source of truth** — t
 history and the caveats live in `INFRASTRUCTURE.md` and `RELEASE_PLAN.md`. If they ever disagree,
 those win and this file is the one that is stale.
 
+**Updated 2026-08-19.** First bite out of §9's verification debt, from the second machine: Redis
+persistence read off the live container (AOF on — queued jobs survive a box death), the 0011
+reconciliation query run for the second time ever (clean: no double charges, no charged-no-result),
+yt-dlp pinned to the exact version production already runs, and Dependabot added. The reboot drill
+was attempted and blocked by the session's permission classifier — it now needs the owner present.
+Test count re-measured: **1130** (core 385, web 614, worker 131). The previous entry:
+
 **Updated 2026-08-17.** That day added the site's icons and a deliberately-closed `robots.txt`,
 fixed a CSP that had been stopping `next dev` from hydrating ANY page since `be22b61`, gave
 `Storage` a `delete`, corrected six rows below that described finished work as open, re-counted the
@@ -519,8 +526,8 @@ already lives elsewhere in this file, the line points there instead of duplicati
 
 | Status | Check | Who | Note |
 |---|---|---|---|
-| ❌ | **VPS reboot drill** | 🤖 over SSH | Full machine reboot never tested: does the whole stack come back by itself? `restart: unless-stopped` + healthchecks exist; the drill does not. Half an hour, risks nothing while there are no users |
-| ❌ | **Redis persistence config** | 🤖 | Is `appendonly` on? If the box dies with jobs queued, do they vanish silently? Nobody has read the live config. Related: a job lost this way emits no alert |
+| ❌ | **VPS reboot drill** | 🤖 over SSH, 👤 approves | Full machine reboot never tested: does the whole stack come back by itself? `restart: unless-stopped` + healthchecks exist; the drill does not. Half an hour, risks nothing while there are no users. **Attempted 2026-08-19: the permission classifier blocked `ssh root@… reboot`** — needs the owner to approve the command in-session (or run it and let Claude verify recovery). Pre-drill state that day was ideal: queue empty, all three containers healthy |
+| ✅ | **Redis persistence config** | — | **Read from the live container 2026-08-19**: `appendonly yes` (`aof_enabled:1`), RDB snapshots on the standard `3600 1 / 300 100 / 60 10000` policy, `rdb_last_bgsave_status:ok`, data on the named volume `adgen_redis_data`. Queued jobs survive both a container recreate and a box death. Still true: a job lost any other way emits no alert |
 | ❌ | **Database backup + restore drill** | 👤 then 🤖 | Supabase free tier — no PITR. No dump has ever been taken, no restore ever rehearsed. The env files got their first backup 2026-08-18 (`/root/backups/` on the VPS); the DB has none. A wiped table on free tier is GONE — this repo has already lived that once (see memory: the LIKE cleanup) |
 | 🟡 | **First alert webhook delivery** | 👤 sets the url | Already §1 — and note that even after `ALERT_WEBHOOK_URL` is set, the first real delivery is still unverified until one failure fires through it |
 | ❌ | **Disk-full + uptime monitoring** | 👤 picks a service, 🤖 wires | Build cache has filled the disk three times (33%→72% once); nothing alarms. No uptime check on `/` either — a down site is currently discovered by a visitor. Register #8 lists this; no concrete row existed until now |
@@ -530,7 +537,7 @@ already lives elsewhere in this file, the line points there instead of duplicati
 | Status | Check | Who | Note |
 |---|---|---|---|
 | ❌ | **Per-job cost vs. real invoices** | 👤 | Already §2 — logged units (TTS chars, render seconds) never held next to an ElevenLabs/OpenRouter/AWS bill. Margins in BUSINESS.md are assumptions until this is done once |
-| ❌ | **Run 0011's reconciliation query periodically** | 🤖 | The migration's footer query finds `charged_no_result` states (charged, job error, zero assets). It ran once, at apply time, zero rows. Nothing schedules it — a monthly manual run is enough at this scale |
+| ✅ | **Run 0011's reconciliation query periodically** | 🤖 monthly | **Second run 2026-08-19, clean both ways**: 4 `job_spend` ledger rows total, zero duplicate charges per job, and all 4 charged jobs are `status=done` (no charged-no-result). Ran via PostgREST with the service key, grouped client-side — raw SQL needs the Supabase editor, and the secret key is refused unless the request carries a non-browser User-Agent. Still unscheduled by design; next manual run ~2026-09 |
 | ❌ | **A real hold expiring, observed live** | 🤖 | `reserve_credits`' expired-hold sweep is unit-tested only. One deliberate 1-hour-old hold on the live DB would prove the sweep fires and the balance frees |
 
 ### Scale (owner's stated priority)
@@ -545,5 +552,5 @@ already lives elsewhere in this file, the line points there instead of duplicati
 | Status | Check | Who | Note |
 |---|---|---|---|
 | ❌ | **Email deliverability** | 👤 | Supabase default sender — does the signup mail land in spam? One test signup to a Gmail address answers it. Related row in §1: no sending address |
-| ❌ | **Pin yt-dlp + add Dependabot** | 🤖 | Both one-liners from the Rev. 3 audit's optional list: `apps/web/Dockerfile` pulls `releases/latest` (the last unpinned binary entering the web image), and no `dependabot.yml` exists |
+| 🟡 | **Pin yt-dlp + add Dependabot** | — | Both done 2026-08-19: `apps/web/Dockerfile` pins `2026.07.04` — the tag `releases/latest` resolved to that same day, so the deployed image already runs this exact version and the pin changes nothing until someone bumps it; the pinned URL answers 200 (HEAD-checked, 3.07 MB). `.github/dependabot.yml` covers npm (weekly, minor+patch grouped), both Dockerfiles and github-actions. 🟡 because no `docker build` has exercised the pinned line yet (next deploy will) and Dependabot's first scan happens after the push |
 | ❌ | **One pass on a real phone** | 👤 | All mobile verification so far is a 375px emulated viewport. Real iOS Safari (the 16px-zoom platform) has never rendered this site |
