@@ -8,7 +8,7 @@
 # Base is plain Node, NOT the worker's Playwright image: the web app never
 # launches a browser. It does shell out to yt-dlp (see below), and that is the
 # only binary it needs.
-FROM node:22-bookworm-slim AS base
+FROM node:26-bookworm-slim AS base
 
 # python3 is yt-dlp's runtime; ca-certificates for outbound TLS; curl to fetch
 # the binary in the next step.
