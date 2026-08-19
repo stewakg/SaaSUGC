@@ -60,7 +60,7 @@ jobs:
       #    route — so history is worth scanning, not just the working tree. If
       #    an OLD, already-rotated secret ever trips it, write a `.gitleaks.toml`
       #    allowlist entry; do not silence the scan.
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # 2) CodeQL taint analysis — the SINK side of XSS/SSRF/injection, i.e.
