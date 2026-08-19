@@ -157,6 +157,33 @@ deletion remains never-executed — needs an expendable account to try it on.
   right edge off its `max-w-lg` island. Auth and legal pages deliberately stay
   centred (no sidebar there, prose wants a measure).
 
+**Owner kept firing requests; all landed, all deployed, all verified the same night:**
+- **Equal-height tool cards + green/gold utility hues** (owner: "svi iste veličine,
+  dve različite nove boje"): `card-strip` is now flex-col with `sm:min-h-[17rem]`
+  and a flex-1 body; two NEW hue classes (`--green` lime-leaning to stay clear of
+  teal, `--gold` the only warm yellow) exist only for the utility tier. Test re-pin:
+  the neutral-fallback assertion now checks the class list with the flex chrome.
+- **Voice previews** (owner: "za sve glasove preview dugme"): kept driver
+  `apps/worker/scripts/gen-voice-previews.mjs` generated „Ovako bi zvučala vaša
+  reklama." for ALL 58 catalogue voices (eleven_multilingual_v2, ~2KB-30KB each,
+  0 failures) into R2 under `previews/voices/<id>.mp3` — idempotent, HeadObject
+  skip, so re-runs only fill gaps. `/api/storage` now allows the `previews/`
+  prefix to ANY signed-in user with NO asset-row lookup (2 new route tests pin
+  both halves: 302+exact key for signed-in, 401 for anonymous). ▶ „Preslušaj"
+  toggle next to the matrix voice select (`voice-preview-button.tsx`, 4 tests:
+  URL from the SELECTED id, toggle-pause, missing preview → disabled not broken,
+  empty id renders nothing). AWS SDK resolves via createRequire from
+  packages/core — pnpm does not hoist it to worker/scripts.
+- **MARGINS.md — the owner's "veliki posao"**: first per-tool margin calculation
+  ever. Sources ranked (IZMERENO / UHVAĆENO / JAVNO / PRETPOSTAVKA); revenue
+  €0.167–0.30 per credit by pack; unit costs from kie's pricing API + fal llms.txt
+  + the measured full-chain run. Result: everything live today sits at ~95–99%
+  gross margin; **Nalaz #1: enhance over video can go NEGATIVE** (fal Topaz bills
+  per-second/per-resolution vs our flat 9 credits; 60s above-1080p = up to $9.60
+  against €1.50–2.70 revenue) — needs an input cap before the first real customer;
+  Nalaz #2: the fal video fallback costs ~50 margin points vs kie; Nalaz #3:
+  generate-scripts stays the only unmetered spend. BUSINESS.md header points here.
+
 **Wizard step 1 now shows the tool's description (`8e9edcb`, deployed + verified)** —
 the approved card copy repeated where the decision happens; only on step 1 so it
 doesn't eat height on every step. This closes the "what you get" half of §3a's third

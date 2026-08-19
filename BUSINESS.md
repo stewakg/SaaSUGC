@@ -1,5 +1,13 @@
 # BUSINESS.md — pricing, margins, and the money-side risks
 
+> **2026-08-19: the per-tool margin CALCULATION now exists — see `MARGINS.md`.**
+> Every tool live today runs at ~95–99% gross margin at the competitor-copied
+> credit prices; the one loss-capable path is `enhance` over long/high-res video
+> (per-second provider pricing vs our flat 9 credits — needs an input cap), and
+> the Veo price this file calls "still an estimate" is now CAPTURED from kie's
+> own pricing API: $0.30/video for veo3_fast 720p. Invoices remain unread —
+> MARGINS.md §6 lists exactly what could still move.
+
 Rescued from `handover.md` §8 before that file was deleted (2026-08-05). This is the
 only place any of it is written down — it is analysis, not something derivable from the
 code. The per-job credit numbers themselves live in `packages/core/src/pricing.ts`;
