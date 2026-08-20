@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getJobDescriptor, creditsLabel } from '@adgen/core/pricing';
+import { getJobDescriptor } from '@adgen/core/pricing';
+import { CostNote } from '@/components/cost-note';
 import { ENHANCE_MAX_HEIGHT, ENHANCE_MAX_SECONDS, planEnhanceVideo } from '@adgen/core/enhance-limits';
 import { FileDropzone } from '@/components/file-dropzone';
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
@@ -200,10 +201,7 @@ export default function EnhancePage() {
         canNext={canNext}
         nextLabel={nextLabel}
         costLabel={
-          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
-            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(descriptor.cost)}</span>
-            {genPhase === 'done' ? ' · naplaćeno' : ''}
-          </p>
+          <CostNote cost={descriptor.cost} charged={genPhase === 'done'} />
         }
       />
     </div>

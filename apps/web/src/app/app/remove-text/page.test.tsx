@@ -146,7 +146,7 @@ describe('RemoveTextPage', () => {
     return button;
   }
 
-  it('renders the first step with the dropzone and the tool cost visible', () => {
+  it('renders the first step with the dropzone and no price shouting at the customer', () => {
     const container = mountPage();
     const heading = container.querySelector('h1');
     expect(heading?.textContent).toBe('Ukloni tekst'); // h1 = tool since 2026-08-18
@@ -155,9 +155,11 @@ describe('RemoveTextPage', () => {
     const zone = container.querySelector('button[data-dropzone]');
     expect(zone).toBeInstanceOf(HTMLButtonElement);
     expect(zone!.textContent).toContain('Klikni ili prevuci fajl ovde');
-    // The price a customer would pay for this tool must be on the screen.
-    expect(container.textContent).toContain('Cena:');
-    expect(container.textContent).toContain(COST_LABEL);
+    // The price is NOT on the first step any more (2026-08-20): it is a quiet
+    // line on the LAST step, right above the button that spends. Asserted as an
+    // absence so that putting it back is a failing test, not a silent revert.
+    expect(container.textContent).not.toContain('Cena:');
+    expect(container.textContent).not.toContain(COST_LABEL);
   });
 
   it('the primary action is unavailable with no file chosen and starts nothing', () => {

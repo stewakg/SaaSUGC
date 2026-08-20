@@ -186,18 +186,19 @@ describe('AiSlikePage', () => {
     click(findButton(container, 'Dalje')); // → Generiši
   }
 
-  it('renders the first step with the URL field and the tool cost visible', () => {
+  it('renders the first step with the URL field and no price shouting at the customer', () => {
     const container = mountPage();
     const heading = container.querySelector('h1');
     expect(heading?.textContent).toBe('AI slike'); // h1 = tool since 2026-08-18
     expect(container.textContent).toContain('Uvezi proizvod');
     expect(container.textContent).toContain('Korak 1/3');
     expect(container.querySelector('input[type="url"]')).toBeInstanceOf(HTMLInputElement);
-    // The price a customer would pay for the default count must be on screen,
-    // with the per-image unit the multiplication is really done with.
-    expect(container.textContent).toContain('Cena:');
-    expect(container.textContent).toContain(DEFAULT_COST_LABEL);
-    expect(container.textContent).toContain(`(${DEFAULT_COUNT} × ${UNIT})`);
+    // The price is NOT on the first step any more (2026-08-20): it is a quiet
+    // line on the LAST step, right above the button that spends. Asserted as an
+    // absence so that putting it back is a failing test, not a silent revert.
+    expect(container.textContent).not.toContain('Cena:');
+    expect(container.textContent).not.toContain(DEFAULT_COST_LABEL);
+    expect(container.textContent).not.toContain(`(${DEFAULT_COUNT} × ${UNIT})`);
   });
 
   it('the primary action is unavailable with no product imported and starts nothing', () => {
@@ -318,21 +319,24 @@ describe('AiSlikePage', () => {
     await clickAsync(findButton(container, 'Uvezi'));
     click(findButton(container, 'Dalje')); // → Podešavanja
 
-    // The count picker reflects the default before anything is touched…
-    expect(container.textContent).toContain(`(${DEFAULT_COUNT} × ${UNIT})`);
-    expect(container.textContent).toContain(DEFAULT_COST_LABEL);
-
-    // …and the quoted price follows the picked count immediately.
+    // The count is picked here, but the quote is read on the LAST step
+    // (2026-08-20) — so the picker is exercised here and the arithmetic is
+    // checked one step later, which is also the order a customer sees it in.
     const pick = findButton(container, `${chosen}`);
     click(pick);
     expect(pick.getAttribute('aria-pressed')).toBe('true');
+
+    click(findButton(container, 'Dalje')); // → Generiši, where the price shows
+
     expect(container.textContent).toContain(`(${chosen} × ${UNIT})`);
     expect(container.textContent).toContain(creditsLabel(computeJobCost('image_ads', chosen)));
+    // The default quote must be gone — the number followed the picker.
+    expect(container.textContent).not.toContain(`(${DEFAULT_COUNT} × ${UNIT})`);
 
     // Generate: the credit-spending POST must carry the SAME count the
     // label quoted — a stale label or a stale payload would charge the
-    // customer something other than what they were promised.
-    click(findButton(container, 'Dalje')); // → Generiši
+    // customer something other than what they were promised. (Already on the
+    // last step: the quote above was read there.)
     await clickAsync(findButton(container, 'Pokreni'));
 
     const jobCalls = callsTo('/api/jobs');

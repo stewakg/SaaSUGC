@@ -1,5 +1,4 @@
 import { JOB_DESCRIPTORS } from '@adgen/core';
-import { creditsLabel } from '@adgen/core/pricing';
 import { ToolIcon } from '@/components/tool-icon';
 import { LIVE_TOOL_LINKS } from '@/lib/live-tools';
 
@@ -30,7 +29,11 @@ export default function UskoroPage() {
               <h2 className="truncate text-sm font-medium text-txt-mid">{t.label}</h2>
               <p className="mt-0.5 truncate text-xs text-txt-low">{t.description}</p>
             </div>
-            <span className="text-sm tabular-nums text-txt-low">{creditsLabel(t.cost)}</span>
+            {/* No price here (2026-08-20). These four tools have no pipeline, so
+                nobody has decided what they cost — the numbers in pricing.ts are
+                copied from the competitor and TODO §2a says they get priced when
+                each pipeline lands. Printing a placeholder as a price is a
+                promise we have not made. */}
             <span className="badge badge--muted shrink-0">USKORO</span>
           </div>
         ))}

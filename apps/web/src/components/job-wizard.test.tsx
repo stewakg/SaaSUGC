@@ -71,7 +71,7 @@ type WizardProps = React.ComponentProps<typeof JobWizard>;
 
 /** Mounts one wizard on a container attached to document.body. */
 function mountWizard(
-  overrides: Partial<Pick<WizardProps, 'canNext' | 'allowJumpAhead' | 'onStepSelect'>> & {
+  overrides: Partial<Pick<WizardProps, 'canNext' | 'allowJumpAhead' | 'onStepSelect' | 'costLabel'>> & {
     /** Wire the parent to advance on onNext (default true, like a real wizard). */
     advanceOnNext?: boolean;
   } = {},
@@ -263,5 +263,39 @@ describe('JobWizard', () => {
     wizard.click(first);
     expect(wizard.onStepSelect).toHaveBeenCalledWith(0);
     expect(stepCounter(wizard)).toBe('Korak 1/3');
+  });
+
+  /**
+   * The price is shown once, at the end (owner, 2026-08-20). It used to sit in
+   * the footer of EVERY step wearing the accent colour, which put "you are
+   * paying" on screen while the customer was still picking a voice. This is the
+   * component-level guarantee; each wizard's own suite asserts the absence on
+   * its first step.
+   */
+  describe('the price is held back until the last step', () => {
+    it('does not render costLabel on the first or middle step', () => {
+      const wizard = mountWizard({ costLabel: <p>CENA-OZNAKA</p> });
+      expect(wizard.container.textContent).not.toContain('CENA-OZNAKA');
+
+      wizard.goTo(1);
+      expect(wizard.container.textContent).not.toContain('CENA-OZNAKA');
+    });
+
+    it('renders costLabel on the last step, beside the action that spends', () => {
+      const wizard = mountWizard({ costLabel: <p>CENA-OZNAKA</p> });
+      wizard.goTo(2);
+      expect(wizard.container.textContent).toContain('CENA-OZNAKA');
+    });
+
+    it('a wizard given no costLabel renders the same chrome either way', () => {
+      const wizard = mountWizard();
+      wizard.goTo(2);
+      // The footer still has its two buttons — the empty spacer must not
+      // collapse the layout when there is nothing to quote.
+      const footer = wizard.container.querySelector('.sticky.bottom-0');
+      expect(footer).toBeInstanceOf(HTMLElement);
+      expect(footer!.querySelectorAll('button')).toHaveLength(2);
+      expect(buttonByText(wizard.container, 'Nazad')).toBeInstanceOf(HTMLButtonElement);
+    });
   });
 });

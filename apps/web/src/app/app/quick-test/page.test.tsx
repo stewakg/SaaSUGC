@@ -145,15 +145,17 @@ describe('QuickTestPage', () => {
     return chip;
   }
 
-  it('renders the overview step with the tool description and cost visible', () => {
+  it('renders the overview step with the tool description, price held back', () => {
     const container = mountPage();
     const heading = container.querySelector('h1');
     expect(heading?.textContent).toBe(DESCRIPTOR.label);
     expect(container.textContent).toContain('Korak 1/2');
     expect(container.textContent).toContain(DESCRIPTOR.description);
-    // The price a customer would pay for this tool must be on the screen.
-    expect(container.textContent).toContain('Cena:');
-    expect(container.textContent).toContain(COST_LABEL);
+    // The price is NOT on the first step any more (2026-08-20): it is a quiet
+    // line on the LAST step, right above the button that spends. Asserted as an
+    // absence so that putting it back is a failing test, not a silent revert.
+    expect(container.textContent).not.toContain('Cena:');
+    expect(container.textContent).not.toContain(COST_LABEL);
   });
 
   it('the job-starting action does not exist on step 1 and nothing can reach /api/jobs yet', () => {

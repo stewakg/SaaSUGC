@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { computeJobCost, creditsLabel } from '@adgen/core/pricing';
+import { CostNote } from '@/components/cost-note';
 import type { CaptionAnim, CaptionFont, MatrixAspect, MatrixTransition, UiLanguage } from '@adgen/core/types';
 import { DEFAULT_MATRIX_ASPECT, MATRIX_ASPECTS } from '@adgen/core/types';
 // From the leaf module, not the package root: this is a 'use client' file and
@@ -1518,11 +1519,11 @@ export default function MatrixPage() {
         nextLabel={nextLabel}
         onStepSelect={(i) => setStepIndex(i)}
         costLabel={
-          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
-            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(cost)}</span>{' '}
-            <span className="font-mono tabular">({effectiveCount} × {unitCost})</span>
-            {phase === 'done' ? ' · naplaćeno' : ''}
-          </p>
+          <CostNote
+            cost={cost}
+            suffix={`(${effectiveCount} × ${unitCost})`}
+            charged={phase === 'done'}
+          />
         }
       />
     </div>

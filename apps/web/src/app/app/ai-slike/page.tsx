@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { computeJobCost, creditsLabel } from '@adgen/core/pricing';
+import { computeJobCost } from '@adgen/core/pricing';
+import { CostNote } from '@/components/cost-note';
 import type { UiLanguage } from '@adgen/core/types';
 import { UI_LANGUAGES as LANGUAGES } from '@adgen/core/constants';
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
@@ -254,13 +255,7 @@ export default function AiSlikePage() {
         canNext={canNext}
         nextLabel={nextLabel}
         costLabel={
-          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
-            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(cost)}</span>{' '}
-            <span className="font-mono tabular">
-              ({count} × 4)
-            </span>
-            {genPhase === 'done' ? ' · naplaćeno' : ''}
-          </p>
+          <CostNote cost={cost} suffix={`(${count} × 4)`} charged={genPhase === 'done'} />
         }
       />
     </div>

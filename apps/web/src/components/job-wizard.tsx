@@ -219,7 +219,15 @@ export function JobWizard({
         </div>
 
         <div className="sticky bottom-0 flex items-center justify-between gap-3 border-t border-line bg-panel px-6 py-4 sm:px-8">
-          {costLabel ? <div className="min-w-0">{costLabel}</div> : <div />}
+          {/*
+            The price appears on the LAST step only (owner, 2026-08-20). It used
+            to sit in the footer of every step wearing the accent colour, which
+            put "you are paying" on screen while someone was still picking a
+            voice. The number is not hidden — it is on screen at the step where
+            the next click is the one that spends, and the balance itself lives
+            in the header.
+          */}
+          {costLabel && isLast ? <div className="min-w-0">{costLabel}</div> : <div />}
           <div className="flex shrink-0 items-center gap-3">
             <button
               type="button"

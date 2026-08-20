@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { getJobDescriptor, creditsLabel } from '@adgen/core/pricing';
+import { getJobDescriptor } from '@adgen/core/pricing';
+import { CostNote } from '@/components/cost-note';
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
 
@@ -92,10 +93,7 @@ export default function QuickTestPage() {
         canNext={phase !== 'running'}
         nextLabel={nextLabel}
         costLabel={
-          <p className="rounded-control border border-accent-ring bg-accent-soft px-3 py-2 text-sm text-accent-text">
-            Cena: <span className="font-mono tabular font-semibold">{creditsLabel(descriptor.cost)}</span>
-            {phase === 'done' ? ' · naplaćeno' : ''}
-          </p>
+          <CostNote cost={descriptor.cost} charged={phase === 'done'} />
         }
       />
     </div>

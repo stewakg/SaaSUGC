@@ -225,7 +225,7 @@ describe('MatrixPage', () => {
     });
   }
 
-  it('renders the first step with the dropzone and the montage price visible', async () => {
+  it('renders the first step with the dropzone, price held back', async () => {
     const container = mountPage();
     await flush(); // the mount-time /api/voices fetch settles inside act
     expect(container.querySelector('h1')?.textContent).toBe('Nova reklama'); // h1 = tool since 2026-08-18
@@ -235,9 +235,9 @@ describe('MatrixPage', () => {
     const zone = container.querySelector('button[data-dropzone]');
     expect(zone).toBeInstanceOf(HTMLButtonElement);
     expect(zone!.textContent).toContain('Klikni ili prevuci video ovde');
-    // The default quote: montage on = the matrix price for 5 videos.
-    expect(container.textContent).toContain('Cena:');
-    expect(container.textContent).toContain(MATRIX_LABEL);
+    // The quote is held back until the last step (2026-08-20) — step 1 is
+    // where someone finds out what the tool does, not what it costs.
+    expect(container.textContent).not.toContain(MATRIX_LABEL);
   });
 
   it('Generate is gated in production until the wizard\'s own requirements are met', async () => {
@@ -326,13 +326,18 @@ describe('MatrixPage', () => {
   it('the quoted price follows the montage switch', async () => {
     const container = mountPage();
     await flush();
-    railTo(container, 'Glas, titlovi i varijante');
+    // Two steps are involved since the quote moved to the last step
+    // (2026-08-20): the switch lives on the tuning step, the price on
+    // "Generiši". The rail allows jumping ahead in this wizard, so the test
+    // walks between them exactly as a customer would.
+    railTo(container, 'Generiši');
 
     // Montage on: the matrix price.
-    expect(container.textContent).toContain('Cena:');
     expect(container.textContent).toContain(MATRIX_LABEL);
 
+    railTo(container, 'Glas, titlovi i varijante');
     click(findSwitch(container));
+    railTo(container, 'Generiši');
 
     // Montage off: the total must move to the revoice price…
     expect(container.textContent).toContain(REVOICE_LABEL);
@@ -347,8 +352,8 @@ describe('MatrixPage', () => {
     const container = mountPage();
     await flush();
     railTo(container, 'Glas, titlovi i varijante');
-
     click(findSwitch(container)); // montage off → the job type is revoice
+    railTo(container, 'Generiši'); // …and the quote is read on the last step
 
     // The exact combination that used to be wrong: the total said 40 while
     // the breakdown said (5 × 15). Both figures now come from the same

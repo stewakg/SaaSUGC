@@ -34,8 +34,11 @@ describe('UskoroPage', () => {
     }
   });
 
-  it('keeps the honest roadmap: every row carries a price and an USKORO badge', () => {
+  it('keeps the honest roadmap: an USKORO badge per row, and no invented price', () => {
     expect(html.match(/USKORO/g)).toHaveLength(5);
-    expect(html.match(/kredita?/g)?.length).toBeGreaterThanOrEqual(5);
+    // No prices here (2026-08-20). These tools have no pipeline, so nothing
+    // has decided what they cost; the numbers in pricing.ts are copied from
+    // the competitor. Printing one would be a promise we have not made.
+    expect(html).not.toMatch(/kredita?/);
   });
 });

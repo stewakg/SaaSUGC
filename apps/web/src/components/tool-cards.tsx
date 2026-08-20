@@ -87,11 +87,7 @@ export function MainToolCard({
         <h3 className="font-display min-w-0 flex-1 truncate text-lg font-bold text-txt-hi">
           {label}
         </h3>
-        {soon ? (
-          <span className="badge badge--muted shrink-0">USKORO</span>
-        ) : showCost ? (
-          <span className="badge shrink-0">{creditsLabel(cost)}</span>
-        ) : null}
+        {soon ? <span className="badge badge--muted shrink-0">USKORO</span> : null}
       </div>
       <div className="card-strip-body flex-1">
         <p className="text-sm text-txt-mid">{description}</p>
@@ -104,6 +100,15 @@ export function MainToolCard({
               </li>
             ))}
           </ul>
+        )}
+        {/* The price, since 2026-08-20, sits HERE rather than as a badge on the
+            coloured header strip: a card is read top-down, and what the tool
+            does has to win that read. Metadata colour, foot of the card, after
+            the promise. */}
+        {!soon && showCost && (
+          <p className="mt-4 text-xs text-txt-low">
+            <span className="font-mono tabular">{creditsLabel(cost)}</span> po izlazu
+          </p>
         )}
       </div>
     </div>
@@ -152,14 +157,15 @@ export function UtilityToolCard({
         <h4 className="font-display min-w-0 flex-1 truncate text-base font-bold text-txt-hi">
           {label}
         </h4>
-        {soon ? (
-          <span className="badge badge--muted shrink-0">USKORO</span>
-        ) : showCost ? (
-          <span className="badge shrink-0">{creditsLabel(cost)}</span>
-        ) : null}
+        {soon ? <span className="badge badge--muted shrink-0">USKORO</span> : null}
       </div>
       <div className="card-strip-body flex-1">
         <p className="text-sm text-txt-mid">{description}</p>
+        {!soon && showCost && (
+          <p className="mt-3 text-xs text-txt-low">
+            <span className="font-mono tabular">{creditsLabel(cost)}</span> po izlazu
+          </p>
+        )}
       </div>
     </div>
   );
