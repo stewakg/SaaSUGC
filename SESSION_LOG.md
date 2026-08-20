@@ -161,6 +161,46 @@ the pinned curl line has now executed, and the live web container answers
 `yt-dlp --version` with exactly `2026.07.04` — read inside the running
 container, not inferred from the Dockerfile.
 
+### Continued — voice cloning: researched, written into the legal pages, code deferred
+
+Owner asked for cloning on HIS ElevenLabs plan, and specifically flagged that he
+can see what gets generated. Their own documents were read before anything was
+written, and three findings changed the shape of the feature:
+
+1. **PVC is out.** Their FAQ: "Even with their consent, you cannot clone someone
+   else's voice", and it needs a voice-captcha tied to a physically present
+   person — not a supported flow through one company account with our key.
+   **IVC** is the only path, and it is available on this plan.
+2. **IVC's only gate is a checkbox, and the ACCOUNT HOLDER ticks it.** We assert
+   to ElevenLabs that we hold rights to a voice the CUSTOMER owns. That is the
+   whole reason `0013_voice_clones.sql` stores the consent wording shown, the
+   timestamp, the IP and whose voice it is — our record is the only thing that
+   can make our assertion true. Responsibility sits with the account holder
+   (indemnity clause + a B2B2C rule against giving end users looser terms).
+3. **The operator's visibility is the hardest privacy fact, and it is now stated
+   in a boxed paragraph rather than buried.** A voiceprint is an Art. 9 SPECIAL
+   CATEGORY, so consent must be EXPLICIT at the cloning step — "sitnim slovima",
+   which is what the owner asked for, is precisely what regulators treat as not
+   consent. Terms gained §6 (renumbering 6-14 to 7-15), privacy gained §3a.
+
+**The number that decides the product, measured from the API rather than
+guessed** (`/v1/user/subscription`): plan `creator`, **30 IVC slots, 14 used, 16
+free**, PVC 1/1 taken, 300k characters with 1.868 spent. So at most sixteen
+customers can hold a clone at once — the constraint is SLOTS, not money, because
+IVC costs nothing per clone. Twelve of the used slots are `generated` voices and
+one is "Ja proba"; deleting unused ones returns slots immediately.
+
+**Two owner decisions deliberately left open** (he chose to defer and move to
+another machine): what happens when the 30 fill (recommendation: expire a clone
+60 days after last use so slots rotate), and the price (recommendation: 25
+credits one-off, purely as a deterrent against taking a slot and not using it).
+No cloning code was written — writing it before those answers would bake in the
+wrong shape.
+
+⚠️ The legal text is a DRAFT and explicitly not legal advice; it should be read
+by a lawyer alongside the LLC the legal pages already wait on. `0013` is NOT
+applied.
+
 ### State at close
 
 - Tests: **core 405 · web 661 · worker 137 = 1203** (was 1169 at the previous entry).
