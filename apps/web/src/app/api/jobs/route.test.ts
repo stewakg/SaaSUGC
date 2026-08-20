@@ -109,6 +109,8 @@ vi.mock('@adgen/core/queue', async (importOriginal) => ({
 }));
 
 import { POST } from './route.ts';
+import { JOB_COST } from '@adgen/core/pricing';
+import { ENHANCE_MAX_SECONDS } from '@adgen/core/enhance-limits';
 
 /** Build a POST request with a JSON body, cast to the route's parameter type. */
 function req(body: unknown) {
@@ -423,3 +425,62 @@ describe('POST /api/jobs — foreign asset url guard (SSRF)', () => {
   });
 });
 
+/**
+ * `enhance` is the only tool priced by TIME. The route turns the duration the
+ * browser measured into 30-second tiers; the worker re-measures the stored file
+ * and refuses anything that needs more tiers than were paid for. These cases pin
+ * the money half of that contract — what lands in `jobs.cost` and in the row's
+ * `params.enhanceTiers` receipt.
+ */
+describe('POST /api/jobs — enhance is billed per 30s tier', () => {
+  /** The `cost` and `params` the route wrote on the inserted row. */
+  function inserted(): { cost: number; params: Record<string, unknown> } {
+    const row = insertSpy.mock.calls[0][0] as { cost: number; params: Record<string, unknown> };
+    return row;
+  }
+
+  const unit = JOB_COST.enhance;
+
+  it('a 20s clip is one tier', async () => {
+    await POST(req({ type: 'enhance', params: { durationSec: 20 } }));
+    expect(inserted().cost).toBe(unit);
+    expect(inserted().params.enhanceTiers).toBe(1);
+  });
+
+  it('a 45s clip is two tiers — every started 30 seconds is paid for', async () => {
+    await POST(req({ type: 'enhance', params: { durationSec: 45 } }));
+    expect(inserted().cost).toBe(unit * 2);
+    expect(inserted().params.enhanceTiers).toBe(2);
+  });
+
+  it('a clip at the ceiling is four tiers', async () => {
+    await POST(req({ type: 'enhance', params: { durationSec: ENHANCE_MAX_SECONDS } }));
+    expect(inserted().cost).toBe(unit * 4);
+    expect(inserted().params.enhanceTiers).toBe(4);
+  });
+
+  it('a missing or junk duration falls back to ONE tier — the image case and the safe floor', async () => {
+    for (const params of [{}, { durationSec: 'dvadeset' }, { durationSec: -5 }, { durationSec: null }]) {
+      insertSpy.mockClear();
+      await POST(req({ type: 'enhance', params }));
+      expect(inserted().cost).toBe(unit);
+      expect(inserted().params.enhanceTiers).toBe(1);
+    }
+  });
+
+  it('a clip past the ceiling is refused here, before any credits are held', async () => {
+    const res = await POST(req({ type: 'enhance', params: { durationSec: ENHANCE_MAX_SECONDS + 1 } }));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'enhance_too_long', maxSeconds: ENHANCE_MAX_SECONDS });
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(queueAdd).not.toHaveBeenCalled();
+  });
+
+  it('no other job type carries the tier receipt', async () => {
+    await POST(req({ type: 'matrix', count: 2, params: { durationSec: 45 } }));
+    expect(inserted().params.enhanceTiers).toBeUndefined();
+    // …and its price still comes from the count, untouched by the duration.
+    expect(inserted().cost).toBe(JOB_COST.matrix * 2);
+  });
+});

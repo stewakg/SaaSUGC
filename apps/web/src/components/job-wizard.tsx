@@ -117,22 +117,9 @@ export function JobWizard({
           final action, not on each step.
         */}
         <nav
-          className="step-rail relative lg:flex-col lg:items-stretch lg:gap-1"
+          className="step-rail lg:flex-col lg:items-stretch lg:gap-1"
           aria-label="Koraci"
         >
-          {/*
-            The thread every step hangs off — the "Spona" direction picked on
-            2026-08-20 (design-proposals-v3/step-rail.html), which replaced six
-            bordered rectangles with one line and six dots.
-
-            Desktop only: below `lg` the rail is a horizontal strip and a
-            vertical thread would have nothing to run along. `aria-hidden`
-            because the same progress is stated in words right under the rail —
-            a screen reader should hear it once, not twice.
-          */}
-          <span aria-hidden className="step-thread hidden lg:block">
-            <i style={{ height: `${(activeIndex / Math.max(steps.length - 1, 1)) * 100}%` }} />
-          </span>
           {steps.map((s, i) => {
             const reached = allowJumpAhead || i <= activeIndex;
             return (
@@ -153,9 +140,7 @@ export function JobWizard({
               >
                 {/* Number badge, visible only in the vertical layout — it is what
                     makes a stacked rail readable as an ordered list rather than a
-                    pile of chips, and since the "Spona" pass it is also what
-                    punches the thread: its ring is painted in the ground colour
-                    (see `.step-dot`), so the line appears to pass behind it. */}
+                    pile of chips. */}
                 <span
                   aria-hidden
                   className={cn(

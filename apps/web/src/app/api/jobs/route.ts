@@ -17,6 +17,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { Queue } from 'bullmq';
 import { computeJobCost, JOB_COST } from '@adgen/core/pricing';
+import { ENHANCE_MAX_SECONDS, enhanceCreditCost, enhanceTiers } from '@adgen/core/enhance-limits';
 import { createRedisConnection, queueNameForJobType, type JobQueueData } from '@adgen/core/queue';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
@@ -78,9 +79,34 @@ export async function POST(request: NextRequest) {
   if (count > MAX_JOB_COUNT) {
     return NextResponse.json({ error: 'invalid_count', max: MAX_JOB_COUNT }, { status: 400 });
   }
-  const cost = computeJobCost(type, count);
   const rawParams =
     typeof body.params === 'object' && body.params !== null ? (body.params as Record<string, unknown>) : {};
+
+  /**
+   * `enhance` is the one tool whose price is TIME, not output count: fal bills
+   * per second, so we bill per 30-second tier (enhance-limits.ts). The client
+   * measures the file in the browser before uploading it and sends the duration;
+   * a missing or junk value resolves to one tier, which is both the still-image
+   * case and the safe floor.
+   *
+   * The client is not trusted with this — it is trusted to be CONVENIENT. The
+   * worker probes the stored file itself and refuses a job whose real length
+   * needs more tiers than were paid for, which is why lying downwards buys a
+   * rejection rather than a discount.
+   */
+  const enhanceSeconds = type === 'enhance' ? Number(rawParams.durationSec) : Number.NaN;
+  if (type === 'enhance' && Number.isFinite(enhanceSeconds) && enhanceSeconds > ENHANCE_MAX_SECONDS) {
+    // Refuse here rather than bill four tiers for something the worker will
+    // reject anyway — the customer finds out before the credits are held.
+    return NextResponse.json(
+      { error: 'enhance_too_long', maxSeconds: ENHANCE_MAX_SECONDS },
+      { status: 400 },
+    );
+  }
+  const cost =
+    type === 'enhance'
+      ? enhanceCreditCost(enhanceSeconds, JOB_COST.enhance)
+      : computeJobCost(type, count);
 
   const params = {
     ...rawParams,
@@ -90,6 +116,10 @@ export async function POST(request: NextRequest) {
     // per-job spend log becomes impossible to reconcile against it.
     targetSeconds: toAdSeconds(rawParams.targetSeconds),
     count,
+    // A RECEIPT, not an input: how many tiers this job was charged for. The
+    // worker compares it against the length it measures itself, and refuses the
+    // job if the file needs more. Only enhance carries it.
+    ...(type === 'enhance' ? { enhanceTiers: enhanceTiers(enhanceSeconds) } : {}),
   };
 
   // The worker fetches these urls itself, so a foreign one is an outbound

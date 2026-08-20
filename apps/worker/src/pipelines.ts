@@ -11,6 +11,7 @@ import {
   DEFAULT_MATRIX_OUTRO_TEXT,
   DEFAULT_VOICE_MODEL,
   MAX_AD_SECONDS,
+  enhanceTiers,
   planEnhanceVideo,
   clampScriptForSpeech,
   scriptCharBudget,
@@ -518,6 +519,29 @@ export async function runMediaEditPipeline(
     // `code: message` — the shape every other refusal in this file uses, and the
     // shape the job-state layer's "not charged" paths already log.
     throw new Error(`${plan.code}: ${plan.message}`);
+  }
+
+  /**
+   * The clip must not be longer than what was paid for.
+   *
+   * `enhance` bills per 30-second tier and the tier count is decided at enqueue
+   * time from the duration the BROWSER measured (see /api/jobs). This is where
+   * that claim meets the file: if the real clip needs more tiers, the job is
+   * refused — nothing has been charged at this point, so a refusal costs the
+   * customer an error message while proceeding would cost us four tiers of fal
+   * time for one tier of revenue.
+   *
+   * A measured tier LOWER than the paid one proceeds untouched: the customer
+   * over-declared and job-state charges what the row says, which is the number
+   * they already saw.
+   */
+  const paidTiers = Math.max(1, Math.floor(Number(params.enhanceTiers)) || 1);
+  const measuredTiers = enhanceTiers(meta.durationSec);
+  if (measuredTiers > paidTiers) {
+    throw new Error(
+      `underpaid_duration: video traje ${Math.round(meta.durationSec)}s, a plaćeno je za ` +
+        `${paidTiers * 30}s. Pokreni ponovo da se naplati tačna dužina — nije naplaćeno.`,
+    );
   }
   console.log(
     `[enhance] ${Math.round(meta.durationSec)}s ${meta.height}p @${Math.round(meta.fps)}fps ` +

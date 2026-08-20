@@ -22,15 +22,22 @@ red u TODO §9 („Per-job cost vs. real invoices"). Ovo je računica, ne knjigo
 
 | Paket | Krediti | Cena | €/kredit | Bilo |
 |---|---|---|---|---|
-| Starter | 30 | **€4.50** | **€0.150** | €9 · €0.300 |
+| Starter | 60 | **€9.00** | **€0.150** | 30 kr · €4.50 |
 | Creator | 100+10 | **€13.50** | **€0.123** | €25 · €0.227 |
 | Pro | 250+40 | **€34.50** | **€0.119** | €55 · €0.190 |
 | Agency | 600+120 | **€72** | **€0.100** | €120 · €0.167 |
 
 **Najgori slučaj za nas je sada €0.100/kredit** (Agency), a ne €0.167 — i svaka
 marža u §3 je preračunata na taj broj, jer marža koja preživi najjeftiniji kredit
-preživi sve ostale. Signup bonus: 3 kredita po nalogu (≈€0.30 rizika po nalogu na
-novim cenama).
+preživi sve ostale. **Signup bonus je 2026-08-20 podignut sa 3 na 45 kredita** — tri „Nova reklama"
+videa (3 × 15) — jer je sajt obećavao „3 besplatna videa" a 3 kredita ne kupuju
+nijedan. Retail vrednost poklona je €4.50 po nalogu; STVARNI trošak je COGS, a on
+je ~€0.12 za tri 15s videa. Najskuplji način da neko potroši poklon je enhance
+(5 × 9 kr, do ~€2.75 fal vremena po nalogu) — ako lažni nalozi ikad postanu
+obrazac, odgovor je verifikacija mejla pre dodele, ne manji poklon.
+
+⚠️ Zato je i Starter paket podignut sa 30 na 60 kredita: najmanje što PRODAJEMO ne
+sme biti manje od onoga što POKLANJAMO.
 
 ### 1a. Zašto baš ove cene — poređenje sa konkurencijom [IZMERENO 2026-08-20]
 
@@ -81,7 +88,7 @@ više po kreditu, pa je svaka marža dole **donja granica, ne prosek**.
 | **AI slike** (image_ads) | 4 kr | €0.40 | ~€0.04 ($0.04 nano-banana-2 1K) | €0.06 (2K) | **~90%** | ~85% |
 | **Ukloni tekst** (remove_text) | 6 kr | €0.60 | ~€0.04 | isto | **~93%** | — |
 | **Poboljšaj kvalitet** (enhance) — SLIKA | 9 kr | €0.90 | ~€0.07 ($0.08) | isto | **~92%** | — |
-| **Poboljšaj kvalitet** (enhance) — VIDEO | 9 kr | €0.90 | ~€0.28 (15s 1080p) | €0.55 (30s 1080p, plafon) | **~69%** | **~39%** |
+| **Poboljšaj kvalitet** (enhance) — VIDEO | 9 kr **po 30s** | €0.90 po tieru | ~€0.28 (15s 1080p) | €0.55 (30s 1080p) | **~69%** | **~39%** |
 | **AI influencer** (ai_video, uskoro) | 25 kr | €2.50 | ~€0.28 (veo3_fast 720p) | ~€2.8 (fal fallback) | **~89%** | ❌ **GUBITAK** |
 
 Za USKORO alate bez pipeline-a (edit 18 kr, mix 12, translate 15, quick_test 2) marža
@@ -96,24 +103,40 @@ na najjeftinijem paketu, a fal fallback košta **€2.8** — dakle svaki put ka
 padne i router pređe na fal, taj posao nas košta više nego što donosi. Na srednjoj
 tarifi (Creator, €0.123/kr) prihod je €3.07 naspram €2.8, tj. 9% — jedva pozitivno.
 
-Alat je USKORO i nema pipeline, pa ništa ne curi danas. **Pre nego što ai_video ode
-uživo, jedno od ovoga mora da se odluči:** viša cena u kreditima, zabrana fal
-fallback-a za ovaj tip posla (bolje da posao padne nego da se plati), ili poseban
-plafon nad fallback-om. Zabeleženo u TODO §2a.
+**Zatvoreno istog dana u kodu:** `KieAIFalRouter` više ne pada automatski na fal za
+VIDEO. Fallback je sada opt-in (`allowVideoFallback`, podrazumevano isključen), i kad
+kie padne posao padne sa jasnom porukom da nije naplaćen. Slike zadržavaju automatski
+fallback — tamo obe kuće naplaćuju $0.04, pa argument o gubitku ne važi.
+
+Ostaje CENOVNA odluka za kasnije: ako se ikad poželi dostupnost po svaku cenu, ai_video
+mora da poskupi ili fallback dobija sopstveni plafon. Dok je alat USKORO, isključen
+fallback je ispravan podrazumevani izbor.
 
 ### ✅ Nalaz #1 — enhance VIDEO je ZATVOREN plafonom (bio je jedini put u gubitak)
 
-**Rešeno 2026-08-20** (`09fb33b` postavio plafon, `packages/core/src/enhance-limits.ts`;
-istog dana plafon spušten sa 60s na 30s jer su cene pale). Kod sada odbija klip duži
-od **30s** i izvor iznad **1080p**, kleše upscale faktor tako da IZLAZ ostane u 1080p
-pojasu, i pinuje sve preko 30fps nazad na 30. Wizard meri fajl u browseru pre
-otpremanja, a worker meri ffprobe-om pre nego što pozove fal — worker je taj koji
-odlučuje, jer se ručno sklopljen zahtev ne obraća wizardu.
+**Rešeno 2026-08-20, u tri koraka istog dana.** Prvo je postavljen plafon (`09fb33b`),
+pa spušten sa 60s na 30s kad su cene pale — a onda je shvaćeno da plafon štiti maržu
+tako što alat čini beskorisnim za normalnu reklamu od 45 sekundi. Konačno rešenje je
+ono koje je i sam modul od početka nazivao ispravnim: **naplata po dužini.**
 
-Zašto je 60s moralo da postane 30s: na starim cenama je najgori dozvoljeni klip nosio
-€1.50 prihoda, a 60s/1080p košta €1.11 — tanko ali pozitivno. Na novoj najjeftinijoj
-tarifi isti posao nosi **€0.90**, pa bi 60s bio **gubitak**. Na 30s najgori trošak je
-€0.55 naspram €0.90.
+`packages/core/src/enhance-limits.ts` sada deli klip na **tiere od 30 sekundi**:
+9 kredita nosi 30s, duži klip košta srazmerno više, plafon je **4 tiera = 120s**.
+Marža time prestaje da zavisi od dužine — 39% u najgorem slučaju i na 30s i na 120s,
+umesto da propada sa svakom sekundom. Ostale odbrane su ostale: izvor iznad 1080p se
+odbija, upscale faktor se kleše da IZLAZ ostane u 1080p pojasu, sve preko 30fps se
+pinuje na 30, a fajl koji se ne može izmeriti se odbija (fail-closed).
+
+Gde se to proverava — na tri mesta, namerno:
+1. **wizard** meri fajl u browseru pre otpremanja i pokazuje cenu („Klip traje 45s —
+   naplaćuje se kao 2 × 30s"), pa niko ne šalje 200 MB da bi saznao cenu;
+2. **`/api/jobs`** računa cenu iz te dužine i upisuje `params.enhanceTiers` kao RAČUN
+   na job red;
+3. **worker** meri stvarni fajl ffprobe-om i odbija posao ako traži više tiera nego
+   što je plaćeno (`underpaid_duration`) — pre nego što je išta naplaćeno. Laganje
+   naniže donosi odbijanje, ne popust. Kraći klip od plaćenog prolazi.
+
+Naplata prati račun: `job-state.ts` za enhance naplaćuje `JOB_COST.enhance × tiers`, a
+ne `× broj izlaza` — inače bi klip od dva minuta bio naplaćen kao trideset sekundi.
 
 Originalni nalaz, radi istorije — ovako je izgledalo pre plafona:
 
@@ -125,10 +148,8 @@ Originalni nalaz, radi istorije — ovako je izgledalo pre plafona:
 | 60s / iznad 1080p / 60fps | $9.60 (€8.89) | €1.50–2.70 | ❌ **gubitak €6.2–7.4** |
 
 Upload je ograničen na 200 MB **po veličini fajla, ne po trajanju ni rezoluciji** — a
-200 MB komprimovanog 1080p je i po nekoliko minuta. To je i bila rupa: plafon sada
-meri trajanje i rezoluciju, a ne bajtove. Naplata **po sekundi** ostaje otvorena
-odluka i dalje je bolji odgovor od plafona ako neko zaista bude hteo da popravi
-dugačak snimak.
+200 MB komprimovanog 1080p je i po nekoliko minuta. To je i bila rupa; sada se meri
+trajanje i rezolucija, a ne bajtovi.
 
 ### Nalaz #2 — fal fallback za ai_video jede 50 poena marže
 

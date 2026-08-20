@@ -11,13 +11,27 @@ import {
   ENHANCE_MAX_FPS,
   ENHANCE_MAX_HEIGHT,
   ENHANCE_MAX_SECONDS,
+  ENHANCE_MAX_TIERS,
+  ENHANCE_SECONDS_PER_TIER,
+  enhanceCreditCost,
+  enhanceTiers,
   planEnhanceVideo,
   topazVideoCostUsd,
 } from './enhance-limits.ts';
+import { JOB_COST } from './pricing.ts';
 
-/** What one enhance job earns: 9 credits (pricing.ts) × the cheapest per-credit rate in CREDIT_PACKS — pack_agency's €0.100/credit = €0.90. */
-const REVENUE_EUR_FLOOR = 0.9;
+/**
+ * The cheapest a credit is ever sold for — pack_agency's €0.100 (CREDIT_PACKS).
+ * Revenue is no longer a single floor: `enhance` bills per 30s tier, so what a
+ * clip earns depends on its length and has to be computed per clip.
+ */
+const CHEAPEST_EUR_PER_CREDIT = 0.1;
 const USD_PER_EUR = 0.925;
+
+/** What a clip of this length earns us, in USD, at the worst credit rate. */
+function revenueUsd(durationSec: number): number {
+  return enhanceCreditCost(durationSec, JOB_COST.enhance) * CHEAPEST_EUR_PER_CREDIT * USD_PER_EUR;
+}
 
 describe('topazVideoCostUsd — fal price bands', () => {
   it('charges the ≤720p band at $0.01/s', () => {
@@ -111,27 +125,72 @@ describe('planEnhanceVideo — parameters sent to fal', () => {
   });
 });
 
+describe('enhanceTiers / enhanceCreditCost — length is priced, not forbidden', () => {
+  it('bills every started 30 seconds, minimum one', () => {
+    expect(enhanceTiers(1)).toBe(1);
+    expect(enhanceTiers(30)).toBe(1);
+    expect(enhanceTiers(31)).toBe(2);
+    expect(enhanceTiers(60)).toBe(2);
+    expect(enhanceTiers(61)).toBe(3);
+    expect(enhanceTiers(120)).toBe(ENHANCE_MAX_TIERS);
+  });
+
+  it('never bills more than the ceiling, whatever it is handed', () => {
+    expect(enhanceTiers(10_000)).toBe(ENHANCE_MAX_TIERS);
+    expect(enhanceTiers(Number.POSITIVE_INFINITY)).toBe(1); // unmeasurable ⇒ minimum, see the doc comment
+    expect(enhanceTiers(Number.NaN)).toBe(1);
+    expect(enhanceTiers(-5)).toBe(1);
+    expect(enhanceTiers(0)).toBe(1);
+  });
+
+  it('prices a clip at the tool price times its tiers', () => {
+    expect(enhanceCreditCost(20, JOB_COST.enhance)).toBe(JOB_COST.enhance);
+    expect(enhanceCreditCost(45, JOB_COST.enhance)).toBe(JOB_COST.enhance * 2);
+    expect(enhanceCreditCost(120, JOB_COST.enhance)).toBe(JOB_COST.enhance * ENHANCE_MAX_TIERS);
+  });
+
+  it('the ceiling and the tier size stay in step', () => {
+    expect(ENHANCE_MAX_SECONDS).toBe(ENHANCE_SECONDS_PER_TIER * ENHANCE_MAX_TIERS);
+  });
+});
+
 describe('the guarantee: nothing that passes can cost more than it earns', () => {
+  /**
+   * The meaning of this suite changed on 2026-08-20 and it is worth being
+   * explicit: revenue used to be one flat number (9 credits, whatever the clip),
+   * so the guarantee was "the cap keeps clips short enough". Now the price
+   * follows the length, so the guarantee is stronger — the margin must hold at
+   * EVERY admissible length, not just under a ceiling.
+   */
   it('holds for the worst clip the limits still admit', () => {
     const plan = planEnhanceVideo({ durationSec: ENHANCE_MAX_SECONDS, height: ENHANCE_MAX_HEIGHT, fps: 60 }, 4);
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
-    expect(plan.estimatedUsd).toBeLessThan(REVENUE_EUR_FLOOR * USD_PER_EUR);
+    expect(plan.estimatedUsd).toBeLessThan(revenueUsd(ENHANCE_MAX_SECONDS));
   });
 
   it('holds across a sweep of admissible clips', () => {
     for (const height of [240, 360, 480, 720, 1080]) {
-      for (const durationSec of [1, 15, 30, ENHANCE_MAX_SECONDS]) {
+      for (const durationSec of [1, 15, 30, 31, 45, 60, 90, ENHANCE_MAX_SECONDS]) {
         for (const fps of [24, 30, 60]) {
           for (const requested of [2, 4]) {
             const plan = planEnhanceVideo({ durationSec, height, fps }, requested);
             expect(plan.ok).toBe(true);
             if (!plan.ok) continue;
             expect(plan.outputHeight).toBeLessThanOrEqual(ENHANCE_MAX_HEIGHT);
-            expect(plan.estimatedUsd).toBeLessThan(REVENUE_EUR_FLOOR * USD_PER_EUR);
+            expect(plan.estimatedUsd).toBeLessThan(revenueUsd(durationSec));
           }
         }
       }
     }
+  });
+
+  it('the margin no longer decays with length — a 120s clip is as profitable as a 30s one', () => {
+    const short = planEnhanceVideo({ durationSec: 30, height: 1080, fps: 30 }, 1);
+    const long = planEnhanceVideo({ durationSec: 120, height: 1080, fps: 30 }, 1);
+    expect(short.ok && long.ok).toBe(true);
+    if (!short.ok || !long.ok) return;
+    const marginOf = (usd: number, sec: number) => 1 - usd / revenueUsd(sec);
+    expect(marginOf(long.estimatedUsd, 120)).toBeCloseTo(marginOf(short.estimatedUsd, 30), 6);
   });
 });

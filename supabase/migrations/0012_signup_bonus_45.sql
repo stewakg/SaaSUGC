@@ -1,0 +1,47 @@
+-- ===========================================================================
+-- 0012 — the signup bonus becomes 45 credits, so "3 besplatna videa" is true
+-- ===========================================================================
+--
+-- WHY. `0001_init_schema.sql` grants 3 credits on signup, while the landing
+-- page, the page metadata and the auth pages all promise "3 besplatna videa".
+-- Three credits buy NO video: the cheapest video tool (`revoice`) costs 8 and
+-- the headline tool (`matrix`) costs 15. The promise was false from the day it
+-- was written.
+--
+-- Owner's decision, 2026-08-20: keep the promise, raise the grant.
+-- 45 = 3 x JOB_COST.matrix. The app side of this is `SIGNUP_BONUS_CREDITS` in
+-- `packages/core/src/pricing.ts`, and `SIGNUP_BONUS_VIDEOS` is derived from it
+-- so no piece of copy ever states a video count of its own again.
+--
+-- ⚠️ THE APP CONSTANT AND THIS FUNCTION MUST MATCH. The constant only decides
+-- what the UI *says*; this function decides what a new account actually
+-- receives. Until this file is applied, the site advertises three videos and
+-- hands over three credits.
+--
+-- WHAT THIS COSTS US. 45 credits is €4.50 of retail value per account at the
+-- cheapest pack rate. The real exposure is COGS, not retail: three 15s matrix
+-- videos cost us about €0.12. The expensive way to spend the bonus is
+-- `enhance` (9 credits, up to ~€0.55 of fal time each) — five of them is ~€2.75
+-- per account. If throwaway signups ever become a real pattern, the answer is
+-- email verification before the grant, or granting on first verified login
+-- rather than on insert. Recorded here rather than pre-emptively built.
+--
+-- SAFE TO RE-RUN: replaces one function body, touches no rows. Existing
+-- accounts keep the balance they already have — this is not backfilled, because
+-- a retroactive grant to every historical row is a money decision nobody made.
+-- ===========================================================================
+
+create or replace function public.signup_bonus_credits()
+returns integer language sql as $$ select 45; $$;
+
+-- Verification (run by hand after applying; both must be true):
+--
+--   select public.signup_bonus_credits();
+--   -- expect 45
+--
+--   select prosrc from pg_proc where proname = 'signup_bonus_credits';
+--   -- expect the body to read: select 45;
+--
+-- The trigger `public.handle_new_user()` is NOT redefined here: it already
+-- reads this function rather than a literal, which is exactly why the grant can
+-- be changed in one line.

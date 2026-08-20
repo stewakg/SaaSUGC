@@ -11,8 +11,24 @@
  */
 import type { JobDescriptor, JobType } from './types.ts';
 
-/** Free credits granted on signup. */
-export const SIGNUP_BONUS_CREDITS = 3;
+/**
+ * Free credits granted on signup.
+ *
+ * Raised 3 -> 45 on 2026-08-20, because the landing page, the page metadata and
+ * the auth pages all promised "3 besplatna videa" and three credits bought
+ * NONE: the cheapest video tool is `revoice` at 8 and the headline tool
+ * `matrix` at 15. The copy was not the thing that was wrong — the grant was.
+ * 45 = 3 x JOB_COST.matrix, so the promise is now exactly payable.
+ *
+ * ⚠️ THE DATABASE ISSUES THE GRANT, NOT THIS CONSTANT. `public.signup_bonus_credits()`
+ * (supabase/migrations/0012_signup_bonus_45.sql) is what a new account actually
+ * receives; this number only decides what the UI says. They must move together
+ * or the site advertises one thing and hands over another.
+ *
+ * Changing JOB_COST.matrix without revisiting this silently breaks the promise:
+ * SIGNUP_BONUS_VIDEOS below is derived from both, so it will quietly drop to 2.
+ */
+export const SIGNUP_BONUS_CREDITS = 45;
 
 /** Per-job credit costs. Multiply by output count where noted. */
 export const JOB_COST: Record<JobType, number> = {
@@ -30,6 +46,20 @@ export const JOB_COST: Record<JobType, number> = {
   // in this file; pricing is settled after the build, not before.
   revoice: 8, // per video
 };
+
+/**
+ * How many videos the signup bonus actually buys — DERIVED, never stated.
+ *
+ * Every piece of marketing copy that promises free VIDEOS must count them from
+ * here. The bug this prevents shipped for weeks: the copy said "3 besplatna
+ * videa" while the grant was 3 CREDITS, because one number was typed in a
+ * sentence and the other lived in `pricing.ts`, and nothing connected them.
+ * Now the sentence cannot disagree with the balance.
+ *
+ * Counted in `matrix` videos — the headline tool, and the one a visitor means
+ * when they read "video".
+ */
+export const SIGNUP_BONUS_VIDEOS = Math.floor(SIGNUP_BONUS_CREDITS / JOB_COST.matrix);
 
 /**
  * Compute the total credit cost for a job request.
@@ -222,17 +252,22 @@ export interface CreditPack {
  *
  * Our resulting rates — the credit total is base PLUS bonus, which is what
  * these rates are computed from:
- *   30 credits at €4.50     = €0.150/credit
+ *   60 credits at €9.00     = €0.150/credit
  *   110 (100+10) at €13.50  = €0.123/credit
  *   290 (250+40) at €34.50  = €0.119/credit
  *   720 (600+120) at €72    = €0.100/credit
+ *
+ * The starter pack is sized ABOVE the signup bonus on purpose (60 > 45): the
+ * cheapest thing we sell must not be smaller than what we give away, or the
+ * pack reads as a downgrade. It also carries Stripe's fixed €0.25 better —
+ * 2.8% of €9 against 7.1% of the €4.50 it used to be.
  *
  * WARNING: that €0.100 is the floor every margin calculation in the app has
  * to survive, and `enhance` is the only tool whose provider cost is not
  * fixed — see enhance-limits.ts.
  */
 export const CREDIT_PACKS: CreditPack[] = [
-  { id: 'pack_starter', credits: 30, priceEUR: 4.5 },
+  { id: 'pack_starter', credits: 60, priceEUR: 9 },
   { id: 'pack_creator', credits: 100, priceEUR: 13.5, bonus: 10, popular: true },
   { id: 'pack_pro', credits: 250, priceEUR: 34.5, bonus: 40 },
   { id: 'pack_agency', credits: 600, priceEUR: 72, bonus: 120 },

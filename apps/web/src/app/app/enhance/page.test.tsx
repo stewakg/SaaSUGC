@@ -65,14 +65,20 @@ vi.mock('@/lib/probe-video', () => ({ probeVideoFile: mocks.probeVideoFile }));
 import EnhancePage from './page';
 import * as React from 'react';
 import { creditsLabel, getJobDescriptor } from '@adgen/core/pricing';
-import { ENHANCE_MAX_HEIGHT, ENHANCE_MAX_SECONDS } from '@adgen/core/enhance-limits';
+import {
+  ENHANCE_MAX_HEIGHT,
+  ENHANCE_MAX_SECONDS,
+  ENHANCE_SECONDS_PER_TIER,
+  enhanceCreditCost,
+} from '@adgen/core/enhance-limits';
 
 // React 19's act() refuses to run unless this flag is set.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 (globalThis as { React?: typeof React }).React = React;
 
 // The price the page must show — computed by the same pure call it uses.
-const COST_LABEL = creditsLabel(getJobDescriptor('enhance').cost);
+const DESCRIPTOR_COST = getJobDescriptor('enhance').cost;
+const COST_LABEL = creditsLabel(DESCRIPTOR_COST);
 
 const fetchMock = vi.fn();
 
@@ -246,7 +252,13 @@ describe('EnhancePage', () => {
   describe('video is measured before it is uploaded', () => {
     it('refuses a clip over the limit and never starts the upload', async () => {
       const container = mountPage();
-      mocks.probeVideoFile.mockResolvedValue({ durationSec: 75, width: 1920, height: 1080 });
+      // Comfortably past the four-tier ceiling — 75s used to be refused and is
+      // now simply a three-tier job, which is the whole point of the change.
+      mocks.probeVideoFile.mockResolvedValue({
+        durationSec: ENHANCE_MAX_SECONDS + 30,
+        width: 1920,
+        height: 1080,
+      });
       await dropFile(container, 'dug.mp4', 'video/mp4');
 
       const alert = container.querySelector('[role="alert"]');
@@ -254,6 +266,39 @@ describe('EnhancePage', () => {
       expect(alert!.textContent).toContain(`${ENHANCE_MAX_SECONDS}s`);
       expect(mocks.uploadFile).not.toHaveBeenCalled();
       expect(findButton(container, 'Dalje').disabled).toBe(true);
+    });
+
+    it('a 45s clip is accepted, billed as two tiers, and says so before the last step', async () => {
+      const container = mountPage();
+      mocks.probeVideoFile.mockResolvedValue({ durationSec: 45, width: 1280, height: 720 });
+      mocks.uploadFile.mockResolvedValue({ url: 'https://files.example.com/dug.mp4', name: 'dug.mp4' });
+      await dropFile(container, 'dug.mp4', 'video/mp4');
+
+      // The warning lands on the step where the file was picked, not at the end.
+      expect(container.textContent).toContain(`2 × ${ENHANCE_SECONDS_PER_TIER}s`);
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+
+      // …and the price on the LAST step is the doubled one.
+      click(findButton(container, 'Dalje')); // → Podešavanja
+      click(findButton(container, 'Dalje')); // → Generiši
+      expect(container.textContent).toContain(creditsLabel(enhanceCreditCost(45, DESCRIPTOR_COST)));
+    });
+
+    it('sends the measured duration — the route prices the job from it', async () => {
+      const container = mountPage();
+      mocks.probeVideoFile.mockResolvedValue({ durationSec: 45, width: 1280, height: 720 });
+      mocks.uploadFile.mockResolvedValue({ url: 'https://files.example.com/dug.mp4', name: 'dug.mp4' });
+      mocks.pollJob.mockResolvedValue({ status: 'done', result: { assets: [] } });
+      fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: 'job_e1' }) });
+      await dropFile(container, 'dug.mp4', 'video/mp4');
+      click(findButton(container, 'Dalje'));
+      click(findButton(container, 'Dalje'));
+      await clickAsync(findButton(container, 'Pokreni'));
+
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
+        params: { durationSec?: number };
+      };
+      expect(body.params.durationSec).toBe(45);
     });
 
     it('refuses a source above 1080p and never starts the upload', async () => {

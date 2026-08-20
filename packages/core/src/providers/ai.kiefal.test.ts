@@ -429,13 +429,35 @@ describe('generateVideo — kie veo + fal fallback', () => {
     expect(result).toEqual({ url: 'https://vid.example/a.mp4' });
   });
 
-  it('13. kie video successFlag 2 => warns and falls back to fal video, returning the fal url', async () => {
+  /**
+   * 2026-08-20: this case used to assert the fallback fired automatically, which
+   * is the behaviour that made `ai_video` lose money — fal is $2–3+ a video
+   * against 25 credits (€2.50 at the cheapest pack rate). The fallback is now
+   * opt-in, and these two cases pin BOTH directions of that switch.
+   */
+  it('13. kie video fails with the fallback OFF (default) => throws, and fal is never called', async () => {
     fetchMock
       .mockResolvedValueOnce(jsonResponse({ code: 200, msg: 'ok', data: { taskId: 'vt13' } })) // veo/generate
       .mockResolvedValueOnce(jsonResponse({ data: { successFlag: 2 } })); // veo/record-info: failed
-    queueFalVideoSuccess();
 
     const router = new KieAIFalRouter({ kieApiKey: KIE_KEY, falApiKey: FAL_KEY });
+
+    await expect(router.generateVideo({ prompt: 'p' })).rejects.toThrow(/fallback is disabled/);
+    // Two calls and no more: the submit and the status poll. A third would mean
+    // fal was contacted, i.e. money spent on the expensive vendor.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // The refusal has to say the job was not charged — it is read by a human in
+    // the worker log when a customer asks why their video failed.
+    await expect(router.generateVideo({ prompt: 'p' })).rejects.toThrow(/not charged/);
+  });
+
+  it('13b. kie video fails with allowVideoFallback: true => warns and returns the fal url', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ code: 200, msg: 'ok', data: { taskId: 'vt13b' } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { successFlag: 2 } }));
+    queueFalVideoSuccess();
+
+    const router = new KieAIFalRouter({ kieApiKey: KIE_KEY, falApiKey: FAL_KEY, allowVideoFallback: true });
     const result = await router.generateVideo({ prompt: 'p' });
 
     expect(warnSpy).toHaveBeenCalled();

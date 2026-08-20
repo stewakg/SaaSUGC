@@ -23,19 +23,66 @@
       yet at the point this runs — so failing closed costs a customer one error
       message, while failing open costs real money on an unknown input.
 
-   Worst case that survives these limits: 30s, 1080p, 30fps = $0.60 (~€0.55)
-   against €0.90 — thin (~39%) but never a loss. Charging enhance PER SECOND is
-   the real answer and is still an open pricing decision (TODO §2a).
+   3. LENGTH IS PRICED, NOT FORBIDDEN (2026-08-20). The first version of this
+      module refused anything over 30 seconds, which protected the margin by
+      making the tool useless for a normal 45-second ad. It now bills in 30-second
+      TIERS: nine credits buys thirty seconds, a longer clip costs proportionally
+      more, and the margin stops decaying with duration instead of the tool
+      stopping at 30s. Four tiers (120s) is the ceiling — an unbounded one is how
+      this became a bug in the first place.
+
+   Worst case per tier: 30s in the 1080p band = $0.60 (~€0.55) against €0.90 of
+   revenue at the cheapest pack rate. A 120s clip is 36 credits (€3.60) against
+   ~€2.22. Thin (~39%) at every length, but never a loss, and no longer
+   length-dependent.
    ========================================================================== */
 
 /**
- * Longest video `enhance` accepts. `enhance` costs 9 credits = €0.90 of revenue
- * at the new cheapest pack rate (€0.100/credit, pricing.ts), and fal's Topaz
- * bills $0.02/s in the 1080p band — 60s = $1.20 ≈ €1.11, a LOSS at €0.90.
- * At 30s the worst case is $0.60 ≈ €0.55 against €0.90: thin (~39% margin)
- * but never a loss.
+ * One billing tier of video. Thirty seconds costs `JOB_COST.enhance` credits.
+ *
+ * The number comes from the money: fal's Topaz bills $0.02/s in the 1080p band,
+ * so 30s costs ~€0.55 against the €0.90 that nine credits earn at the cheapest
+ * pack rate. Any tier length works arithmetically — this one keeps a single-tier
+ * job feeling like a flat price to the customer while the margin stays constant
+ * as clips get longer.
  */
-export const ENHANCE_MAX_SECONDS = 30;
+export const ENHANCE_SECONDS_PER_TIER = 30;
+
+/** Four tiers, i.e. two minutes. A ceiling has to exist; see decision 3 above. */
+export const ENHANCE_MAX_TIERS = 4;
+
+/** Longest video `enhance` accepts, derived so the two numbers cannot drift. */
+export const ENHANCE_MAX_SECONDS = ENHANCE_SECONDS_PER_TIER * ENHANCE_MAX_TIERS;
+
+/**
+ * How many tiers a clip is billed as: every started 30 seconds, minimum one.
+ *
+ * A still image has no duration and bills as one tier — which is also what a
+ * non-finite or negative input returns, because the safe answer to "I cannot
+ * measure this" on the PRICING side is the minimum the customer could owe. The
+ * REFUSAL side is where an unmeasurable file is rejected (planEnhanceVideo);
+ * mixing the two would either overcharge for an image or let a bad probe set a
+ * price.
+ */
+export function enhanceTiers(durationSec: number): number {
+  if (!Number.isFinite(durationSec) || durationSec <= 0) return 1;
+  const tiers = Math.ceil(durationSec / ENHANCE_SECONDS_PER_TIER);
+  return Math.min(Math.max(tiers, 1), ENHANCE_MAX_TIERS);
+}
+
+/**
+ * What a clip of this length costs, in credits.
+ *
+ * `unitCost` defaults to the 9 that `JOB_COST.enhance` holds, passed as a
+ * parameter rather than imported: `pricing.ts` is the module that owns job
+ * prices, and importing it here would point the dependency arrow backwards —
+ * pricing already refers to this file in prose. Callers that have `JOB_COST` in
+ * hand should pass it, so a future change to the price of `enhance` reaches this
+ * function without anyone remembering to update a literal.
+ */
+export function enhanceCreditCost(durationSec: number, unitCost = 9): number {
+  return unitCost * enhanceTiers(durationSec);
+}
 
 /** Tallest OUTPUT `enhance` will produce — the top of fal's $0.02/s band, and the card's promise. */
 export const ENHANCE_MAX_HEIGHT = 1080;
@@ -118,7 +165,8 @@ export function planEnhanceVideo(meta: EnhanceVideoMeta, requestedFactor?: numbe
       code: 'input_too_long',
       message:
         `Video traje ${Math.round(durationSec)}s, a „Poboljšaj kvalitet" prima najviše ` +
-        `${ENHANCE_MAX_SECONDS}s. Iseci klip pa probaj ponovo. Nije naplaćeno.`,
+        `${ENHANCE_MAX_SECONDS}s (${ENHANCE_MAX_TIERS} × ${ENHANCE_SECONDS_PER_TIER}s). ` +
+        'Iseci klip pa probaj ponovo. Nije naplaćeno.',
     };
   }
 

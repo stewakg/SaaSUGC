@@ -716,10 +716,12 @@ body {
   /* 2026-08-20 - "Spona" (design-proposals-v3/step-rail.html, the direction the
      owner picked). The rail used to be six bordered rectangles, and that is what
      read as boxy: a 1px hairline plus radius-control on every step, six times
-     over. There is no box now. The steps hang off ONE thread (.step-thread) that
-     fills as far as the customer has got, and the only step wearing colour is the
-     active one - as a bleed with no edge, the same organic treatment the cards
-     already use.
+     over. There is no box now: a numbered dot, a label, and hue on the active
+     step only - as a bleed with no edge, the same organic treatment the cards
+     already use. A connecting thread was tried on 2026-08-20 and removed the same
+     day: at rail width it read as a line cutting through the dots rather than
+     passing behind them, and the progress bar under the rail already says how far
+     along you are.
 
      The thread is a DESKTOP thing: below lg the rail is a horizontal strip, where
      a vertical thread has nothing to run along. There the steps stay soft
@@ -740,8 +742,8 @@ body {
     color: var(--accent-text);
   }
   @media (min-width: 1024px) {
-    /* On the vertical rail the chip loses its own fill entirely - the thread and
-       the numbered dot carry the structure. */
+    /* On the vertical rail the chip loses its own fill entirely - the numbered
+       dot and the active step's bleed carry the structure. */
     .step-chip {
       background: transparent;
     }
@@ -755,32 +757,16 @@ body {
     }
   }
 
-  /* The thread: a hairline behind the dots plus a fill whose height the wizard
-     sets inline from the step index. */
-  .step-thread {
-    @apply pointer-events-none absolute overflow-hidden;
-    left: 21px;
-    top: 18px;
-    bottom: 18px;
-    width: 2px;
-    border-radius: 999px;
-    background: var(--line-strong);
-  }
-  .step-thread > i {
-    @apply block w-full;
-    border-radius: inherit;
-    background-image: var(--action-grad);
-    transition: height 0.3s ease;
-  }
-
-  /* Numbered dot. Its ring is painted in the GROUND colour so the dot punches a
-     hole through the thread instead of sitting on top of it. */
+  /* Numbered dot. It carried a 5px ring in the ground colour so it punched a
+     hole through the thread that used to run behind the rail; the thread is gone
+     (2026-08-20, owner: it read as a line cutting through the dots), and with it
+     the ring, which was a halo around every step once there was nothing to
+     interrupt. */
   .step-dot {
     @apply inline-flex h-7 w-7 shrink-0 items-center justify-center text-xs font-semibold;
     border-radius: 999px;
     background: var(--panel-2);
     color: var(--txt-low);
-    box-shadow: 0 0 0 5px var(--ground);
   }
   .step-dot--done {
     background: color-mix(in srgb, var(--accent) 22%, transparent);
@@ -789,7 +775,7 @@ body {
   .step-dot--active {
     background: var(--accent);
     color: var(--accent-contrast);
-    box-shadow: 0 0 0 5px var(--ground), var(--shadow-glow);
+    box-shadow: var(--shadow-glow);
   }
 
   /* MIGRATED to tokens — icon chip on tool cards. */

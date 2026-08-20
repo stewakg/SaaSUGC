@@ -71,7 +71,19 @@ function sizeToAspectRatio(size?: string): string {
 export class KieAIFalRouter implements AIProvider {
   readonly name = 'kie-fal-router';
 
-  constructor(private readonly config: { kieApiKey?: string; falApiKey?: string }) {}
+  constructor(
+    private readonly config: {
+      kieApiKey?: string;
+      falApiKey?: string;
+      /**
+       * Let a failed kie.ai VIDEO job fall through to fal.ai. Off unless asked,
+       * because fal costs more per video than the job earns — see the comment on
+       * `generateVideo`. Images are unaffected: both vendors charge the same
+       * there, so that fallback stays automatic.
+       */
+      allowVideoFallback?: boolean;
+    },
+  ) {}
 
   async generateImage(input: { prompt: string; refImages?: string[]; size?: string }): Promise<{ url: string }> {
     if (this.config.kieApiKey) {
@@ -89,6 +101,23 @@ export class KieAIFalRouter implements AIProvider {
     throw new Error('AI image generation failed: kie.ai unavailable/failed and no FAL_API_KEY is set.');
   }
 
+  /**
+   * VIDEO FALLBACK IS OFF BY DEFAULT, AND THAT IS A MONEY DECISION.
+   *
+   * kie.ai's veo3_fast is ~$0.30 a video; the fal.ai equivalent is $2–3+. The
+   * job that uses this (`ai_video`) sells for 25 credits — €2.50 at the cheapest
+   * pack rate — so a fallback run costs more than the job earns (MARGINS.md
+   * "Nalaz #0"). Availability is worth paying for right up until the price of
+   * the substitute exceeds the price of the product.
+   *
+   * A failed job is refunded and can be retried; a job delivered at a loss
+   * cannot be undone. So when kie fails we fail too, loudly, unless someone has
+   * deliberately opted in by constructing the router with
+   * `allowVideoFallback: true`.
+   *
+   * `generateImage` keeps its automatic fallback — both vendors charge $0.04
+   * there, so none of this reasoning applies.
+   */
   async generateVideo(input: {
     prompt: string;
     refImage?: string;
@@ -99,12 +128,17 @@ export class KieAIFalRouter implements AIProvider {
       try {
         return await this.generateVideoKie(input, this.config.kieApiKey);
       } catch (err) {
-        console.warn(
-          `[ai-router] kie.ai video generation failed, falling back to fal.ai: ${err instanceof Error ? err.message : err}`,
-        );
+        const reason = err instanceof Error ? err.message : String(err);
+        if (!this.config.allowVideoFallback) {
+          throw new Error(
+            `AI video generation failed on kie.ai (${reason}) and the fal.ai fallback is disabled ` +
+              'because it costs more than this job earns (MARGINS.md "Nalaz #0"). The job was not charged.',
+          );
+        }
+        console.warn(`[ai-router] kie.ai video generation failed, falling back to fal.ai: ${reason}`);
       }
     }
-    if (this.config.falApiKey) {
+    if (this.config.falApiKey && (this.config.allowVideoFallback || !this.config.kieApiKey)) {
       return this.generateVideoFal(input, this.config.falApiKey);
     }
     throw new Error('AI video generation failed: kie.ai unavailable/failed and no FAL_API_KEY is set.');

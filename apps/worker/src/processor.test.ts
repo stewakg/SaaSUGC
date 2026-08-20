@@ -107,6 +107,8 @@ function makeDb(opts: {
 }
 
 const JOB_ID = 'j1';
+import { JOB_COST } from '@adgen/core/pricing';
+
 const bullJob = { data: { jobId: JOB_ID } } as any;
 /** A row the worker loads — `params: {}` means the pipeline is called with `{}`. */
 const job = { id: JOB_ID, type: 'matrix', user_id: 'u1', params: {} };
@@ -114,6 +116,36 @@ const job = { id: JOB_ID, type: 'matrix', user_id: 'u1', params: {} };
 const asset = { kind: 'video', url: 'https://x/v.mp4', storageKey: 'renders/v.mp4' };
 
 describe('makeProcessor / processJob — the worker job state machine', () => {
+  /**
+   * `enhance` is the one tool billed by TIME rather than by output count, so the
+   * charge must follow the tier receipt the route wrote on the row — not
+   * JOB_COST x assets.length, which would charge a two-minute clip as if it were
+   * thirty seconds. The pipeline has already refused the job if the real file
+   * needed more tiers than were paid for, so this number is the honest one.
+   */
+  it('charges an enhance job by its paid tiers, not by how many assets came back', async () => {
+    const enhanceJob = { id: JOB_ID, type: 'enhance', user_id: 'u1', params: { enhanceTiers: 3 } };
+    const runPipelineFn = vi.fn().mockResolvedValue([asset]);
+    const { db, calls } = makeDb({ job: enhanceJob });
+    const processJob = makeProcessor(db as any, runPipelineFn);
+
+    await processJob(bullJob);
+
+    expect(calls.rpc[0].name).toBe('charge_credits');
+    expect(calls.rpc[0].args.p_amount).toBe(JOB_COST.enhance * 3);
+  });
+
+  it('an enhance job with no tier receipt falls back to the per-output price', async () => {
+    const legacyJob = { id: JOB_ID, type: 'enhance', user_id: 'u1', params: {} };
+    const runPipelineFn = vi.fn().mockResolvedValue([asset]);
+    const { db, calls } = makeDb({ job: legacyJob });
+    const processJob = makeProcessor(db as any, runPipelineFn);
+
+    await processJob(bullJob);
+
+    expect(calls.rpc[0].args.p_amount).toBe(JOB_COST.enhance);
+  });
+
   it('throws when the job is not found, and charges/calls nothing', async () => {
     const runPipelineFn = vi.fn();
     const { db, calls } = makeDb({ job: null, jobError: { message: 'no row' } });

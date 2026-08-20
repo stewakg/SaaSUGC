@@ -13,7 +13,7 @@
  * *this* copy of the list and JOB_DESCRIPTORS/JOB_COST agree with each other.
  */
 import { describe, it, expect } from 'vitest';
-import { CREDIT_PACKS, JOB_COST, JOB_DESCRIPTORS } from './pricing.ts';
+import { CREDIT_PACKS, JOB_COST, JOB_DESCRIPTORS, SIGNUP_BONUS_CREDITS } from './pricing.ts';
 import type { JobType } from './types.ts';
 
 // Copied by hand from the JobType union in types.ts. If someone adds a job
@@ -52,6 +52,14 @@ describe('CREDIT_PACKS integrity', () => {
   it('every pack id is unique', () => {
     const ids = CREDIT_PACKS.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('the smallest pack is bigger than the free signup bonus', () => {
+    // Otherwise the cheapest thing we SELL is smaller than what we GIVE AWAY,
+    // and the pack reads as a downgrade. Bonus and pack sizes are set in two
+    // different places; this is what stops one moving without the other.
+    const smallest = Math.min(...CREDIT_PACKS.map((p) => p.credits + (p.bonus ?? 0)));
+    expect(smallest).toBeGreaterThan(SIGNUP_BONUS_CREDITS);
   });
 
   it('exactly one pack is marked popular', () => {

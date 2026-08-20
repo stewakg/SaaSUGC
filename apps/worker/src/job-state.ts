@@ -236,7 +236,18 @@ export function makeProcessor(
       // (e.g. MockScriptProvider caps matrix variants at 3 canned scripts).
       // Charging job.cost (computed from the requested count at enqueue
       // time) would overbill in that case.
-      const actualCost = JOB_COST[job.type as JobType] * assets.length;
+      //
+      // `enhance` is the exception, because its unit is TIME, not output count:
+      // one asset can be one tier or four (enhance-limits.ts). Its price was
+      // fixed at enqueue time from the measured duration, and the pipeline has
+      // already refused the job if the real file needed more tiers than that —
+      // so the tier count on the row is the honest amount here. Multiplying by
+      // `assets.length` instead would charge a 120-second clip as if it were 30.
+      const paidEnhanceTiers = Number((job.params as { enhanceTiers?: unknown } | null)?.enhanceTiers);
+      const actualCost =
+        job.type === 'enhance' && Number.isFinite(paidEnhanceTiers) && paidEnhanceTiers > 0
+          ? JOB_COST.enhance * Math.floor(paidEnhanceTiers)
+          : JOB_COST[job.type as JobType] * assets.length;
 
       // Charge BEFORE marking the job done/visible — if this fails (e.g. a
       // concurrent job already spent the balance), the result must not be

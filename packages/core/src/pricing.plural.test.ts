@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { creditsLabel, creditsWord, freeVideosLabel, SIGNUP_BONUS_CREDITS } from './pricing.ts';
+import {
+  creditsLabel,
+  creditsWord,
+  freeVideosLabel,
+  JOB_COST,
+  SIGNUP_BONUS_CREDITS,
+  SIGNUP_BONUS_VIDEOS,
+} from './pricing.ts';
 
 describe('creditsWord — Serbian plural for "kredit"', () => {
   it('uses the singular for numbers ending in 1', () => {
@@ -61,8 +68,13 @@ describe('freeVideosLabel — Serbian plural for the signup offer', () => {
     }
   });
 
-  it('the shipped SIGNUP_BONUS_CREDITS renders correctly today', () => {
-    // The whole point: this must stay right if the constant is ever changed.
-    expect(freeVideosLabel(SIGNUP_BONUS_CREDITS)).toBe(`${SIGNUP_BONUS_CREDITS} besplatna videa`);
+  it('the promise on the landing page is the one the grant can pay', () => {
+    // The bug this pins: the copy said "3 besplatna videa" while the grant was
+    // 3 CREDITS, which buys none. The label must be built from the DERIVED
+    // video count, never from the credit count.
+    expect(freeVideosLabel(SIGNUP_BONUS_VIDEOS)).toBe(`${SIGNUP_BONUS_VIDEOS} besplatna videa`);
+    expect(SIGNUP_BONUS_VIDEOS).toBeGreaterThanOrEqual(3);
+    // …and the grant really covers that many of the headline tool.
+    expect(SIGNUP_BONUS_CREDITS).toBeGreaterThanOrEqual(SIGNUP_BONUS_VIDEOS * JOB_COST.matrix);
   });
 });

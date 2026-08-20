@@ -6,7 +6,7 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import { authErrorMessage } from '@/lib/auth-errors';
 import { PASSWORD_MIN_LENGTH, validatePassword } from '@/lib/password';
 import { PasswordRules } from '@/components/password-rules';
-import { SIGNUP_BONUS_CREDITS, creditsLabel } from '@adgen/core/pricing';
+import { SIGNUP_BONUS_VIDEOS, freeVideosLabel } from '@adgen/core/pricing';
 import { AuthSplit } from '@/components/auth-split';
 
 /**
@@ -70,10 +70,10 @@ export default function SignupPage() {
     <AuthSplit
       active="signup"
       title="Napravi nalog"
-      /* Credits, not videos: the bonus is 3 CREDITS and the cheapest video tool
-         costs 8, so "3 besplatna videa" would be a promise the account cannot
-         keep. See the note in components/auth-split.tsx. */
-      subtitle={`${creditsLabel(SIGNUP_BONUS_CREDITS)} odmah, bez kartice.`}
+      /* Videos, counted from the grant rather than typed: the bonus now covers
+         SIGNUP_BONUS_VIDEOS of the headline tool. See pricing.ts for why the
+         number is derived and never written into a sentence. */
+      subtitle={`${freeVideosLabel(SIGNUP_BONUS_VIDEOS)} odmah, bez kartice.`}
     >
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <Field

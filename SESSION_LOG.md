@@ -143,11 +143,82 @@ every caller, not just the definition.
   recorded in TODO §1.
 - Nothing left uncommitted.
 
+### Continued — the owner asked for all three open decisions to be CLOSED
+
+**1. "Moramo da imamo 3 besplatna video snimka."** The promise stays and the grant
+grew: `SIGNUP_BONUS_CREDITS` 3 -> **45** (3 x `JOB_COST.matrix`), plus a derived
+`SIGNUP_BONUS_VIDEOS` so no piece of copy ever states a video count of its own again —
+that derivation is the actual fix, the number is just today's value. Four callers
+switched to it (landing, page metadata, auth-split chip, signup subtitle).
+
+⚠️ **The database still grants 3 until a human applies
+`supabase/migrations/0012_signup_bonus_45.sql`** (written this session, one line:
+`signup_bonus_credits()` returns 45). Claude has no DB access and the permission
+classifier refuses direct prod-DB writes, so this is an owner action. Until then the
+site advertises three videos and hands over three credits.
+
+**2. The Starter pack moved 30 credits/€4.50 -> 60/€9.** Two problems, one change: the
+cheapest thing we SELL must not be smaller than what we GIVE AWAY (45), and Stripe's
+fixed €0.25 was eating 7.1% of a €4.50 pack against 2.8% of €9. The €0.150/credit rate
+is unchanged, so "25% below the competitor at every tier" still holds. A new integrity
+test fails if a future edit ever makes the smallest pack smaller than the bonus.
+
+**3. `ai_video`'s fal fallback is off.** `KieAIFalRouter` gained
+`allowVideoFallback` (default FALSE): a kie failure now fails the job with a message
+saying it was not charged, instead of silently buying a €2.80 video to sell for €2.50.
+Images keep their automatic fallback — /usr/bin/bash.04 either vendor. The old test asserted the
+losing behaviour; it now pins both directions of the switch.
+
+**4. `enhance` is billed by length, so the 30s wall is gone.** This is the one the
+owner phrased as "sredi isto i enhance", and the right reading was not "raise the
+cap": a flat price with a hard cap protects the margin by making the tool useless for
+a normal 45-second ad. It now bills **ceil(seconds / 30) tiers at 9 credits**, ceiling
+4 tiers = **120s**. Margin is ~39% worst-case at EVERY length instead of decaying with
+duration — a property a new test asserts directly by comparing the 30s and 120s
+margins.
+
+Enforced in three places, each with a different job: the WIZARD measures in the browser
+and shows "Klip traje 45s — naplaćuje se kao 2 × 30s" before the upload; `/api/jobs`
+prices from that duration, refuses anything past 120s before credits are held, and
+writes `params.enhanceTiers` as a RECEIPT; the WORKER re-measures the stored file and
+throws `underpaid_duration` if it needs more tiers than were paid for — nothing is
+charged at that point, so lying downwards buys a rejection rather than a discount.
+`job-state.ts` charges tiers × unit for enhance instead of unit × asset count, which
+would have billed a two-minute clip as thirty seconds.
+
+**5. The step-rail thread is gone** (owner: it read as a line cutting through the
+dots). With it went the 5px ground-coloured ring on `.step-dot`, which existed only to
+punch a hole through that line and became a halo without it.
+
+**Delegation, honestly: two Cline runs were killed this round.** The first spent eight
+iterations failing to delete a CSS block — it kept writing PowerShell scripts against a
+CRLF file instead of using its editor tool. The second stalled at iteration 9 without
+touching a file. Both were stopped and the work was done directly. The lesson for
+CLINE_LOG: delegation has to be cheaper than doing it, and a mechanical edit in a
+CRLF-line-ending file is where this setup stops being cheaper. Specs are kept in the
+scratchpad (`cline-prompt-bonus.md`, `cline-prompt-enhance-tiers.md`) — they were
+sound; the executor was the problem.
+
+**Gates after all of it: 1224 tests** (core 412, web 669, worker 143), typecheck clean,
+prod build clean. Mutation-tested rather than trusted, as before: reverting the bonus,
+re-enabling the video fallback, disabling the tier charge and disabling the
+underpaid-duration guard each failed exactly the tests named after those behaviours and
+nothing else. One test-isolation bug found and fixed on the way: `route.test.ts`
+accumulated queue names across cases, so adding tests above test 13 broke it — the
+enhance block now sits at the end of the file, where the route's per-name Queue
+memoisation makes the assertion meaningful.
+
 ### Open decisions for the owner
 
-1. `ai_video` fallback loss (⛔ against that tool shipping) — MARGINS.md Nalaz #0.
-2. The landing's "3 besplatna videa" claim (see §3).
-3. Whether the €4.50 Starter pack survives Stripe's €0.25 fixed fee (7.1%).
+All three of the decisions listed here at first close are now DONE (see the section
+above). What is left for the owner:
+
+1. **Apply `supabase/migrations/0012_signup_bonus_45.sql`** — until then the grant is
+   still 3 credits while the site promises three videos.
+2. Whether `ai_video` ever pays for availability (raise its price, or cap the fallback)
+   — not urgent, the tool has no pipeline.
+3. Existing accounts were NOT backfilled to the new bonus. A retroactive grant is a
+   money decision nobody has made.
 
 ---
 

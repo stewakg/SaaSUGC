@@ -4,7 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getJobDescriptor } from '@adgen/core/pricing';
 import { CostNote } from '@/components/cost-note';
-import { ENHANCE_MAX_HEIGHT, ENHANCE_MAX_SECONDS, planEnhanceVideo } from '@adgen/core/enhance-limits';
+import {
+  ENHANCE_MAX_HEIGHT,
+  ENHANCE_MAX_SECONDS,
+  ENHANCE_SECONDS_PER_TIER,
+  enhanceCreditCost,
+  enhanceTiers,
+  planEnhanceVideo,
+} from '@adgen/core/enhance-limits';
 import { FileDropzone } from '@/components/file-dropzone';
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
@@ -34,6 +41,13 @@ export default function EnhancePage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [sourceName, setSourceName] = useState('');
+  /**
+   * How long the picked video is, as measured in the browser. Drives BOTH the
+   * price shown and the price charged: it goes into the POST, the route turns
+   * it into tiers, and the worker re-measures the stored file and refuses the
+   * job if it needs more tiers than were paid for.
+   */
+  const [durationSec, setDurationSec] = useState<number | null>(null);
 
   const [upscaleFactor, setUpscaleFactor] = useState(2);
   const [sharpen, setSharpen] = useState(true);
@@ -64,6 +78,10 @@ export default function EnhancePage() {
           setUploadPhase('error');
           return;
         }
+        setDurationSec(probed.durationSec);
+      } else {
+        // A still image has no duration and bills as a single tier.
+        setDurationSec(null);
       }
       const uploaded = await uploadFile(file);
       setSourceUrl(uploaded.url);
@@ -82,7 +100,11 @@ export default function EnhancePage() {
       const res = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'enhance', params: { sourceUrl, upscaleFactor, sharpen } }),
+        body: JSON.stringify({
+          type: 'enhance',
+          // durationSec is what the route prices the job from — see /api/jobs.
+          params: { sourceUrl, upscaleFactor, sharpen, durationSec },
+        }),
       });
       const data = (await res.json()) as { id?: string; error?: string };
       if (!res.ok || !data.id) throw new Error(data.error ?? 'Greška pri pokretanju.');
@@ -98,6 +120,13 @@ export default function EnhancePage() {
       setGenPhase('error');
     }
   }
+
+  /**
+   * The price follows the clip: `enhance` bills per 30-second tier, so a 45s
+   * video is two tiers. An image (no duration) is one.
+   */
+  const tiers = durationSec === null ? 1 : enhanceTiers(durationSec);
+  const cost = durationSec === null ? descriptor.cost : enhanceCreditCost(durationSec, descriptor.cost);
 
   const steps: WizardStep[] = [
     {
@@ -117,6 +146,13 @@ export default function EnhancePage() {
           {uploadError && <p role="alert" className="rounded-control border border-err/30 bg-err/10 p-3 text-sm text-err-text">{uploadError}</p>}
           {uploadPhase === 'done' && sourceUrl && (
             <p className="truncate text-sm text-accent-text">Otpremljeno: {sourceName}</p>
+          )}
+          {/* Said before the last step, quietly: a long clip costs more, and the
+              customer should learn that when they pick the file, not at the end. */}
+          {uploadPhase === 'done' && durationSec !== null && tiers > 1 && (
+            <p className="text-xs text-txt-low">
+              Klip traje {Math.round(durationSec)}s — naplaćuje se kao {tiers} × {ENHANCE_SECONDS_PER_TIER}s.
+            </p>
           )}
         </div>
       ),
@@ -201,7 +237,11 @@ export default function EnhancePage() {
         canNext={canNext}
         nextLabel={nextLabel}
         costLabel={
-          <CostNote cost={descriptor.cost} charged={genPhase === 'done'} />
+          <CostNote
+            cost={cost}
+            suffix={tiers > 1 ? `(${tiers} × ${ENHANCE_SECONDS_PER_TIER}s)` : undefined}
+            charged={genPhase === 'done'}
+          />
         }
       />
     </div>

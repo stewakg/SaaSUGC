@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { SIGNUP_BONUS_CREDITS, creditsLabel } from '@adgen/core/pricing';
+import { SIGNUP_BONUS_VIDEOS, freeVideosLabel } from '@adgen/core/pricing';
 import { cn } from '@/lib/utils';
 
 /**
@@ -12,10 +12,12 @@ import { cn } from '@/lib/utils';
  * bordered boxes — not a copy of their page: their headline and their offer copy
  * stay theirs.
  *
- * ONE CLAIM WE DO NOT MAKE: their chip promises "3 besplatna videa". Our signup
- * bonus is 3 CREDITS, and the cheapest video tool costs 8, so that sentence
- * would be false here — `freeVideosLabel` exists and would happily print it.
- * The chip below says credits, which is what the account actually receives.
+ * The chip counts VIDEOS, and counts them from `SIGNUP_BONUS_VIDEOS` — derived
+ * from the credit grant rather than typed here. Until 2026-08-20 this file said
+ * credits instead, because the grant was 3 credits and the competitor's "3
+ * besplatna videa" would have been a lie in our wording. The grant was raised to
+ * cover the promise; the derivation is what keeps the two from drifting apart
+ * again.
  *
  * Below `lg` the brand half collapses to a single line above the form: on a
  * phone the form is the whole job, and a full-height marketing panel would push
@@ -111,7 +113,7 @@ function BrandHalf() {
         </div>
 
         <div className="hidden gap-3 sm:grid sm:grid-cols-2 lg:grid">
-          <Chip strong={`${creditsLabel(SIGNUP_BONUS_CREDITS)} na poklon`} rest="čim napraviš nalog, bez kartice." />
+          <Chip strong={`${freeVideosLabel(SIGNUP_BONUS_VIDEOS)} na poklon`} rest="čim napraviš nalog, bez kartice." />
           <Chip strong="Jedan novčanik" rest="isti krediti važe u svim alatima." />
         </div>
       </div>

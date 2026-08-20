@@ -362,7 +362,7 @@ describe('runMediaEditPipeline — enhance video cost ceiling', () => {
       runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', {}, {
         mediaEdit,
         persist,
-        probe: fakeProbe({ durationSec: 61, height: 1080, fps: 30 }),
+        probe: fakeProbe({ durationSec: 130, height: 1080, fps: 30 }),
       }),
     ).rejects.toThrow(/input_too_long/);
 
@@ -424,6 +424,62 @@ describe('runMediaEditPipeline — enhance video cost ceiling', () => {
       upscaleFactor: 2,
       targetFps: undefined,
     });
+  });
+
+  /**
+   * The tier contract, worker side. The price was fixed at enqueue time from the
+   * duration the BROWSER measured; this is where that claim meets the file. A
+   * clip that needs more tiers than were paid for is refused before fal is
+   * called — nothing has been charged yet, so the refusal costs an error message
+   * while proceeding would cost four tiers of GPU time for one tier of revenue.
+   */
+  it('a clip needing more tiers than were paid for is refused, and fal is never called', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    await expect(
+      runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', { enhanceTiers: 1 }, {
+        mediaEdit,
+        persist,
+        probe: fakeProbe({ durationSec: 45, height: 1080, fps: 30 }),
+      }),
+    ).rejects.toThrow(/underpaid_duration/);
+
+    expect(mediaEdit.upscaleVideo).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('the same clip proceeds when two tiers were paid for', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    await runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', { enhanceTiers: 2 }, {
+      mediaEdit,
+      persist,
+      probe: fakeProbe({ durationSec: 45, height: 1080, fps: 30 }),
+    });
+
+    expect(mediaEdit.upscaleVideo).toHaveBeenCalledTimes(1);
+  });
+
+  it('a clip SHORTER than what was paid for proceeds — over-declaring is the customer\'s loss, not a refusal', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    await runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', { enhanceTiers: 4 }, {
+      mediaEdit,
+      persist,
+      probe: fakeProbe({ durationSec: 20, height: 1080, fps: 30 }),
+    });
+
+    expect(mediaEdit.upscaleVideo).toHaveBeenCalledTimes(1);
+  });
+
+  it('a missing tier receipt is treated as one tier, so an old queued job still refuses a long clip', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    await expect(
+      runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', {}, {
+        mediaEdit,
+        persist,
+        probe: fakeProbe({ durationSec: 90, height: 1080, fps: 30 }),
+      }),
+    ).rejects.toThrow(/underpaid_duration/);
+
+    expect(mediaEdit.upscaleVideo).not.toHaveBeenCalled();
   });
 
   it('an IMAGE source never probes — the per-second bill only exists for video', async () => {
