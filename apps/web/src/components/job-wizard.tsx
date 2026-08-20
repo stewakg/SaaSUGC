@@ -117,9 +117,22 @@ export function JobWizard({
           final action, not on each step.
         */}
         <nav
-          className="step-rail lg:flex-col lg:items-stretch lg:gap-1"
+          className="step-rail relative lg:flex-col lg:items-stretch lg:gap-1"
           aria-label="Koraci"
         >
+          {/*
+            The thread every step hangs off — the "Spona" direction picked on
+            2026-08-20 (design-proposals-v3/step-rail.html), which replaced six
+            bordered rectangles with one line and six dots.
+
+            Desktop only: below `lg` the rail is a horizontal strip and a
+            vertical thread would have nothing to run along. `aria-hidden`
+            because the same progress is stated in words right under the rail —
+            a screen reader should hear it once, not twice.
+          */}
+          <span aria-hidden className="step-thread hidden lg:block">
+            <i style={{ height: `${(activeIndex / Math.max(steps.length - 1, 1)) * 100}%` }} />
+          </span>
           {steps.map((s, i) => {
             const reached = allowJumpAhead || i <= activeIndex;
             return (
@@ -140,12 +153,15 @@ export function JobWizard({
               >
                 {/* Number badge, visible only in the vertical layout — it is what
                     makes a stacked rail readable as an ordered list rather than a
-                    pile of chips. */}
+                    pile of chips, and since the "Spona" pass it is also what
+                    punches the thread: its ring is painted in the ground colour
+                    (see `.step-dot`), so the line appears to pass behind it. */}
                 <span
                   aria-hidden
                   className={cn(
-                    'hidden h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold lg:inline-flex',
-                    i === activeIndex ? 'bg-accent text-accent-contrast' : 'bg-panel-2 text-txt-mid',
+                    'step-dot hidden lg:inline-flex',
+                    i < activeIndex && 'step-dot--done',
+                    i === activeIndex && 'step-dot--active',
                   )}
                 >
                   {i + 1}
@@ -161,7 +177,7 @@ export function JobWizard({
           <p className="mb-1.5 text-xs font-medium text-txt-mid">
             Korak {activeIndex + 1} od {steps.length}
           </p>
-          <span className="progress">
+          <span className="progress progress--thick">
             <i style={{ width: `${((activeIndex + 1) / steps.length) * 100}%` }} />
           </span>
         </div>

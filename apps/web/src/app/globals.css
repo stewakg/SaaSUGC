@@ -688,6 +688,12 @@ body {
     animation: progress-sheen 1.8s ease-in-out infinite;
   }
   /* No elapsed data to honestly show a width with — travel instead of lying. */
+  /* Owner's call 2026-08-20: the wizard's progress line reads as an afterthought
+     at 6px. It is the only thing on that rail saying how far along you are, so
+     it gets weight. */
+  .progress--thick {
+    height: 10px;
+  }
   .progress--indeterminate > i {
     width: 35%;
     animation: progress-travel 1.4s ease-in-out infinite;
@@ -707,11 +713,23 @@ body {
   .step-chip > * {
     min-width: 0;
   }
+  /* 2026-08-20 - "Spona" (design-proposals-v3/step-rail.html, the direction the
+     owner picked). The rail used to be six bordered rectangles, and that is what
+     read as boxy: a 1px hairline plus radius-control on every step, six times
+     over. There is no box now. The steps hang off ONE thread (.step-thread) that
+     fills as far as the customer has got, and the only step wearing colour is the
+     active one - as a bleed with no edge, the same organic treatment the cards
+     already use.
+
+     The thread is a DESKTOP thing: below lg the rail is a horizontal strip, where
+     a vertical thread has nothing to run along. There the steps stay soft
+     capsules (radius 999, no border) - round rather than boxy, but still legible
+     as separate targets on a phone. */
   .step-chip {
     @apply flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-xs font-semibold transition;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-control);
+    background: rgba(255, 255, 255, 0.03);
+    border: 0;
+    border-radius: 999px;
     color: var(--txt-low);
   }
   .step-chip--done {
@@ -720,8 +738,58 @@ body {
   .step-chip--active {
     background: var(--accent-soft);
     color: var(--accent-text);
-    box-shadow: inset 0 0 0 1px var(--accent);
-    border-color: transparent;
+  }
+  @media (min-width: 1024px) {
+    /* On the vertical rail the chip loses its own fill entirely - the thread and
+       the numbered dot carry the structure. */
+    .step-chip {
+      background: transparent;
+    }
+    .step-chip--active {
+      color: var(--txt-hi);
+      background: radial-gradient(
+        120% 140% at 0% 50%,
+        color-mix(in srgb, var(--accent) 20%, transparent),
+        transparent 70%
+      );
+    }
+  }
+
+  /* The thread: a hairline behind the dots plus a fill whose height the wizard
+     sets inline from the step index. */
+  .step-thread {
+    @apply pointer-events-none absolute overflow-hidden;
+    left: 21px;
+    top: 18px;
+    bottom: 18px;
+    width: 2px;
+    border-radius: 999px;
+    background: var(--line-strong);
+  }
+  .step-thread > i {
+    @apply block w-full;
+    border-radius: inherit;
+    background-image: var(--action-grad);
+    transition: height 0.3s ease;
+  }
+
+  /* Numbered dot. Its ring is painted in the GROUND colour so the dot punches a
+     hole through the thread instead of sitting on top of it. */
+  .step-dot {
+    @apply inline-flex h-7 w-7 shrink-0 items-center justify-center text-xs font-semibold;
+    border-radius: 999px;
+    background: var(--panel-2);
+    color: var(--txt-low);
+    box-shadow: 0 0 0 5px var(--ground);
+  }
+  .step-dot--done {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    color: var(--accent-text);
+  }
+  .step-dot--active {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    box-shadow: 0 0 0 5px var(--ground), var(--shadow-glow);
   }
 
   /* MIGRATED to tokens — icon chip on tool cards. */

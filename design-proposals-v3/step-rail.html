@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="sr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Step rail — četiri predloga (v3)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* Premijera tokens, copied verbatim from apps/web/src/app/globals.css so the
+     mockup cannot flatter itself with colours the app does not have. */
+  :root {
+    --ground: #0d0c11;
+    --panel: #141318;
+    --panel-2: #1b1a21;
+    --line: rgba(255, 255, 255, 0.08);
+    --txt-hi: #f2f1f7;
+    --txt-mid: #aaa8b8;
+    --txt-low: #807e90;
+    --accent: #8b5cff;
+    --accent-fill: #6d38ee;
+    --accent-soft: rgba(139, 92, 255, 0.14);
+    --live: #c6ff4d;
+    --font-display: 'Space Grotesk', system-ui, sans-serif;
+    --font-ui: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 40px 28px 80px;
+    background: var(--ground);
+    color: var(--txt-hi);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-family: var(--font-display); font-size: 22px; margin: 0 0 6px; }
+  .lede { color: var(--txt-mid); font-size: 14px; margin: 0 0 36px; max-width: 70ch; }
+  .grid { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+  .case { width: 300px; }
+  .case > h2 {
+    font-family: var(--font-display);
+    font-size: 14px; letter-spacing: .02em;
+    margin: 0 0 4px;
+  }
+  .case > p { color: var(--txt-low); font-size: 12px; line-height: 1.5; margin: 0 0 16px; min-height: 54px; }
+  .kicker {
+    font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--txt-low); margin: 0 0 12px; padding-left: 4px;
+  }
+  .stage { background: var(--ground); padding: 20px 16px; border-radius: 28px; }
+
+  /* ── A · Spona ────────────────────────────────────────────────────────────
+     No boxes at all. One continuous thread runs behind the numbers and fills
+     as far as the customer has got; the active step is the only thing wearing
+     colour, as a soft bleed with no edge. */
+  .spona { position: relative; padding-left: 6px; }
+  .spona::before {
+    content: ''; position: absolute; left: 20px; top: 14px; bottom: 14px; width: 2px;
+    background: rgba(255,255,255,.10); border-radius: 2px;
+  }
+  .spona::after {
+    content: ''; position: absolute; left: 20px; top: 14px; width: 2px; height: 96px;
+    background: linear-gradient(180deg, #6d38ee, var(--accent));
+    border-radius: 2px;
+  }
+  .spona .row {
+    position: relative; display: flex; align-items: center; gap: 14px;
+    padding: 9px 14px 9px 0; border: 0; background: none; width: 100%;
+    font: inherit; color: var(--txt-low); text-align: left; cursor: pointer;
+    border-radius: 999px;
+  }
+  .spona .dot {
+    position: relative; z-index: 1;
+    width: 28px; height: 28px; flex: none; border-radius: 999px;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 600; font-family: var(--font-display);
+    background: var(--panel-2); color: var(--txt-low);
+    box-shadow: 0 0 0 5px var(--ground);
+  }
+  .spona .row.done { color: var(--txt-mid); }
+  .spona .row.done .dot { background: rgba(139,92,255,.22); color: #cbb6ff; }
+  .spona .row.active {
+    color: var(--txt-hi); font-weight: 600;
+    background: radial-gradient(120% 140% at 0% 50%, rgba(139,92,255,.20), transparent 70%);
+  }
+  .spona .row.active .dot {
+    background: var(--accent-fill); color: #fff;
+    box-shadow: 0 0 0 5px var(--ground), 0 0 22px -4px rgba(139,92,255,.9);
+  }
+
+  /* ── B · Kapsule ──────────────────────────────────────────────────────────
+     Keeps a hit area per step, but the rectangle is gone: full 999px pills,
+     no border anywhere, the inactive fill barely there. */
+  .kapsule { display: flex; flex-direction: column; gap: 6px; }
+  .kapsule button {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px 10px 10px; border: 0; border-radius: 999px;
+    background: rgba(255,255,255,.03); color: var(--txt-low);
+    font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+    transition: background .18s ease, color .18s ease;
+  }
+  .kapsule button:hover { background: rgba(255,255,255,.06); }
+  .kapsule .num {
+    width: 26px; height: 26px; flex: none; border-radius: 999px; display: grid; place-items: center;
+    font-family: var(--font-display); font-size: 12px; font-weight: 600;
+    background: rgba(255,255,255,.06); color: var(--txt-mid);
+  }
+  .kapsule .done { color: var(--txt-mid); }
+  .kapsule .done .num { background: rgba(139,92,255,.2); color: #cbb6ff; }
+  .kapsule .active {
+    color: #fff; font-weight: 600;
+    background: linear-gradient(96deg, rgba(109,56,238,.95), rgba(139,92,255,.55));
+    box-shadow: 0 10px 26px -14px rgba(139,92,255,.9);
+  }
+  .kapsule .active .num { background: rgba(255,255,255,.22); color: #fff; }
+
+  /* ── C · Klizač ───────────────────────────────────────────────────────────
+     The rail is ONE organic surface (radius 26) and the active step is an oval
+     that slides inside it — a segmented control, not six cards. Nothing has an
+     inner hairline, which is the thing that reads as "boxy" today. */
+  .klizac {
+    position: relative; padding: 8px; border-radius: 26px;
+    background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+  }
+  .klizac .pip {
+    position: absolute; left: 8px; right: 8px; height: 44px; border-radius: 999px;
+    background: linear-gradient(96deg, rgba(109,56,238,.9), rgba(139,92,255,.5));
+    box-shadow: 0 12px 30px -16px rgba(139,92,255,1);
+    transition: transform .28s cubic-bezier(.4,.9,.3,1);
+  }
+  .klizac button {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 12px; width: 100%; height: 44px;
+    padding: 0 14px 0 8px; border: 0; background: none; border-radius: 999px;
+    font: inherit; font-size: 13px; color: var(--txt-low); text-align: left; cursor: pointer;
+  }
+  .klizac .num {
+    width: 26px; height: 26px; flex: none; border-radius: 999px; display: grid; place-items: center;
+    font-family: var(--font-display); font-size: 12px; font-weight: 600;
+    background: rgba(255,255,255,.06); color: var(--txt-mid);
+  }
+  .klizac .done { color: var(--txt-mid); }
+  .klizac .active { color: #fff; font-weight: 600; }
+  .klizac .active .num { background: rgba(255,255,255,.22); color: #fff; }
+
+  /* ── D · Perle ────────────────────────────────────────────────────────────
+     The most compact: the rail is a column of beads, and only the step you are
+     on says its name — the label leaks out of the bead as a hue bleed. Frees
+     ~90px of horizontal space for the panel. */
+  .perle { display: flex; flex-direction: column; gap: 2px; }
+  .perle .row {
+    display: flex; align-items: center; gap: 12px; padding: 5px 6px;
+    border: 0; background: none; font: inherit; color: var(--txt-low);
+    text-align: left; cursor: pointer; border-radius: 999px;
+  }
+  .perle .bead {
+    width: 34px; height: 34px; flex: none; border-radius: 999px; display: grid; place-items: center;
+    font-family: var(--font-display); font-size: 13px; font-weight: 700;
+    background: var(--panel-2); color: var(--txt-low);
+  }
+  .perle .done .bead { background: rgba(139,92,255,.18); color: #cbb6ff; }
+  .perle .row.active {
+    background: radial-gradient(130% 150% at 0% 50%, rgba(139,92,255,.22), transparent 72%);
+    color: var(--txt-hi);
+  }
+  .perle .active .bead {
+    background: var(--accent-fill); color: #fff; transform: scale(1.08);
+    box-shadow: 0 0 26px -6px rgba(139,92,255,.95);
+  }
+  .perle .name { font-size: 13px; font-weight: 600; }
+  /* Only the step you are on says its name; the rest are beads. The label
+     appears on hover so the rail is still navigable. */
+  .perle .row:not(.active) .name {
+    font-weight: 400; font-size: 12.5px; opacity: 0; transition: opacity .18s ease;
+  }
+  .perle .row:not(.active):hover .name { opacity: .75; }
+
+  /* Progress line shared by A/B/D — a hairline that fills, no track chrome. */
+  .prog { margin-top: 18px; padding: 0 6px; }
+  .prog p { margin: 0 0 8px; font-size: 12px; color: var(--txt-mid); white-space: nowrap; }
+  /* `>` matters: a bare `.prog span` also swallowed the counter's own <span>,
+     turning the step number into a 3px-tall block — invisible. */
+  .prog > span {
+    display: block; height: 3px; border-radius: 999px; background: rgba(255,255,255,.07);
+    overflow: hidden;
+  }
+  .prog > span > i {
+    display: block; height: 100%; width: 17%; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent-fill), var(--accent));
+  }
+  .now { color: var(--live); }
+</style>
+</head>
+<body>
+  <h1>Step rail — četiri predloga</h1>
+  <p class="lede">
+    Iste boje i isti tokeni kao Premijera tema. Trenutni rail je šest pravougaonika
+    sa unutrašnjim okvirom (<code>border: 1px solid var(--line)</code>, radius 12) —
+    to je ono što bode. Svaki predlog ispod uklanja okvir; razlikuju se po tome
+    koliko ostaje od „dugmeta".
+  </p>
+
+  <div class="grid">
+    <section class="case">
+      <h2>A · Spona</h2>
+      <p>Bez ijedne kutije. Nit povezuje korake i puni se do dokle si stigao; aktivan korak je jedini u boji, kao mrlja bez ivice.</p>
+      <p class="kicker">Koraci</p>
+      <div class="stage">
+        <div class="spona">
+          <button class="row done"><span class="dot">1</span> Upload klipova</button>
+          <button class="row done"><span class="dot">2</span> Uvezi proizvod</button>
+          <button class="row active"><span class="dot">3</span> Glas, titlovi i varijante</button>
+          <button class="row"><span class="dot">4</span> Skripte</button>
+          <button class="row"><span class="dot">5</span> Tranzicije i CTA</button>
+          <button class="row"><span class="dot">6</span> Generiši</button>
+        </div>
+        <div class="prog"><p>Korak <span class="now">3</span>/6</p><span><i style="width:50%"></i></span></div>
+      </div>
+    </section>
+
+    <section class="case">
+      <h2>B · Kapsule</h2>
+      <p>Zadržava dugme po koraku, ali pravougaonika nema: pune kapsule 999px, bez ijednog okvira, neaktivne jedva vidljive.</p>
+      <p class="kicker">Koraci</p>
+      <div class="stage">
+        <div class="kapsule">
+          <button class="done"><span class="num">1</span> Upload klipova</button>
+          <button class="done"><span class="num">2</span> Uvezi proizvod</button>
+          <button class="active"><span class="num">3</span> Glas, titlovi i varijante</button>
+          <button><span class="num">4</span> Skripte</button>
+          <button><span class="num">5</span> Tranzicije i CTA</button>
+          <button><span class="num">6</span> Generiši</button>
+        </div>
+        <div class="prog"><p>Korak <span class="now">3</span>/6</p><span><i style="width:50%"></i></span></div>
+      </div>
+    </section>
+
+    <section class="case">
+      <h2>C · Klizač</h2>
+      <p>Rail je JEDNA zaobljena površina, a aktivan korak je oval koji klizi unutar nje. Segmentni kontroler, ne šest kartica.</p>
+      <p class="kicker">Koraci</p>
+      <div class="stage">
+        <div class="klizac">
+          <div class="pip" style="transform: translateY(88px)"></div>
+          <button class="done"><span class="num">1</span> Upload klipova</button>
+          <button class="done"><span class="num">2</span> Uvezi proizvod</button>
+          <button class="active"><span class="num">3</span> Glas, titlovi i varijante</button>
+          <button><span class="num">4</span> Skripte</button>
+          <button><span class="num">5</span> Tranzicije i CTA</button>
+          <button><span class="num">6</span> Generiši</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="case">
+      <h2>D · Perle</h2>
+      <p>Najkompaktnije: kolona perli, ime nosi samo korak na kome jesi, i ono curi iz perle kao mrlja. Oslobađa ~90px panelu.</p>
+      <p class="kicker">Koraci</p>
+      <div class="stage">
+        <div class="perle">
+          <button class="row done"><span class="bead">1</span><span class="name">Upload klipova</span></button>
+          <button class="row done"><span class="bead">2</span><span class="name">Uvezi proizvod</span></button>
+          <button class="row active"><span class="bead">3</span><span class="name">Glas, titlovi i varijante</span></button>
+          <button class="row"><span class="bead">4</span><span class="name">Skripte</span></button>
+          <button class="row"><span class="bead">5</span><span class="name">Tranzicije i CTA</span></button>
+          <button class="row"><span class="bead">6</span><span class="name">Generiši</span></button>
+        </div>
+        <div class="prog"><p>Korak <span class="now">3</span>/6</p><span><i style="width:50%"></i></span></div>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
