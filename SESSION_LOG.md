@@ -120,8 +120,27 @@ every caller, not just the definition.
 - Tests: **core 405 · web 661 · worker 137 = 1203** (was 1169 at the previous entry).
 - typecheck clean, `@adgen/web` prod build clean, dev server run live to check the auth
   split at 1440×900.
-- **Production is UNCHANGED and still runs the pre-cap pipeline and the OLD prices.** No
-  deploy this session. Deploying is the next obvious step and it carries the money fix.
+- **DEPLOYED at `c0d0a19`** (owner asked for it at the end of the session). Everything
+  above is live on `5.75.154.153`: the enhance cap, the new prices, the quiet price
+  display, the Spona rail and the split auth pages. Both images rebuilt, all three
+  containers healthy within 35s.
+
+  **Verified INSIDE the running containers, not by "healthy":** worker's
+  `src/pipelines.ts` contains `probeVideoMeta` (3×) and `planEnhanceVideo` (4×),
+  `node_modules/@adgen/core/src/enhance-limits.ts` reads `ENHANCE_MAX_SECONDS = 30` and
+  carries `input_too_long`, and the worker logs `listening` on BOTH queues with the real
+  providers — `mediaEdit: fal-media-edit` is the one that matters here, since the cap
+  only means anything on the path that actually spends fal money. Web image: `4,50` and
+  `po kreditu` present in `.next/server/app/app/profil/page.js`, `auth-brand` and
+  `progress--thick` present in the compiled stylesheet. HTTP from the box: `/` 200,
+  `/robots.txt` 200, traversal **401**, `/login` 200; from the public internet `/` 200
+  and `/login` renders "Dobrodošao nazad" + the Prijava/Registracija capsule.
+
+  Pre-deploy state was clean: both queues empty (`llen` 0 and 0), three containers
+  healthy for 36h, HTTP triple identical to the post-deploy one. Build cache pruned
+  6.74 GB afterwards; disk 47% → 44%. The `-p adgen` project flag and the
+  `set -a && . ./.env && set +a` sourcing were both used — skipping either is the trap
+  recorded in TODO §1.
 - Nothing left uncommitted.
 
 ### Open decisions for the owner
