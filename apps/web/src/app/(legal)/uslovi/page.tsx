@@ -101,7 +101,45 @@ export default function UsloviPage() {
         snimke, muziku ni fotografije bez dozvole.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">6. Snimci uvezeni sa drugih platformi</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">6. Glas i kloniranje glasa</h2>
+      <p>
+        Reklame izgovara sintetički glas. Pored ponuđenih glasova, možeš da napraviš{' '}
+        <strong className="text-txt-hi">klon glasa</strong> — otpremiš snimak i dalje reklame govore tim glasom.
+      </p>
+      <p className="rounded-lg border border-line bg-panel-2 p-3">
+        <strong className="text-txt-hi">Klon smeš da napraviš samo od svog glasa, ili od glasa osobe koja ti je
+        za to dala izričitu dozvolu.</strong>{' '}
+        Pri kloniranju tražimo da to potvrdiš i da navedeš čiji je glas; tu potvrdu čuvamo uz zapis o klonu, sa
+        datumom i tekstom koji ti je tada bio prikazan. Bez te potvrde klon se ne pravi. Ako se ispostavi da dozvola
+        nije postojala, klon brišemo bez najave, a nalog može biti ukinut po tački 10.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Gde klon živi i ko ga vidi.</strong> Klon se ne pravi na tvom nalogu kod
+        dobavljača glasa, nego na{' '}
+        <strong className="text-txt-hi">našem</strong> — mi smo prema njemu odgovorni za svaki glas napravljen preko
+        ove usluge. Posledica koju treba da znaš pre nego što otpremiš snimak:{' '}
+        <strong className="text-txt-hi">
+          mi kao vlasnik tog naloga vidimo listu klonova i istoriju izgovorenog teksta
+        </strong>
+        , i tehnički možemo da ih otvorimo. Ne koristimo ih ni za šta osim za izradu tvojih reklama i za rešavanje
+        kvara koji si prijavio. Detalji su u{' '}
+        <a href="/privatnost" className="focus-ring rounded text-accent-text hover:underline">
+          Politici privatnosti
+        </a>
+        .
+      </p>
+      <p>
+        <strong className="text-txt-hi">Brisanje.</strong> Klon možeš da obrišeš u svakom trenutku, a brišemo ga i kad
+        obrišeš nalog. Brisanje kod dobavljača tražimo odmah; zapis o tvojoj potvrdi zadržavamo i posle toga, jer je
+        on jedini dokaz da je klon uopšte smeo da postoji.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Obaveza prema gledaocu.</strong> Reklama napravljena ovde je sintetički
+        sadržaj. Pravila dobavljača glasa traže da to bude jasno naznačeno onome ko je gleda, a mnoge oglasne
+        platforme isto traže za oglase sa AI glasom ili likom. Za tu oznaku na objavljenoj reklami odgovoran si ti.
+      </p>
+
+      <h2 className="text-lg font-semibold text-txt-hi">7. Snimci uvezeni sa drugih platformi</h2>
       <p className="rounded-lg border border-line bg-panel-2 p-3">
         Alat za pretragu i uvoz snimaka nalazi javno dostupne snimke na drugim platformama.{' '}
         <strong className="text-txt-hi">
@@ -112,7 +150,7 @@ export default function UsloviPage() {
         Sistem ne garantuje da će takav kadar prepoznati i izbaciti. Pregledaj svaku reklamu pre objave.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">7. Rezultat</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">8. Rezultat</h2>
       <p>
         Prava na gotovu reklamu pripadaju tebi i možeš je koristiti komercijalno, u granicama tačke 5 i 6. U meri u
         kojoj bi nama pripadalo bilo kakvo pravo na rezultatu, to pravo prenosimo na tebe, bez naknade i bez
@@ -126,7 +164,7 @@ export default function UsloviPage() {
         proveravamo ih.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">8. Koliko dugo čuvamo rezultat</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">9. Koliko dugo čuvamo rezultat</h2>
       <p className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-warn-text">
         <strong className="text-txt-hi">Sve što napraviš na platformi dostupno je za preuzimanje 30 dana.</strong> Posle
         toga se fajlovi brišu automatski — i gotove reklame i materijal koji si otpremio. Zapis o poslu ostaje u
@@ -136,10 +174,13 @@ export default function UsloviPage() {
         Preuzmi reklamu čim je gotova. Čuvanje rezultata nije usluga arhiviranja i ne zamenjuje tvoju sopstvenu kopiju.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">9. Šta nije dozvoljeno</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">10. Šta nije dozvoljeno</h2>
       <ul className="list-disc space-y-1 pl-5">
         <li>Sadržaj koji je protivzakonit, obmanjujući ili predstavlja lažnu reklamu.</li>
-        <li>Lik ili glas stvarne osobe bez njenog pristanka.</li>
+        <li>
+          Lik ili glas stvarne osobe bez njenog pristanka — uključujući kloniranje tuđeg glasa iz snimka koji si
+          našao na internetu.
+        </li>
         <li>Tuđi žig ili brend na način koji navodi na zabludu o poreklu proizvoda.</li>
         <li>Automatizovano preopterećenje servisa ili zaobilaženje ograničenja broja zahteva.</li>
         <li>Preprodaja pristupa nalogu, iznajmljivanje naloga ili deljenje pristupa bez naše pisane saglasnosti.</li>
@@ -154,13 +195,13 @@ export default function UsloviPage() {
         preostali krediti se gube i ne isplaćuju.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">10. Dostupnost</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">11. Dostupnost</h2>
       <p>
         Usluga zavisi od spoljnih servisa i može biti privremeno nedostupna. Ne garantujemo neprekidan rad. Ako posao
         ne može da se izvrši, krediti se ne troše.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">11. Odgovornost</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">12. Odgovornost</h2>
       <p>Odgovaramo bez ograničenja:</p>
       <ul className="list-disc space-y-1 pl-5">
         <li>za štetu prouzrokovanu namerno ili grubom nepažnjom;</li>
@@ -177,14 +218,14 @@ export default function UsloviPage() {
         materijalu koji si otpremio ili uvezao (tačke 5 i 6), niti za gubitak fajlova posle isteka roka iz tačke 8.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">12. Izmene uslova</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">13. Izmene uslova</h2>
       <p>
         Uslove možemo menjati. O bitnim izmenama obaveštavamo emailom najmanje 15 dana unapred. Ako se sa izmenom ne
         slažeš, možeš prestati da koristiš uslugu pre nego što stupi na snagu; nastavak korišćenja posle tog roka znači
         prihvatanje.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">13. Merodavno pravo i nadležnost</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">14. Merodavno pravo i nadležnost</h2>
       <p>
         Na ovaj ugovor primenjuje se pravo države Vajoming, SAD, uz isključenje kolizionih normi i Bečke konvencije o
         ugovorima o međunarodnoj prodaji robe.
@@ -196,7 +237,7 @@ export default function UsloviPage() {
         Ako ugovor zaključuješ kao privredni subjekt, isključivo je nadležan sud u državi Vajoming, SAD.
       </p>
 
-      <h2 className="text-lg font-semibold text-txt-hi">14. Kontakt</h2>
+      <h2 className="text-lg font-semibold text-txt-hi">15. Kontakt</h2>
       <p>
         [[POPUNITI: pun pravni naziv firme]]
         <br />

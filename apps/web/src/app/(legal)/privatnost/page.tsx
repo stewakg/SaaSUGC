@@ -113,7 +113,10 @@ export default function PrivatnostPage() {
           </tr>
           <tr className="border-b border-line">
             <td className="py-2 pr-4">ElevenLabs</td>
-            <td className="py-2 pr-4">Tekst skripte — radi izgovora</td>
+            <td className="py-2 pr-4">
+              Tekst skripte — radi izgovora. <strong className="text-txt-hi">Ako napraviš klon glasa</strong>, i
+              snimak glasa koji si otpremio
+            </td>
             <td className="py-2">SAD</td>
           </tr>
           <tr className="border-b border-line">
@@ -141,11 +144,50 @@ export default function PrivatnostPage() {
         u ovom obliku ne odgovara — recimo to otvoreno umesto da se krije u fusnoti.
       </p>
 
+      <h2 className="text-lg font-semibold text-txt-hi">3a. Klon glasa — poseban slučaj</h2>
+      <p>
+        Ako napraviš klon glasa, snimak koji otpremiš nije isto što i ostali fajlovi.{' '}
+        <strong className="text-txt-hi">
+          Otisak glasa je po propisima o zaštiti podataka posebna kategorija podataka
+        </strong>{' '}
+        — ista grupa u kojoj su zdravstveni i biometrijski podaci — jer glas može da posluži za prepoznavanje osobe.
+        Zato za kloniranje tražimo <strong className="text-txt-hi">izričitu potvrdu</strong> u samom koraku
+        kloniranja, a ne prećutni pristanak koji daješ prihvatanjem uslova.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Čiji glas smeš da otpremiš.</strong> Svoj, ili glas osobe koja ti je dala
+        dozvolu. Kad prijaviš da je glas tuđi, tražimo i ime te osobe. Tvoju potvrdu čuvamo zajedno sa tekstom koji
+        ti je tada bio prikazan i datumom — to je jedini dokaz da je klon smeo da nastane, i zadržavamo ga i nakon
+        što klon obrišemo.
+      </p>
+      <p className="rounded-lg border border-line bg-panel-2 p-3">
+        <strong className="text-txt-hi">Ko sve to vidi.</strong> Klon nastaje na našem nalogu kod ElevenLabs-a, ne na
+        tvom. To znači da <strong className="text-txt-hi">mi kao vlasnik naloga vidimo i klonove i istoriju
+        izgovorenog teksta</strong>, i tehnički možemo da ih otvorimo — bez toga ne bismo mogli ni da napravimo klon
+        ni da ga obrišemo na tvoj zahtev. Ne koristimo ih ni za šta drugo osim za izradu tvojih reklama i za
+        otklanjanje kvara koji si prijavio, i ne prosleđujemo ih trećima osim ElevenLabs-u kao obrađivaču.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Gde se obrađuje i koliko ostaje.</strong> Snimak se šalje ElevenLabs-u u SAD.
+        Njihova politika navodi da podatke o glasu ne čuvaju duže od{' '}
+        <strong className="text-txt-hi">3 godine</strong> od poslednje interakcije. Kad obrišeš klon, mi kod njih
+        tražimo brisanje odmah. Napominjemo pošteno: istorija izgovorenog teksta briše se kao zaseban korak, pa
+        između brisanja klona i brisanja istorije može proći kratko vreme.
+      </p>
+      <p>
+        Kloniranje ne moraš da koristiš — svi alati rade i sa ponuđenim glasovima. Pristanak koji si dao možeš da
+        povučeš u svakom trenutku brisanjem klona; to ne utiče na reklame koje su do tada već napravljene.
+      </p>
+
       <h2 className="text-lg font-semibold text-txt-hi">4. Koliko dugo čuvamo</h2>
       <p>
         <strong className="text-txt-hi">Fajlove čuvamo 30 dana.</strong> To važi i za materijal koji otpremiš i za
         gotove reklame — posle 30 dana brišu se automatski i ne mogu se povratiti. Zvučni zapisi koji nastanu usput
         (izgovorena skripta pre nego što se ugradi u video) brišu se ranije, jer posle ugradnje nemaju svrhu.
+      </p>
+      <p>
+        <strong className="text-txt-hi">Klon glasa je izuzetak od tih 30 dana</strong> — on postoji dok ga ti ne
+        obrišeš, jer bi inače prestao da radi posle mesec dana. Rokovi i uslovi za klon su u odeljku 3a.
       </p>
       <p>
         Nalog i evidenciju kredita čuvamo dok postoji nalog. Posle zatvaranja naloga zadržavamo samo ono što je
