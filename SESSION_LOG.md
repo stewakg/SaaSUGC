@@ -115,6 +115,52 @@ Two of the three runs existed only to repair damage from MY spec (the 60s fixtur
 is a real cost of delegating a cross-cutting constant change: the spec has to enumerate
 every caller, not just the definition.
 
+### Continued — CI was lying, and the box now watches itself
+
+**The CI failure the owner spotted was not the code.** A docs-only commit failed
+while the code commit before it passed, same lockfile — which means the gate was
+NON-DETERMINISTIC, and that is worse than a red build. Two causes:
+
+1. `apps/web/tsconfig.json` includes `.next/types/**/*.ts`, which `next build`
+   generates and `.gitignore` excludes. CI ran `tsc` BEFORE the build, so it
+   checked a different program than any machine that had built once — which is
+   also why my local typecheck was green all day on code CI rejected. The build
+   now runs first in `ci.yml`.
+2. Eighteen test files did `(globalThis as { React?: typeof React }).React`. That
+   direct cast only compiles when the resolved React types declare the UMD global,
+   and this monorepo resolves TWO: `types-react@19.0.0-rc.1` in apps/web and
+   `@types/react@18.3.12` that `remotion` pulls in, hoisted into
+   `.pnpm/node_modules`. Whichever reaches the program first decides whether the
+   cast is legal (TS2352). Now `as unknown as`, correct under both.
+
+Verified by hiding the hoisted `@types/react` and re-running tsc on the
+unmodified tree — the local pass had been an accident of resolution order, not
+evidence. **CI green at `9f0395a`.** The lesson worth carrying: on this repo a
+green local `pnpm -r typecheck` does not predict CI unless `.next/types` exists
+locally, which it does only after a build.
+
+**`infra/watchdog.sh` + systemd unit/timer written** for the two failure modes
+that have actually happened here and had no alarm: the build cache filling the
+disk (three times, once 33% -> 72%) and a down site nobody notices. Every 15
+minutes it checks disk %, that `/` answers 200, and that all three containers
+are running+healthy; it reports to `ALERT_WEBHOOK_URL` when set, always to the
+journal, and exits non-zero so a failed run shows in `systemctl list-units
+--failed`. It restarts and prunes NOTHING — auto-pruning a full disk is how you
+delete the build cache of a deploy in progress.
+
+**VERIFIED on the real box, both branches**, then the dry-run copy deleted:
+happy path `ok: disk 44%, site 200, three containers healthy` (exit 0); forced
+failure printed the disk and site lines and exited 1. That run also caught a bug
+in my own script — curl already prints `000` on a failed connect, so the
+`|| echo 000` fallback made it report "answered 000000". Fixed and re-verified.
+**NOT installed**: a systemd timer is a standing change to the box, so the four
+install commands sit in the script header for the owner.
+
+**`yt-dlp` pin closed (was 🟡).** Two real deploys today rebuilt both images, so
+the pinned curl line has now executed, and the live web container answers
+`yt-dlp --version` with exactly `2026.07.04` — read inside the running
+container, not inferred from the Dockerfile.
+
 ### State at close
 
 - Tests: **core 405 · web 661 · worker 137 = 1203** (was 1169 at the previous entry).

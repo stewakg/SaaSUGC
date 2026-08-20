@@ -1,0 +1,17 @@
+# Every 15 minutes. Chosen against what it is watching: a disk that fills during
+# a docker build fills in minutes, and a down site discovered a quarter of an
+# hour later is still far better than discovered by a customer. Tighter than this
+# mostly buys duplicate alerts for the same incident.
+[Unit]
+Description=Run the AdGen watchdog every 15 minutes
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+# Spread the run so the check never lands exactly on the minute a cron-driven
+# deploy or backup starts.
+RandomizedDelaySec=60s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

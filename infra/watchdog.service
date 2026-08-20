@@ -1,0 +1,18 @@
+# Runs infra/watchdog.sh once. Paired with adgen-watchdog.timer, which is what
+# actually schedules it — see the install block at the top of the script.
+#
+# Type=oneshot so systemd treats a non-zero exit as a FAILED unit rather than a
+# crashed daemon; the script exits non-zero on purpose when it finds a problem,
+# so `systemctl list-units --failed` and `journalctl -u adgen-watchdog` both
+# show incidents without anyone parsing log text.
+[Unit]
+Description=AdGen watchdog — disk, site and container check
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/adgen-watchdog
+# The script sources /srv/adgen/.env itself for ALERT_WEBHOOK_URL. Overrides for
+# a noisier or quieter threshold go here rather than in the script:
+#   Environment=DISK_WARN_PCT=70
