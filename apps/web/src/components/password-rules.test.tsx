@@ -42,7 +42,12 @@ import * as React from 'react';
 // jsx: "preserve", which Next/SWC handles but vite's esbuild does not), so
 // executing JSX needs a `React` binding in scope. Providing it globally is
 // exactly what the classic transform expects.
-(globalThis as { React?: typeof React }).React = React;
+// `as unknown as` is load-bearing, not noise: the direct cast is only legal when
+// the resolved React types happen to overlap with globalThis, and CI resolves
+// `types-react@19.0.0-rc.1` where they do not (TS2352). Found 2026-08-20 when a
+// docs-only commit failed CI while the code commit before it passed — the
+// difference was a warm dependency cache, not the code.
+(globalThis as unknown as { React?: typeof React }).React = React;
 
 // VERBATIM labels from PASSWORD_RULES in lib/password.ts, in order.
 const RULE_LABELS = [

@@ -58,7 +58,12 @@ import { computeJobCost, creditsLabel } from '@adgen/core/pricing';
 
 // React 19's act() refuses to run unless this flag is set.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-(globalThis as { React?: typeof React }).React = React;
+// `as unknown as` is load-bearing, not noise: the direct cast is only legal when
+// the resolved React types happen to overlap with globalThis, and CI resolves
+// `types-react@19.0.0-rc.1` where they do not (TS2352). Found 2026-08-20 when a
+// docs-only commit failed CI while the code commit before it passed — the
+// difference was a warm dependency cache, not the code.
+(globalThis as unknown as { React?: typeof React }).React = React;
 
 // Per-image unit price and the default label — computed by the same pure
 // calls the page uses (the page's own "× 4" must equal this or the label

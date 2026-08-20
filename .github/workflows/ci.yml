@@ -14,14 +14,24 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # WHY TYPECHECK IS NOT THE FIRST GATE (2026-08-20). `apps/web/tsconfig.json`
+      # includes `.next/types/**/*.ts`, which `next build` GENERATES and
+      # `.gitignore` excludes. Running tsc before the build therefore checks a
+      # DIFFERENT set of files here than it does on a developer machine that has
+      # built once — same commit, same lockfile, different program. That is how a
+      # docs-only commit failed this job while the code commit before it passed.
+      #
+      # The build now runs first so both sides typecheck the same thing. It also
+      # means a type error surfaces as a build failure first, which is louder, not
+      # quieter.
+      - run: pnpm --filter @adgen/web run build
       - run: pnpm run typecheck
       - run: pnpm run lint
-      # The suites run BEFORE the build: they are the slow-to-write, fast-to-run
-      # half of the gate, and a logic regression that typechecks and lints (most
-      # of them do) is invisible to every other step here. Until 2026-08-16 this
-      # workflow ran none of them, so the whole suite gated nothing on a PR.
+      # The suites are the slow-to-write, fast-to-run half of the gate: a logic
+      # regression that typechecks and lints (most of them do) is invisible to
+      # every other step here. Until 2026-08-16 this workflow ran none of them,
+      # so the whole suite gated nothing on a PR.
       - run: pnpm run test
-      - run: pnpm --filter @adgen/web run build
 
   # Added 2026-08-18 from the Rev. 3 security audit (§3, `security-audit.md`),
   # which is residual risk #6: every security property this repo has was
