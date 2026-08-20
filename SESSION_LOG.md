@@ -199,6 +199,13 @@ CRLF-line-ending file is where this setup stops being cheaper. Specs are kept in
 scratchpad (`cline-prompt-bonus.md`, `cline-prompt-enhance-tiers.md`) — they were
 sound; the executor was the problem.
 
+**DEPLOYED at `cdabed3`** — second deploy of the day. Verified inside the containers:
+worker carries `underpaid_duration` and `ENHANCE_MAX_TIERS = 4`, web carries
+`enhanceTiers` in the compiled jobs route, and the public landing + signup both render
+"3 besplatna videa". HTTP triple unchanged (200/200/401), /signup 200, queues empty
+before the deploy, 5.13 GB of build cache pruned after. ⚠️ **The copy is live before the
+grant:** the DB still hands out 3 credits until `0012_signup_bonus_45.sql` is applied.
+
 **Gates after all of it: 1224 tests** (core 412, web 669, worker 143), typecheck clean,
 prod build clean. Mutation-tested rather than trusted, as before: reverting the bonus,
 re-enabling the video fallback, disabling the tier charge and disabling the
