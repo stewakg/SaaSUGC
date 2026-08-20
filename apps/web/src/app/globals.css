@@ -800,8 +800,14 @@ body {
   /* Theme picker (components/theme-switcher.tsx). The swatch carries its own
      data-theme, so var(--ground)/var(--text-grad) below resolve to the theme
      the swatch advertises rather than the one currently applied. */
+  /* inline-flex + centring is load-bearing on TOUCH, not decoration: the
+     `pointer: coarse` block above grows this button to a 44px thumb target
+     while the swatch inside it stays 18px. As a plain block child that 18px dot
+     sat in the top-left corner of a 44px circle — which is exactly how it
+     looked on the owner's phone (2026-08-20). On a mouse the button is only
+     22px, so nothing moved there and the bug was invisible on desktop. */
   .theme-swatch-button {
-    @apply rounded-full border p-[2px] leading-none transition;
+    @apply inline-flex items-center justify-center rounded-full border p-[2px] leading-none transition;
     border-color: var(--line-strong);
   }
   .theme-swatch-button:hover {
