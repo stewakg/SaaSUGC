@@ -1,0 +1,20 @@
+# Line endings, and the one place they are not cosmetic.
+#
+# This repo is developed on Windows and deployed to Linux. Git's autocrlf turns
+# checked-out files into CRLF here, which is harmless for TypeScript — and fatal
+# for anything the kernel executes: `#!/bin/sh\r` is not a shebang, and the
+# error a Linux box gives back is the unhelpful "no such file or directory"
+# pointing at an interpreter that plainly exists.
+#
+# infra/watchdog.sh is scp'd straight from a working copy to /usr/local/bin, so
+# it must stay LF on disk, not only in the object store. The Dockerfiles and
+# compose files are here for the same reason: they are read by Linux tooling,
+# and a stray CR inside a RUN line has bitten this project before.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+Caddyfile text eol=lf
+*.timer text eol=lf
+*.service text eol=lf
