@@ -15,8 +15,8 @@ import {
   topazVideoCostUsd,
 } from './enhance-limits.ts';
 
-/** What one enhance job earns, from pricing.ts (9 credits) and BUSINESS.md's €0.20/credit floor. */
-const REVENUE_EUR_FLOOR = 1.5;
+/** What one enhance job earns: 9 credits (pricing.ts) × the cheapest per-credit rate in CREDIT_PACKS — pack_agency's €0.100/credit = €0.90. */
+const REVENUE_EUR_FLOOR = 0.9;
 const USD_PER_EUR = 0.925;
 
 describe('topazVideoCostUsd — fal price bands', () => {
@@ -97,12 +97,12 @@ describe('planEnhanceVideo — parameters sent to fal', () => {
   });
 
   it('pins a 60fps source back to 30 — the fps pin is what stops the ×2 price', () => {
-    const plan = planEnhanceVideo({ durationSec: 60, height: 1080, fps: 60 });
+    const plan = planEnhanceVideo({ durationSec: ENHANCE_MAX_SECONDS, height: 1080, fps: 60 });
     expect(plan.ok).toBe(true);
     if (!plan.ok) return;
     expect(plan.targetFps).toBe(ENHANCE_MAX_FPS);
-    // Same clip unpinned would be $2.40.
-    expect(plan.estimatedUsd).toBeCloseTo(1.2, 5);
+    // Same clip unpinned would be twice this (the ×2 fps price).
+    expect(plan.estimatedUsd).toBeCloseTo(ENHANCE_MAX_SECONDS * 0.02, 5);
   });
 
   it('leaves a 24/30fps source alone — no needless interpolation', () => {

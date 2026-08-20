@@ -1,7 +1,9 @@
 # MARGINS.md — šta nas svaki alat stvarno košta i kolika je marža
 
-**Napisano 2026-08-19.** Krediti su preuzeti od konkurencije (BUSINESS.md), a ovo je
-prvi put da je TROŠKOVNA strana izračunata broj po broj. Svaki broj dole nosi oznaku
+**Napisano 2026-08-19. Prihodna strana prepravljena 2026-08-20** — cene paketa su
+spuštene da budu 25% ispod konkurentskih (§1a); sve marže niže na stranici su
+preračunate na taj novi, niži prihod. Krediti su i dalje preuzeti od konkurencije
+(BUSINESS.md), a troškovna strana je i dalje računica iz 2026-08-19. Svaki broj dole nosi oznaku
 odakle je:
 
 - **[IZMERENO]** — naš stvarni run (SESSION_LOG 2026-08-14: ceo lanac uživo).
@@ -16,18 +18,37 @@ red u TODO §9 („Per-job cost vs. real invoices"). Ovo je računica, ne knjigo
 
 ---
 
-## 1. Koliko vredi kredit (prihodna strana)
+## 1. Koliko vredi kredit (prihodna strana) — NOVE CENE od 2026-08-20
 
-| Paket | Krediti | Cena | €/kredit |
-|---|---|---|---|
-| Starter | 30 | €9 | **€0.300** |
-| Creator | 100+10 | €25 | **€0.227** |
-| Pro | 250+40 | €55 | **€0.190** |
-| Agency | 600+120 | €120 | **€0.167** |
+| Paket | Krediti | Cena | €/kredit | Bilo |
+|---|---|---|---|---|
+| Starter | 30 | **€4.50** | **€0.150** | €9 · €0.300 |
+| Creator | 100+10 | **€13.50** | **€0.123** | €25 · €0.227 |
+| Pro | 250+40 | **€34.50** | **€0.119** | €55 · €0.190 |
+| Agency | 600+120 | **€72** | **€0.100** | €120 · €0.167 |
 
-Računamo sa **€0.20/kreditu** kao srednjom vrednošću; najgori slučaj za nas je
-Agency (€0.167). Signup bonus: 3 kredita poklonjeno po nalogu (≈€0.60 COGS rizika
-maksimalno — zanemarljivo, pokriva jedan quick_test + sliku).
+**Najgori slučaj za nas je sada €0.100/kredit** (Agency), a ne €0.167 — i svaka
+marža u §3 je preračunata na taj broj, jer marža koja preživi najjeftiniji kredit
+preživi sve ostale. Signup bonus: 3 kredita po nalogu (≈€0.30 rizika po nalogu na
+novim cenama).
+
+### 1a. Zašto baš ove cene — poređenje sa konkurencijom [IZMERENO 2026-08-20]
+
+Konkurent (ecomalati.com) ne prodaje pakete nego **mesečnu pretplatu**, i njegove
+cene po ALATU su identične našima (matrix 15, edit 18, AI slika 4). Dakle jedina
+poluga kojom se razlikujemo je koliko košta kredit:
+
+| Njihov plan | Cena | Krediti/mes | €/kredit | Naš uporedni paket | Naš €/kredit | Razlika |
+|---|---|---|---|---|---|---|
+| Starter | €50/mes | 250 | €0.200 | Starter (30) | €0.150 | **−25%** |
+| Pro | €100/mes | 600 | €0.167 | Creator (110) | €0.123 | **−26%** |
+| Pro | €100/mes | 600 | €0.167 | Pro (290) | €0.119 | **−29%** |
+| Max | €200/mes | 1500 | €0.133 | Agency (720) | €0.100 | **−25%** |
+
+Dve strukturne razlike koje se ne vide u tabeli, a prodaju umesto nas: kod njih se
+**ulazi sa €50 mesečno i obavezuje se na mesec**, kod nas se kupuje paket od €4.50
+bez pretplate. Njihov trial je ugašen 18.08.2026 (piše u komentaru njihovog
+sopstvenog HTML-a), a stranica sa cenama još obećava 50 gratis kredita.
 
 ## 2. Jedinični troškovi (troškovna strana)
 
@@ -48,27 +69,55 @@ maksimalno — zanemarljivo, pokriva jedan quick_test + sliku).
 Govorni tempo [IZMERENO]: 164 karaktera ≈ 17.2s → **~9.5 kar/s**. Plafoni u kodu:
 reklama ≤60s, skripta <900 karaktera, ≤15 varijanti po poslu.
 
-## 3. Marža po alatu (po jednom izlazu, prihod po €0.20/kr)
+## 3. Marža po alatu — na NAJJEFTINIJEM kreditu (€0.100/kr, Agency)
 
-| Alat | Cena | Prihod | COGS tipično | COGS najgori | Marža tip. | Marža najgora |
+Prihod je namerno računat po najgoroj tarifi za nas. Kupac na Starteru plaća 50%
+više po kreditu, pa je svaka marža dole **donja granica, ne prosek**.
+
+| Alat | Cena | Prihod (€0.100/kr) | COGS tipično | COGS najgori | Marža tip. | Marža najgora |
 |---|---|---|---|---|---|---|
-| **Nova reklama** (matrix) | 15 kr | €3.00 | ~€0.04 (15s: TTS $0.035 + Lambda $0.003) | ~€0.18 (60s) | **~98.7%** | ~94% |
-| **Reklama sa novim zvukom** (revoice) | 8 kr | €1.60 | ~€0.04 | ~€0.18 (60s) | **~97.5%** | ~89% |
-| **AI slike** (image_ads) | 4 kr | €0.80 | ~€0.04 ($0.04 nano-banana-2 1K) | €0.06 (2K) | **~95%** | ~92% |
-| **Ukloni tekst** (remove_text) | 6 kr | €1.20 | ~€0.04 | isto | **~97%** | — |
-| **Poboljšaj kvalitet** (enhance) — SLIKA | 9 kr | €1.80 | ~€0.07 ($0.08) | isto | **~96%** | — |
-| **Poboljšaj kvalitet** (enhance) — VIDEO | 9 kr | €1.80 | ~€0.28 (15s 1080p = $0.30) | **vidi ⚠️ dole** | **~84%** | **GUBITAK** |
-| **AI influencer** (ai_video, uskoro) | 25 kr | €5.00 | ~€0.28 (veo3_fast 720p) | ~€2.8 (fal fallback) | **~94%** | ~44% |
+| **Nova reklama** (matrix) | 15 kr | €1.50 | ~€0.04 (15s: TTS $0.035 + Lambda $0.003) | ~€0.18 (60s) | **~97%** | ~88% |
+| **Reklama sa novim zvukom** (revoice) | 8 kr | €0.80 | ~€0.04 | ~€0.18 (60s) | **~95%** | ~78% |
+| **AI slike** (image_ads) | 4 kr | €0.40 | ~€0.04 ($0.04 nano-banana-2 1K) | €0.06 (2K) | **~90%** | ~85% |
+| **Ukloni tekst** (remove_text) | 6 kr | €0.60 | ~€0.04 | isto | **~93%** | — |
+| **Poboljšaj kvalitet** (enhance) — SLIKA | 9 kr | €0.90 | ~€0.07 ($0.08) | isto | **~92%** | — |
+| **Poboljšaj kvalitet** (enhance) — VIDEO | 9 kr | €0.90 | ~€0.28 (15s 1080p) | €0.55 (30s 1080p, plafon) | **~69%** | **~39%** |
+| **AI influencer** (ai_video, uskoro) | 25 kr | €2.50 | ~€0.28 (veo3_fast 720p) | ~€2.8 (fal fallback) | **~89%** | ❌ **GUBITAK** |
 
 Za USKORO alate bez pipeline-a (edit 18 kr, mix 12, translate 15, quick_test 2) marža
 ne postoji dok se ne odluči ČIME se prave — ako edit ide na Veo-klasu, $0.30–1.30 po
-videu znači 85–96% na 18 kr, sasvim zdravo.
+videu znači 28–83% na 18 kr (€1.80 na najjeftinijem kreditu), što je bitno tanje nego
+na starim cenama i mora se izračunati pre nego što se taj pipeline uključi.
 
-### ⚠️ Nalaz #1 — enhance VIDEO može da bude GUBITAK, i ničim nije ograničen
+### ⚠️ Nalaz #0 (NOVO 2026-08-20) — ai_video na fal fallback-u je sada GUBITAK
 
-Naplaćujemo **pausalno 9 kr**, a fal Topaz naplaćuje **po sekundi i po rezoluciji**:
+Ovo je nastalo spuštanjem cena, nije postojalo juče. `ai_video` nosi 25 kr = **€2.50**
+na najjeftinijem paketu, a fal fallback košta **€2.8** — dakle svaki put kad kie.ai
+padne i router pređe na fal, taj posao nas košta više nego što donosi. Na srednjoj
+tarifi (Creator, €0.123/kr) prihod je €3.07 naspram €2.8, tj. 9% — jedva pozitivno.
 
-| Klip | fal trošak | Naš prihod (9 kr) | Ishod |
+Alat je USKORO i nema pipeline, pa ništa ne curi danas. **Pre nego što ai_video ode
+uživo, jedno od ovoga mora da se odluči:** viša cena u kreditima, zabrana fal
+fallback-a za ovaj tip posla (bolje da posao padne nego da se plati), ili poseban
+plafon nad fallback-om. Zabeleženo u TODO §2a.
+
+### ✅ Nalaz #1 — enhance VIDEO je ZATVOREN plafonom (bio je jedini put u gubitak)
+
+**Rešeno 2026-08-20** (`09fb33b` postavio plafon, `packages/core/src/enhance-limits.ts`;
+istog dana plafon spušten sa 60s na 30s jer su cene pale). Kod sada odbija klip duži
+od **30s** i izvor iznad **1080p**, kleše upscale faktor tako da IZLAZ ostane u 1080p
+pojasu, i pinuje sve preko 30fps nazad na 30. Wizard meri fajl u browseru pre
+otpremanja, a worker meri ffprobe-om pre nego što pozove fal — worker je taj koji
+odlučuje, jer se ručno sklopljen zahtev ne obraća wizardu.
+
+Zašto je 60s moralo da postane 30s: na starim cenama je najgori dozvoljeni klip nosio
+€1.50 prihoda, a 60s/1080p košta €1.11 — tanko ali pozitivno. Na novoj najjeftinijoj
+tarifi isti posao nosi **€0.90**, pa bi 60s bio **gubitak**. Na 30s najgori trošak je
+€0.55 naspram €0.90.
+
+Originalni nalaz, radi istorije — ovako je izgledalo pre plafona:
+
+| Klip | fal trošak | Naš prihod (9 kr, stare cene) | Ishod |
 |---|---|---|---|
 | 15s / 1080p | $0.30 (€0.28) | €1.50–2.70 | ✅ ~84% |
 | 60s / 1080p | $1.20 (€1.11) | €1.50–2.70 | ⚠️ 26–59% |
@@ -76,16 +125,17 @@ Naplaćujemo **pausalno 9 kr**, a fal Topaz naplaćuje **po sekundi i po rezoluc
 | 60s / iznad 1080p / 60fps | $9.60 (€8.89) | €1.50–2.70 | ❌ **gubitak €6.2–7.4** |
 
 Upload je ograničen na 200 MB **po veličini fajla, ne po trajanju ni rezoluciji** — a
-200 MB komprimovanog 1080p je i po nekoliko minuta. **Pre prvog pravog kupca: ili
-ograničiti enhance ulaz (npr. ≤60s, izlaz ≤1080p/30fps), ili naplaćivati po sekundi.**
-(Kod danas cilja 1080p — „HD do 1080p" na kartici — pa je $0.08/s zona verovatno
-nedostižna dok neko ne promeni parametre; ograničenje treba da to i GARANTUJE.)
+200 MB komprimovanog 1080p je i po nekoliko minuta. To je i bila rupa: plafon sada
+meri trajanje i rezoluciju, a ne bajtove. Naplata **po sekundi** ostaje otvorena
+odluka i dalje je bolji odgovor od plafona ako neko zaista bude hteo da popravi
+dugačak snimak.
 
 ### Nalaz #2 — fal fallback za ai_video jede 50 poena marže
 
-kie $0.30 → fal $2–3+ za isti posao. Fallback je ispravan za dostupnost, ali kad
-ai_video krene uživo, vredi meriti koliko ČESTO okida — na 25 kr svaki fal-run
-spušta maržu sa ~94% na ~44%.
+kie $0.30 → fal $2–3+ za isti posao. Na starim cenama je fal-run spuštao maržu sa
+~94% na ~44% — neprijatno, ali pozitivno. **Na novim cenama isti fal-run je gubitak**
+(Nalaz #0 gore). Merenje koliko ČESTO okida i dalje treba, ali odluka više ne može da
+čeka mesečni izveštaj: mora da se donese pre nego što ai_video ode uživo.
 
 ### Nalaz #3 — generate-scripts je besplatan za korisnika, a nas košta
 
@@ -103,16 +153,20 @@ ali jedina ničim naplaćena potrošnja u aplikaciji.
 | Supabase | €0 | free tier |
 | AWS / R2 | ~€0 fiksno | čist pay-per-use |
 | Domen | ~€1 | još ne postoji |
-| **Stripe** (kad LLC legne) | **~1.5% + €0.25 EEA kartice** [JAVNO] | na Creator paketu od €25 ≈ €0.63 ≈ **2.5%** prihoda |
+| **Stripe** (kad LLC legne) | **~1.5% + €0.25 EEA kartice** [JAVNO] | na Creator paketu od €13.50 ≈ €0.45 ≈ **3.4%** prihoda |
 
-**Break-even: ~€30/mes fiksno ≈ jedan i po Creator paket mesečno.** Sve preko toga je
-~90%+ bruto marže dok god enhance-video ne pukne (Nalaz #1).
+**Break-even: ~€30/mes fiksno ≈ 2.2 Creator paketa mesečno** (bilo 1.2 na starim
+cenama). Sve preko toga je ~90%+ bruto marže. ⚠️ Fiksna Stripe naknada od €0.25 boli
+srazmerno više što je paket manji: na Starteru od €4.50 ona je **7.1%** prihoda
+(€0.32 od €4.50), pa je taj paket akvizicioni alat, a ne izvor marže.
 
 ## 5. Kontrolni račun — ceo Creator paket potrošen na najskuplji regularan način
 
 110 kredita = 7 poslova „Nova reklama" sa po ~1 varijantom 60s (105 kr) + 1 slika:
-COGS ≈ 7×€0.18 + €0.04 ≈ **€1.30** na €25 prihoda → **94.8%** pre Stripe-a,
-**~92%** posle. Tipična potrošnja (15s varijante): COGS ≈ €0.30 → **~96%** posle svega.
+COGS ≈ 7×€0.18 + €0.04 ≈ **€1.30** na **€13.50** prihoda → **90.4%** pre Stripe-a,
+**~87%** posle. Tipična potrošnja (15s varijante): COGS ≈ €0.30 → **~94%** posle svega.
+Na starim cenama isti račun je davao 94.8% / ~92% — spuštanje cena je pojelo oko
+5 poena bruto marže, i to je cena ulaska ispod konkurencije.
 
 ## 6. Šta ovo NE pokriva (i gde može da slaže)
 
@@ -127,8 +181,9 @@ COGS ≈ 7×€0.18 + €0.04 ≈ **€1.30** na €25 prihoda → **94.8%** pre
 
 ## 7. Zaključak jednom rečenicom
 
-**Sa cenama preuzetim od konkurencije mi smo u KOMFORNOJ DOBITI na svemu što je danas
-uživo (~95–99% marže po poslu)** — jedini stvarni rizik gubitka je enhance nad dugim/
-visokorezolucijskim videom (Nalaz #1, treba plafon), a jedina velika nepoznanica za
-budućnost je cena Veo-klase generacije za edit/ai_video, koja je sada [UHVAĆENA]
-($0.30 fast) ali fal fallback i Quality varijante koštaju višestruko.
+**Sa cenama 25% ispod konkurencije i dalje smo u DOBITI na svemu što je danas uživo —
+88–97% po poslu čak i na najjeftinijem kreditu** (bilo 95–99% na starim cenama; razlika
+je cena ulaska ispod konkurenta). Jedini put u gubitak, enhance nad dugim videom, je
+ZATVOREN plafonom u kodu (Nalaz #1). Ostaje jedan otvoren: **ai_video preko fal
+fallback-a sada gubi novac** (Nalaz #0) i mora se rešiti pre nego što taj alat ode
+uživo — dotle ne curi ništa jer pipeline ne postoji.

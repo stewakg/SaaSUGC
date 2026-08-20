@@ -106,13 +106,19 @@ below was accepted on a reviewer's word.**
 
 ### 2a. Price defense — what MARGINS.md (2026-08-19) says must exist
 
-The first per-tool margin calculation is in `MARGINS.md`: everything live today runs at
-~95–99% gross margin at the competitor-copied credit prices. These rows are the DEFENSE
-MECHANISMS it demands — the ways a customer or a provider can silently invert a margin.
+The first per-tool margin calculation is in `MARGINS.md`. **Prices changed 2026-08-20:**
+the packs were re-priced to sit **25% below the competitor's per-credit rate**
+(€4.50/30 · €13.50/110 · €34.50/290 · €72/720 → €0.150 down to €0.100 per credit,
+against their €0.200 / €0.167 / €0.133). Everything live still earns **88–97%** gross
+margin, measured against the CHEAPEST credit rather than an average — but the cushion
+is thinner than the old 95–99%, which is why the rows below matter more than they did
+yesterday, not less. These are the DEFENSE MECHANISMS: the ways a customer or a
+provider can silently invert a margin.
 
 | Status | Item | Who | Note |
 |---|---|---|---|
-| ❌ ⛔ | **Cap `enhance` video input — the one loss-capable path** | 🤖 | We charge a FLAT 9 kr; fal Topaz bills PER SECOND and PER RESOLUTION ($0.01/s ≤720p · $0.02/s 1080p · $0.08/s above · ×2 at 60fps). A 60s above-1080p clip costs up to **$9.60 against €1.50–2.70 of revenue**. The 200 MB upload cap bounds file size, not duration or resolution. Fix: refuse clips >60s in the enhance wizard/route AND pin output ≤1080p/30fps in the pipeline parameters (today's code targets 1080p — the cap makes that a guarantee, not a habit). Blocker before the first real customer |
+| ✅ | **Cap `enhance` video input — DONE 2026-08-20** | — | `09fb33b` + the re-price commit. `packages/core/src/enhance-limits.ts` refuses a clip longer than **30s** (was 60s in the first version, lowered the same day because the new prices moved the revenue floor), refuses a source above 1080p, clamps the upscale factor so the OUTPUT stays inside the 1080p band, pins anything above 30fps back to 30, and REFUSES an unmeasurable file rather than guessing. Applied in two places: the wizard measures the picked file in the browser before the upload starts, and the worker probes the stored source with ffprobe before it calls fal — the worker is the authority, since a hand-rolled POST never runs the wizard's copy. Worst case that survives: 30s/1080p/30fps = $0.60 ≈ €0.55 against €0.90 of revenue at the cheapest credit rate (~39%, thin but never a loss). Covered by 15 core tests + 6 worker tests, both written against the MARGINS.md loss table. Charging enhance per second remains the better long-term answer and is still open |
+| ❌ ⛔ | **`ai_video` on the fal fallback is now a LOSS — created by the re-pricing** | 👤 decides | New 2026-08-20, MARGINS.md "Nalaz #0". `ai_video` costs 25 kr = **€2.50** at the cheapest pack rate, and the fal fallback costs **~€2.8** per video — so every time kie.ai fails and the router falls back, the job costs more than it earns. At the Creator rate it is €3.07 vs €2.8, i.e. 9%. Nothing leaks today: the tool is USKORO and has no pipeline. **Must be decided before ai_video goes live** — raise its credit price, forbid the fal fallback for this job type (better a failed job than a paid-for loss), or cap the fallback separately. It is a ⛔ against that tool shipping, not against launch |
 | ❌ | **Verify MARGINS.md against real invoices** | 👤 opens dashboards, 🤖 reconciles | Same row as §9 "Per-job cost vs. real invoices" — kie/fal/ElevenLabs/AWS usage logs vs the captured list prices. The two numbers that move the model most: **which ElevenLabs PLAN the account is on** (±30% on TTS cost — record it in ACCOUNTS.md when read) and **the Lambda function's memory** (2048 MB assumed; the AWS console knows) |
 | ❌ | **Measure how often the fal video fallback fires** | 🤖 logs, 👤 reads monthly | kie veo3_fast is $0.30/video; the fal fallback is $2–3+ — each fallback run costs ~50 margin points on ai_video. The router already logs `[ai-router] kie.ai video generation failed, falling back`; once ai_video is live, count those lines per month before trusting the 94% figure |
 | ❌ | **Decide generate-scripts metering** | 👤 | Already §1b — the only unmetered provider spend (~$0.0005/call, rate-limited, fail-open if Redis dies). Options: leave free (it sells the paid render), charge 1 kr, or cap harder. A pricing decision, not a bug |

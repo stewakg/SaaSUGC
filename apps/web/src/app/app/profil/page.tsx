@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { CREDIT_PACKS, creditsWord } from '@adgen/core/pricing';
+import { CREDIT_PACKS, creditsWord, eurLabel, pricePerCredit } from '@adgen/core/pricing';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { authErrorMessage } from '@/lib/auth-errors';
 import { PASSWORD_MIN_LENGTH, validatePassword } from '@/lib/password';
@@ -206,7 +206,12 @@ export default function ProfilPage() {
                 {p.bonus ? <span className="text-sm font-normal text-accent-text"> +{p.bonus}</span> : null}
               </p>
               <p className="text-xs text-txt-mid">{creditsWord(p.credits)}</p>
-              <p className="mt-2 text-sm font-mono tabular text-txt-mid">{p.priceEUR} €</p>
+              <p className="mt-2 text-sm font-mono tabular text-txt-mid">{eurLabel(p.priceEUR)}</p>
+              {/* eurLabel's two decimals round 0.119 and 0.123 into the same string, so
+                  the per-credit rate gets three decimals, built inline. */}
+              <p className="text-xs text-txt-low">
+                {`${pricePerCredit(p).toFixed(3).replace('.', ',')}\u00A0€ po kreditu`}
+              </p>
               {canGrantCredits && <AddCreditsButton packId={p.id} className="mt-4 w-full" />}
             </div>
           ))}

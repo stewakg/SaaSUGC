@@ -65,6 +65,7 @@ vi.mock('@/lib/probe-video', () => ({ probeVideoFile: mocks.probeVideoFile }));
 import EnhancePage from './page';
 import * as React from 'react';
 import { creditsLabel, getJobDescriptor } from '@adgen/core/pricing';
+import { ENHANCE_MAX_HEIGHT, ENHANCE_MAX_SECONDS } from '@adgen/core/enhance-limits';
 
 // React 19's act() refuses to run unless this flag is set.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -243,14 +244,14 @@ describe('EnhancePage', () => {
    * 200 MB crosses the wire, not after.
    */
   describe('video is measured before it is uploaded', () => {
-    it('refuses a clip over 60s and never starts the upload', async () => {
+    it('refuses a clip over the limit and never starts the upload', async () => {
       const container = mountPage();
       mocks.probeVideoFile.mockResolvedValue({ durationSec: 75, width: 1920, height: 1080 });
       await dropFile(container, 'dug.mp4', 'video/mp4');
 
       const alert = container.querySelector('[role="alert"]');
       expect(alert).toBeInstanceOf(HTMLElement);
-      expect(alert!.textContent).toContain('60s');
+      expect(alert!.textContent).toContain(`${ENHANCE_MAX_SECONDS}s`);
       expect(mocks.uploadFile).not.toHaveBeenCalled();
       expect(findButton(container, 'Dalje').disabled).toBe(true);
     });
@@ -286,7 +287,7 @@ describe('EnhancePage', () => {
 
     it('tells the user the video limits up front, in the dropzone hint', () => {
       const container = mountPage();
-      expect(container.textContent).toContain('video do 60s i do 1080p');
+      expect(container.textContent).toContain(`video do ${ENHANCE_MAX_SECONDS}s i do ${ENHANCE_MAX_HEIGHT}p`);
     });
   });
 

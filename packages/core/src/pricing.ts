@@ -202,7 +202,6 @@ export function getJobDescriptor(type: JobType): JobDescriptor {
   return d;
 }
 
-/** Mock credit packs for the Billing mock (F1 dev "add credits"). */
 export interface CreditPack {
   id: string;
   credits: number;
@@ -211,11 +210,32 @@ export interface CreditPack {
   popular?: boolean;
 }
 
+/**
+ * Mock credit packs for the Billing mock (F1 dev "add credits").
+ *
+ * Prices set 2026-08-20 to sit 25% below the competitor's (ecomalati.com)
+ * per-credit rate, measured that day. They sell MONTHLY SUBSCRIPTIONS —
+ * Starter €50/mo for 250 credits (€0.20/credit), Pro €100/mo for 600
+ * (€0.1667), Max €200/mo for 1500 (€0.1333) — and their per-tool credit
+ * costs are the same as ours (matrix 15, edit 18, AI image 4), so the only
+ * lever that differentiates us is what a credit costs.
+ *
+ * Our resulting rates — the credit total is base PLUS bonus, which is what
+ * these rates are computed from:
+ *   30 credits at €4.50     = €0.150/credit
+ *   110 (100+10) at €13.50  = €0.123/credit
+ *   290 (250+40) at €34.50  = €0.119/credit
+ *   720 (600+120) at €72    = €0.100/credit
+ *
+ * WARNING: that €0.100 is the floor every margin calculation in the app has
+ * to survive, and `enhance` is the only tool whose provider cost is not
+ * fixed — see enhance-limits.ts.
+ */
 export const CREDIT_PACKS: CreditPack[] = [
-  { id: 'pack_starter', credits: 30, priceEUR: 9 },
-  { id: 'pack_creator', credits: 100, priceEUR: 25, bonus: 10, popular: true },
-  { id: 'pack_pro', credits: 250, priceEUR: 55, bonus: 40 },
-  { id: 'pack_agency', credits: 600, priceEUR: 120, bonus: 120 },
+  { id: 'pack_starter', credits: 30, priceEUR: 4.5 },
+  { id: 'pack_creator', credits: 100, priceEUR: 13.5, bonus: 10, popular: true },
+  { id: 'pack_pro', credits: 250, priceEUR: 34.5, bonus: 40 },
+  { id: 'pack_agency', credits: 600, priceEUR: 72, bonus: 120 },
 ];
 /**
  * "1 kredit" vs "2 kredita" — Serbian does not pluralise the way English does,
@@ -270,4 +290,29 @@ export function freeVideosLabel(n: number): string {
   if (!teens && last === 1) return `${n} besplatan video`;
   if (!teens && last >= 2 && last <= 4) return `${n} besplatna videa`;
   return `${n} besplatnih videa`;
+}
+
+/**
+ * Serbian writes money with a comma and two decimals — the bare template
+ * `{priceEUR} €` printed "4.5 €", which reads as a bug on exactly the screen
+ * where trust matters most. The space before € is non-breaking so the amount
+ * and the symbol never wrap apart on a narrow card.
+ *
+ * Built by hand from toFixed(2) instead of Intl.NumberFormat on purpose: the
+ * same string renders on the server and in the browser, and a locale present
+ * on one and missing on the other produces a React hydration mismatch.
+ */
+export function eurLabel(amount: number): string {
+  return `${amount.toFixed(2).replace('.', ',')}\u00A0€`;
+}
+
+/**
+ * What one credit costs in a pack — the packs differ by 33% per credit
+ * (€0.150 vs €0.100) and that difference is the entire sales argument for the
+ * bigger pack, so callers need the number to show it. The bonus counts: it is
+ * credits the customer receives for the same price. Raw number, not a string,
+ * so callers can format or compare it.
+ */
+export function pricePerCredit(pack: CreditPack): number {
+  return pack.priceEUR / (pack.credits + (pack.bonus ?? 0));
 }

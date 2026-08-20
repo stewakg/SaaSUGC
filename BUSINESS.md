@@ -15,8 +15,15 @@ what's here is *why* they are what they are and where the money actually leaks.
 
 ## Pricing
 
-- **€0.20/credit** at the "Starter" tier (€50/mo for 250 credits). Cheaper per credit at
-  Pro/Max — standard SaaS bulk-discount shape.
+- ⚠️ **SUPERSEDED 2026-08-20.** The line below described the COMPETITOR'S shape, which
+  this project copied: €0.20/credit at a €50/mo Starter tier. We no longer price that
+  way. We sell one-off packs at **€0.150 down to €0.100 per credit** — deliberately 25%
+  under their per-credit rate at every comparable tier — and we do not sell a
+  subscription at all. The live numbers are `CREDIT_PACKS` in
+  `packages/core/src/pricing.ts`; the comparison table and every re-computed margin are
+  in `MARGINS.md` §1/§1a. Original line, kept because the rest of this file reasons from
+  it: ~~€0.20/credit at the "Starter" tier (€50/mo for 250 credits), cheaper per credit
+  at Pro/Max — standard SaaS bulk-discount shape.~~
 - Per-job credit costs (`packages/core/src/pricing.ts`) **intentionally mirror the
   competitor's real observed numbers**, captured when EcomAlati/VideoGen was
   reverse-engineered early in the project — they are a deliberate reference point, not

@@ -4,12 +4,12 @@
    ============================================================================
    Added 2026-08-20, from MARGINS.md "Nalaz #1" (TODO §2a, the one ⛔).
 
-   `enhance` charges a FLAT 9 credits (~€1.80). fal's Topaz video upscaler bills
+   `enhance` charges a FLAT 9 credits (€0.90 worst-case — 9 credits at the cheapest pack's €0.100/credit, see pricing.ts). fal's Topaz video upscaler bills
    PER SECOND and PER OUTPUT RESOLUTION — $0.01/s ≤720p, $0.02/s up to 1080p,
    $0.08/s above, doubled at 60fps (captured from the model's own llms.txt,
    2026-08-10; see providers/media-edit.fal.ts). The 200 MB upload ceiling bounds
    the FILE, not its duration or its resolution, so before this module a 60s
-   clip above 1080p at 60fps could cost $9.60 against €1.80 of revenue.
+   clip above 1080p at 60fps could cost $9.60 against €0.90 of revenue.
 
    Two decisions worth keeping:
 
@@ -23,13 +23,19 @@
       yet at the point this runs — so failing closed costs a customer one error
       message, while failing open costs real money on an unknown input.
 
-   Worst case that survives these limits: 60s, 1080p, 30fps = $1.20 (~€1.11)
-   against €1.80 — thin (~33%) but never a loss. Charging enhance PER SECOND is
+   Worst case that survives these limits: 30s, 1080p, 30fps = $0.60 (~€0.55)
+   against €0.90 — thin (~39%) but never a loss. Charging enhance PER SECOND is
    the real answer and is still an open pricing decision (TODO §2a).
    ========================================================================== */
 
-/** Longest video `enhance` accepts. Matches MAX_AD_SECONDS by coincidence, not by rule. */
-export const ENHANCE_MAX_SECONDS = 60;
+/**
+ * Longest video `enhance` accepts. `enhance` costs 9 credits = €0.90 of revenue
+ * at the new cheapest pack rate (€0.100/credit, pricing.ts), and fal's Topaz
+ * bills $0.02/s in the 1080p band — 60s = $1.20 ≈ €1.11, a LOSS at €0.90.
+ * At 30s the worst case is $0.60 ≈ €0.55 against €0.90: thin (~39% margin)
+ * but never a loss.
+ */
+export const ENHANCE_MAX_SECONDS = 30;
 
 /** Tallest OUTPUT `enhance` will produce — the top of fal's $0.02/s band, and the card's promise. */
 export const ENHANCE_MAX_HEIGHT = 1080;

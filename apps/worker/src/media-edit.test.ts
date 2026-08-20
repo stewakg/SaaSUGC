@@ -356,7 +356,7 @@ describe('runMediaEditPipeline', () => {
  * the clamped ones — an unclamped call is the invoice.
  */
 describe('runMediaEditPipeline — enhance video cost ceiling', () => {
-  it('refuses a clip longer than 60s and never reaches fal', async () => {
+  it('refuses a clip longer than the limit and never reaches fal', async () => {
     const { mediaEdit, persist } = makeDeps();
     await expect(
       runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', {}, {
@@ -376,7 +376,7 @@ describe('runMediaEditPipeline — enhance video cost ceiling', () => {
       runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', {}, {
         mediaEdit,
         persist,
-        probe: fakeProbe({ durationSec: 60, height: 2160, fps: 30 }),
+        probe: fakeProbe({ durationSec: 20, height: 2160, fps: 30 }),
       }),
     ).rejects.toThrow(/input_too_large/);
 
@@ -403,7 +403,7 @@ describe('runMediaEditPipeline — enhance video cost ceiling', () => {
     await runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', { upscaleFactor: 4 }, {
       mediaEdit,
       persist,
-      probe: fakeProbe({ durationSec: 60, height: 1080, fps: 60 }),
+      probe: fakeProbe({ durationSec: 20, height: 1080, fps: 60 }),
     });
 
     expect(mediaEdit.upscaleVideo).toHaveBeenCalledWith('https://cdn.example.com/x.mp4', {

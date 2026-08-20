@@ -10,6 +10,128 @@ the oldest ones there. **The Review ledger below stays here regardless**; it is 
 
 ---
 
+## 2026-08-20 — The one ⛔ closed, prices cut 25% under the competitor, and the UI stops shouting money
+
+**Account A. Machine: the PRIMARY one** — `~/.cline/data/settings/providers.json` here has
+an `openai-compatible` entry and NO `zai-coding-plan`, so CLAUDE.md's second-machine
+banner does not apply and `-P openai-compatible` is correct. `pnpm` is still not on PATH:
+every command below used `corepack pnpm`.
+
+**Started 19 commits BEHIND origin/main** — the other machine had worked through the night
+(admin panel, voice previews, log rotation, MARGINS.md). Pulled before touching a file, as
+the ritual says. That is the second time this month the pull mattered.
+
+### 1. `enhance` input cap — the launch ⛔ in TODO §2a is CLOSED (`09fb33b`)
+
+**VERIFIED** (typecheck, 1195 tests, prod build) **and mutation-tested** (below).
+
+`enhance` charges a flat 9 credits while fal's Topaz bills per second and per output
+resolution, and the only bound in the app was a 200 MB FILE size — which limits neither
+duration nor resolution. New `packages/core/src/enhance-limits.ts` holds the rules as pure
+functions: refuse >30s (was 60s at first — see §2, the price cut moved the floor under it),
+refuse a source above 1080p, clamp the upscale factor so the OUTPUT stays inside the 1080p
+band, pin anything above 30fps back to 30, and **refuse an unmeasurable file outright**
+(fail closed: an unbounded input is an unbounded bill).
+
+Applied twice, deliberately: the wizard measures the picked file in the browser
+(`apps/web/src/lib/probe-video.ts`) so nobody uploads 200 MB to be told no, and the WORKER
+probes the stored source with ffprobe (`probeVideoMeta` in `scene-detect.ts`, reusing the
+binary the montage chain already ships) before it calls fal. The worker is the authority —
+a hand-rolled POST never runs the wizard's copy.
+
+⚠️ Two follow-on breakages, both MINE, both from not thinking through who else pins the
+number 60: two worker tests and two web tests built their fixtures out of 60-second clips
+and went red when the limit dropped to 30. Fixed (§4), but the lesson is that lowering a
+limit is a cross-package change even when only one file defines it.
+
+### 2. Prices cut to 25% below the competitor (owner's decision, this session)
+
+An agent read ecomalati.com's public site. Findings that drove the decision:
+**they sell monthly subscriptions, not packs** — €50/mo for 250 credits (€0.200/credit),
+€100/600 (€0.1667), €200/1500 (€0.1333) — and **their per-tool credit costs are identical
+to ours** (matrix 15, edit 18, AI image 4), which confirms ours were copied. So the only
+lever that differentiates us is what a credit costs.
+
+New packs, 25% under their comparable tier: **€4.50/30 · €13.50/110 · €34.50/290 · €72/720**
+= €0.150 · €0.123 · €0.119 · €0.100 per credit. We were ABOVE them per credit on every pack
+except Agency before this.
+
+Consequences worked through in `MARGINS.md` (§1, §1a, §3, §4, §5, §7 all rewritten, and
+every margin is now computed against the CHEAPEST credit rather than an average):
+- everything live still earns **88–97%**, down from 95–99%. That gap is the cost of entry.
+- **`enhance` at 60s became a loss** at the new floor (€0.90 revenue vs €1.11 cost), which
+  is why the cap dropped to 30s the same day. At 30s: €0.55 vs €0.90.
+- **NEW ⛔, and it did not exist yesterday: `ai_video` on the fal fallback now LOSES money**
+  — 25 credits = €2.50 against ~€2.80 for a fal-routed video (MARGINS.md "Nalaz #0", TODO
+  §2a). Nothing leaks today because that tool has no pipeline, but it blocks ai_video
+  shipping until the owner picks: raise the price, forbid the fallback for that job type,
+  or cap the fallback separately.
+- Stripe's fixed €0.25 now costs **7.1%** of a €4.50 Starter pack, so that pack is an
+  acquisition tool, not margin. Break-even moved from ~1.2 to ~2.2 Creator packs/month.
+
+`BUSINESS.md`'s "€0.20/credit at the Starter tier" line is marked SUPERSEDED rather than
+deleted — the rest of that file reasons from it.
+
+### 3. The UI stops shouting money (`855fe6d`), and three design passes
+
+- **Price display.** The credit price sat in an accent-framed box (`border-accent-ring` +
+  `bg-accent-soft` + accent text — the loudest recipe the system has) in the footer of
+  EVERY step of every wizard, as a badge on every tool card's coloured header strip, and on
+  the "Uskoro" list whose numbers are placeholders nobody decided. Now: one quiet
+  `<CostNote/>` line, rendered by JobWizard on the LAST step only — the moment before the
+  button that spends; on cards it is metadata-coloured text at the foot, after the promise;
+  on Uskoro it is gone entirely.
+- **Step rail (`321fd15`).** Owner: "previše kockasto". It was six bordered rectangles.
+  Four directions were mocked in the real Premijera tokens
+  (`design-proposals-v3/step-rail.html`); he picked **A "Spona"** — one thread, six dots,
+  no boxes — plus a heavier progress bar (6px → 10px, new `.progress--thick`).
+- **Auth pages (`819be29`).** Owner pointed at the competitor's split login. New
+  `components/auth-split.tsx`: brand half (hue WASH, not a painted rectangle — three
+  radials, a floor, and a ::after that bleeds the ground back over the seam) + form half
+  with a Prijava/Registracija capsule. **One claim deliberately not copied:** their chip
+  says "3 besplatna videa"; our signup bonus is 3 CREDITS and the cheapest video tool costs
+  8, so ours says credits. ⚠️ **`apps/web/src/app/page.tsx:62` still prints
+  `freeVideosLabel(SIGNUP_BONUS_CREDITS)` = "3 besplatna videa" on the landing page. That
+  sentence is false as written.** Either raise the bonus to cover one real video or change
+  the copy — owner's call, not done here.
+
+### 4. Delegation: back to the documented workflow, mid-session
+
+The owner caught it: everything above through §3 was written by Claude directly, while
+CLAUDE.md says code goes through Cline. From the re-pricing onward it did — three runs,
+`-P openai-compatible`, spec files in the scratchpad, one-line prompts:
+1. the pack prices + the 30s cap + its test floor;
+2. `eurLabel` / `pricePerCredit` + profil page formatting + the two worker fixtures;
+3. the two web tests that still named "60s".
+
+**Audited, not trusted:** scope checked against the spec with `git diff --stat` (each run
+touched exactly the files it was allowed to), then **mutation-tested**. Widening the cap
+back to 60s failed exactly the two "nothing that passes can cost more than it earns" tests
+and nothing else; replacing the non-breaking space with an ASCII one and dropping the bonus
+from `pricePerCredit` failed exactly the four tests named after those behaviours. Both
+mutations reverted, `git diff` clean afterwards.
+
+Two of the three runs existed only to repair damage from MY spec (the 60s fixtures). That
+is a real cost of delegating a cross-cutting constant change: the spec has to enumerate
+every caller, not just the definition.
+
+### State at close
+
+- Tests: **core 405 · web 661 · worker 137 = 1203** (was 1169 at the previous entry).
+- typecheck clean, `@adgen/web` prod build clean, dev server run live to check the auth
+  split at 1440×900.
+- **Production is UNCHANGED and still runs the pre-cap pipeline and the OLD prices.** No
+  deploy this session. Deploying is the next obvious step and it carries the money fix.
+- Nothing left uncommitted.
+
+### Open decisions for the owner
+
+1. `ai_video` fallback loss (⛔ against that tool shipping) — MARGINS.md Nalaz #0.
+2. The landing's "3 besplatna videa" claim (see §3).
+3. Whether the €4.50 Starter pack survives Stripe's €0.25 fixed fee (7.1%).
+
+---
+
 ## 2026-08-19 — Second-machine sync: repo already at tip, all gates VERIFIED here
 
 **SESSION CLOSED (owner signed off, early morning).** Final state: production at
