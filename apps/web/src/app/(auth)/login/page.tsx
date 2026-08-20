@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { authErrorMessage } from '@/lib/auth-errors';
 import { safeNextPath } from '@/lib/safe-redirect';
+import { AuthSplit } from '@/components/auth-split';
 
 /**
  * Email/password login. Supabase Auth (local in dev).
@@ -46,64 +47,53 @@ function LoginForm() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center px-4">
-      <div className="ambient ambient--a" aria-hidden="true" />
-      <div className="ambient ambient--b" aria-hidden="true" />
-      <div className="spotlight" aria-hidden="true" />
-      <div className="panel w-full max-w-sm p-8 animate-fade-in">
-        <h1 className="font-display text-2xl font-bold">Uloguj se</h1>
-        <p className="mt-1 text-sm text-txt-mid">Dobrodošao nazad.</p>
+    <AuthSplit
+      active="login"
+      title="Dobrodošao nazad"
+      subtitle="Email i lozinka, i alati su tu."
+    >
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <Field
+          label="Email"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          placeholder="ti@primer.rs"
+          required
+          autoComplete="email"
+        />
+        <Field
+          label="Lozinka"
+          type="password"
+          value={password}
+          onChange={setPassword}
+          placeholder="••••••••"
+          required
+          autoComplete="current-password"
+        />
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <Field
-            label="Email"
-            type="email"
-            value={email}
-            onChange={setEmail}
-            placeholder="ti@primer.rs"
-            required
-            autoComplete="email"
-          />
-          <Field
-            label="Lozinka"
-            type="password"
-            value={password}
-            onChange={setPassword}
-            placeholder="••••••••"
-            required
-            autoComplete="current-password"
-          />
+        {error && (
+          // role="alert" so a screen reader announces the failure. Without it the
+          // form looked like it did nothing: the message appears visually and
+          // is never read out. The password checklist below already had a live
+          // region, which is what made this look covered when it was not.
+          <p role="alert" className="rounded-lg bg-err/10 p-3 text-sm text-err-text">{error}</p>
+        )}
 
-          {error && (
-            // role="alert" so a screen reader announces the failure. Without it the
-            // form looked like it did nothing: the message appears visually and
-            // is never read out. The password checklist below already had a live
-            // region, which is what made this look covered when it was not.
-            <p role="alert" className="rounded-lg bg-err/10 p-3 text-sm text-err-text">{error}</p>
-          )}
+        <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
+          {loading ? 'Prijava…' : 'Uloguj se'}
+        </button>
+      </form>
 
-          <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
-            {loading ? 'Prijava…' : 'Uloguj se'}
-          </button>
-        </form>
-
-        <p className="mt-4 text-center text-sm">
-          <Link
-            href="/zaboravljena-lozinka"
-            className="focus-ring rounded text-txt-mid underline-offset-4 hover:text-txt-hi hover:underline"
-          >
-            Zaboravio si lozinku?
-          </Link>
-        </p>
-
-        <p className="mt-6 text-center text-sm text-txt-mid">
-          Nemaš nalog?{' '}
-          <Link href="/signup" className="focus-ring rounded font-medium text-accent hover:text-accent-text">
-            Registruj se
-          </Link>
-        </p>
-      </div>
-    </main>
+      <p className="mt-4 text-center text-sm">
+        <Link
+          href="/zaboravljena-lozinka"
+          className="focus-ring rounded text-txt-mid underline-offset-4 hover:text-txt-hi hover:underline"
+        >
+          Zaboravio si lozinku?
+        </Link>
+      </p>
+    </AuthSplit>
   );
 }
 

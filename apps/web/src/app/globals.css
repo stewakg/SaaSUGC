@@ -870,6 +870,54 @@ body {
     background: radial-gradient(circle, var(--accent-2), transparent 70%);
   }
 
+  /* Auth split (components/auth-split.tsx), 2026-08-20. The brand half of the
+     login/signup page: a hue field that BLEEDS rather than a painted panel with
+     an edge - one radial in the accent, one in --accent-2, both fading into the
+     ground, so the two halves meet without a border between them. The
+     competitor paints a hard orange rectangle; the owner's standing note on this
+     app is no boxes, so the same idea is expressed as a wash.
+
+     Below lg it is a single strip above the form: on a phone the form is the
+     whole job and a full-height marketing panel would push it under the fold. */
+  .auth-brand {
+    position: relative;
+    isolation: isolate;
+    background:
+      radial-gradient(120% 90% at 12% 18%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 68%),
+      radial-gradient(90% 80% at 85% 92%, color-mix(in srgb, var(--accent-2) 18%, transparent), transparent 70%),
+      radial-gradient(70% 60% at 8% 88%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 72%),
+      /* A floor under the radials: without it the lower half of a tall panel
+         falls back to bare --panel and the hue looks like it stops halfway. */
+      linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, transparent), color-mix(in srgb, var(--accent) 6%, transparent)),
+      var(--panel);
+  }
+  /* The seam. A hairline would be the boxy answer; this is the ground colour
+     bleeding back over the join, so the panel dissolves into the form side. */
+  .auth-brand::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 55%, var(--ground));
+  }
+  @media (min-width: 1024px) {
+    .auth-brand::after {
+      background: linear-gradient(90deg, transparent 60%, var(--ground));
+    }
+  }
+  /* A chip, not a card: no border, no fill of its own beyond a whisper. */
+  .auth-chip {
+    position: relative;
+    z-index: 1;
+    border-radius: 18px;
+    padding: 0.875rem 1rem;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--txt-mid);
+    background: color-mix(in srgb, var(--ground) 55%, transparent);
+    backdrop-filter: blur(6px);
+  }
+
   /* MIGRATED to tokens — static 9:16 phone-frame placeholder for the landing
      hero. Deliberately empty: no screenshot, no invented UI, just the frame
      and a dimension caption. */

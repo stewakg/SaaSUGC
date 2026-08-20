@@ -2,12 +2,12 @@
 
 import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { authErrorMessage } from '@/lib/auth-errors';
 import { PASSWORD_MIN_LENGTH, validatePassword } from '@/lib/password';
 import { PasswordRules } from '@/components/password-rules';
-import { SIGNUP_BONUS_CREDITS, freeVideosLabel } from '@adgen/core/pricing';
+import { SIGNUP_BONUS_CREDITS, creditsLabel } from '@adgen/core/pricing';
+import { AuthSplit } from '@/components/auth-split';
 
 /**
  * Email/password sign-up. The signup-bonus trigger (0001_init_schema.sql)
@@ -67,70 +67,61 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center px-4">
-      <div className="ambient ambient--a" aria-hidden="true" />
-      <div className="ambient ambient--b" aria-hidden="true" />
-      <div className="spotlight" aria-hidden="true" />
-      <div className="panel w-full max-w-sm p-8 animate-fade-in">
-        <h1 className="font-display text-2xl font-bold">Napravi nalog</h1>
-        <p className="mt-1 text-sm text-txt-mid">
-          {freeVideosLabel(SIGNUP_BONUS_CREDITS)} odmah. Bez kartice.
-        </p>
+    <AuthSplit
+      active="signup"
+      title="Napravi nalog"
+      /* Credits, not videos: the bonus is 3 CREDITS and the cheapest video tool
+         costs 8, so "3 besplatna videa" would be a promise the account cannot
+         keep. See the note in components/auth-split.tsx. */
+      subtitle={`${creditsLabel(SIGNUP_BONUS_CREDITS)} odmah, bez kartice.`}
+    >
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <Field
+          label="Email"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          placeholder="ti@primer.rs"
+          required
+          autoComplete="email"
+        />
+        <Field
+          label="Lozinka"
+          type="password"
+          value={password}
+          onChange={setPassword}
+          placeholder={`minimum ${PASSWORD_MIN_LENGTH} znakova`}
+          required
+          minLength={PASSWORD_MIN_LENGTH}
+          autoComplete="new-password"
+        />
+        <PasswordRules value={password} />
+        <Field
+          label="Ponovi lozinku"
+          type="password"
+          value={confirm}
+          onChange={setConfirm}
+          placeholder="isto još jednom"
+          required
+          minLength={PASSWORD_MIN_LENGTH}
+          autoComplete="new-password"
+        />
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <Field
-            label="Email"
-            type="email"
-            value={email}
-            onChange={setEmail}
-            placeholder="ti@primer.rs"
-            required
-            autoComplete="email"
-          />
-          <Field
-            label="Lozinka"
-            type="password"
-            value={password}
-            onChange={setPassword}
-            placeholder={`minimum ${PASSWORD_MIN_LENGTH} znakova`}
-            required
-            minLength={PASSWORD_MIN_LENGTH}
-            autoComplete="new-password"
-          />
-          <PasswordRules value={password} />
-          <Field
-            label="Ponovi lozinku"
-            type="password"
-            value={confirm}
-            onChange={setConfirm}
-            placeholder="isto još jednom"
-            required
-            minLength={PASSWORD_MIN_LENGTH}
-            autoComplete="new-password"
-          />
+        {error && (
+          // role="alert" so a screen reader announces the failure. Without it the
+          // form looked like it did nothing: the message appears visually and
+          // is never read out. The password checklist below already had a live
+          // region, which is what made this look covered when it was not.
+          <p role="alert" className="rounded-lg bg-err/10 p-3 text-sm text-err-text">{error}</p>
+        )}
+        {notice && <p className="rounded-lg bg-accent-soft p-3 text-sm text-accent-text">{notice}</p>}
 
-          {error && (
-            // role="alert" so a screen reader announces the failure. Without it the
-            // form looked like it did nothing: the message appears visually and
-            // is never read out. The password checklist below already had a live
-            // region, which is what made this look covered when it was not.
-            <p role="alert" className="rounded-lg bg-err/10 p-3 text-sm text-err-text">{error}</p>
-          )}
-          {notice && <p className="rounded-lg bg-accent-soft p-3 text-sm text-accent-text">{notice}</p>}
+        <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
+          {loading ? 'Pravim nalog…' : 'Registruj se'}
+        </button>
+      </form>
 
-          <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-50">
-            {loading ? 'Pravim nalog…' : 'Registruj se'}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-txt-mid">
-          Imaš nalog?{' '}
-          <Link href="/login" className="focus-ring rounded font-medium text-accent hover:text-accent-text">
-            Uloguj se
-          </Link>
-        </p>
-      </div>
-    </main>
+    </AuthSplit>
   );
 }
 
