@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getJobDescriptor, creditsLabel } from '@adgen/core/pricing';
+import { ENHANCE_MAX_HEIGHT, ENHANCE_MAX_SECONDS, planEnhanceVideo } from '@adgen/core/enhance-limits';
 import { FileDropzone } from '@/components/file-dropzone';
 import { JobWizard, type WizardStep } from '@/components/job-wizard';
 import { pollJob, type JobAsset } from '@/lib/poll-job';
 import { uploadFile } from '@/lib/upload-file';
+import { probeVideoFile } from '@/lib/probe-video';
 
 const descriptor = getJobDescriptor('enhance');
 
@@ -45,6 +47,23 @@ export default function EnhancePage() {
     setUploadPhase('uploading');
     setUploadError(null);
     try {
+      /**
+       * A video is measured BEFORE it is uploaded. Topaz bills per second and
+       * per resolution while this tool charges a flat price, so long or
+       * over-1080p clips are refused (MARGINS.md "Nalaz #1") — and being told
+       * that after pushing 200 MB across the wire would be the worst possible
+       * moment. The worker re-runs the same rules on the stored file; that copy
+       * is the one that decides, this one only saves the upload.
+       */
+      if (file.type.startsWith('video/')) {
+        const probed = await probeVideoFile(file);
+        const plan = planEnhanceVideo({ durationSec: probed.durationSec, height: probed.height });
+        if (!plan.ok) {
+          setUploadError(plan.message);
+          setUploadPhase('error');
+          return;
+        }
+      }
       const uploaded = await uploadFile(file);
       setSourceUrl(uploaded.url);
       setSourceName(uploaded.name);
@@ -90,7 +109,7 @@ export default function EnhancePage() {
             accept="video/mp4,video/quicktime,video/webm,image/png,image/jpeg,image/webp"
             disabled={uploadPhase === 'uploading'}
             title="Klikni ili prevuci fajl ovde"
-            hint="MP4, MOV, WEBM, PNG, JPG ili WEBP · do 200MB"
+            hint={`MP4, MOV, WEBM, PNG, JPG ili WEBP · do 200MB · video do ${ENHANCE_MAX_SECONDS}s i do ${ENHANCE_MAX_HEIGHT}p`}
             onFiles={handleFiles}
           />
           {uploadPhase === 'uploading' && <p className="text-sm text-txt-mid">Otpremam…</p>}

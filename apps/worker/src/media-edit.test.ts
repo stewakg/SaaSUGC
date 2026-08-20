@@ -155,6 +155,15 @@ function makeDeps() {
   return { mediaEdit, persist };
 }
 
+/**
+ * Stands in for `probeVideoMeta`, which shells out to ffprobe. Injected rather
+ * than mocked at the module boundary so each test states the exact clip it is
+ * about — the numbers in these tests ARE the cases in MARGINS.md.
+ */
+function fakeProbe(meta: { durationSec: number; height: number; fps: number }) {
+  return vi.fn().mockReturnValue({ width: Math.round((meta.height * 16) / 9), ...meta });
+}
+
 describe('persistRemoteAsset', () => {
   it('a non-ok fetch throws and never uploads', async () => {
     fetchMock.mockResolvedValue(fetchResponse({ ok: false, status: 502 }));
@@ -326,13 +335,104 @@ describe('runMediaEditPipeline', () => {
     const result = await runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', {}, {
       mediaEdit,
       persist,
+      probe: fakeProbe({ durationSec: 15, height: 720, fps: 30 }),
     });
 
+    // 720p x2 would be 1440p — outside the band this tool sells and inside
+    // fal's $0.08/s tier — so the factor comes back clamped, not echoed.
     expect(mediaEdit.upscaleVideo).toHaveBeenCalledWith('https://cdn.example.com/x.mp4', {
-      upscaleFactor: undefined,
+      upscaleFactor: 1,
+      targetFps: undefined,
     });
     expect(persist).toHaveBeenCalledWith('https://prov/uv', 'enhance');
     expect(result).toEqual([{ kind: 'video', url: 'https://our/final', storageKey: 'enhance/final.png' }]);
+  });
+});
+
+/**
+ * The money guard on the one path where the CUSTOMER'S FILE decides what we pay
+ * (MARGINS.md "Nalaz #1" / TODO §2a). Each test asserts the same two things: the
+ * provider is not called on a refusal, and the parameters it IS called with are
+ * the clamped ones — an unclamped call is the invoice.
+ */
+describe('runMediaEditPipeline — enhance video cost ceiling', () => {
+  it('refuses a clip longer than 60s and never reaches fal', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    await expect(
+      runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', {}, {
+        mediaEdit,
+        persist,
+        probe: fakeProbe({ durationSec: 61, height: 1080, fps: 30 }),
+      }),
+    ).rejects.toThrow(/input_too_long/);
+
+    expect(mediaEdit.upscaleVideo).not.toHaveBeenCalled();
+    expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('refuses a source above 1080p — the $4.80 row in MARGINS.md', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    await expect(
+      runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', {}, {
+        mediaEdit,
+        persist,
+        probe: fakeProbe({ durationSec: 60, height: 2160, fps: 30 }),
+      }),
+    ).rejects.toThrow(/input_too_large/);
+
+    expect(mediaEdit.upscaleVideo).not.toHaveBeenCalled();
+  });
+
+  it('refuses when the probe cannot read the file — fail CLOSED, spend nothing', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    // The download fallback also fails, so the unreadable result stands.
+    fetchMock.mockResolvedValue(fetchResponse({ ok: false, status: 404 }));
+    await expect(
+      runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', {}, {
+        mediaEdit,
+        persist,
+        probe: fakeProbe({ durationSec: 0, height: 0, fps: 0 }),
+      }),
+    ).rejects.toThrow(/unreadable/);
+
+    expect(mediaEdit.upscaleVideo).not.toHaveBeenCalled();
+  });
+
+  it('pins a 60fps source to 30fps — the ×2 price multiplier never reaches fal', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    await runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', { upscaleFactor: 4 }, {
+      mediaEdit,
+      persist,
+      probe: fakeProbe({ durationSec: 60, height: 1080, fps: 60 }),
+    });
+
+    expect(mediaEdit.upscaleVideo).toHaveBeenCalledWith('https://cdn.example.com/x.mp4', {
+      upscaleFactor: 1,
+      targetFps: 30,
+    });
+  });
+
+  it('a small source keeps its requested factor — the guard clamps, it does not disable the tool', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    await runMediaEditPipeline('enhance', 'https://cdn.example.com/x.mp4', { upscaleFactor: 2 }, {
+      mediaEdit,
+      persist,
+      probe: fakeProbe({ durationSec: 20, height: 360, fps: 30 }),
+    });
+
+    expect(mediaEdit.upscaleVideo).toHaveBeenCalledWith('https://cdn.example.com/x.mp4', {
+      upscaleFactor: 2,
+      targetFps: undefined,
+    });
+  });
+
+  it('an IMAGE source never probes — the per-second bill only exists for video', async () => {
+    const { mediaEdit, persist } = makeDeps();
+    const probe = fakeProbe({ durationSec: 0, height: 0, fps: 0 });
+    await runMediaEditPipeline('enhance', 'https://cdn.example.com/x.png', {}, { mediaEdit, persist, probe });
+
+    expect(probe).not.toHaveBeenCalled();
+    expect(mediaEdit.upscaleImage).toHaveBeenCalled();
   });
 });
 

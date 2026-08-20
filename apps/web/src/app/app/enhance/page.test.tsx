@@ -44,6 +44,7 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   uploadFile: vi.fn(),
   pollJob: vi.fn(),
+  probeVideoFile: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -56,6 +57,10 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/lib/upload-file', () => ({ uploadFile: mocks.uploadFile }));
 vi.mock('@/lib/poll-job', () => ({ pollJob: mocks.pollJob }));
+// jsdom has no video decoder, so the real probe would resolve to zeros and every
+// video in this suite would be refused as unreadable. The RULES it feeds are not
+// mocked — planEnhanceVideo runs for real below, on the numbers each test states.
+vi.mock('@/lib/probe-video', () => ({ probeVideoFile: mocks.probeVideoFile }));
 
 import EnhancePage from './page';
 import * as React from 'react';
@@ -81,6 +86,7 @@ describe('EnhancePage', () => {
     mocks.replace.mockReset();
     mocks.uploadFile.mockReset();
     mocks.pollJob.mockReset();
+    mocks.probeVideoFile.mockReset();
   });
 
   afterEach(() => {
@@ -227,6 +233,59 @@ describe('EnhancePage', () => {
     expect(alert!.textContent).toBe('insufficient_balance');
     // Retry stays possible: the action is back to Pokreni and usable.
     expect(findButton(container, 'Pokreni').disabled).toBe(false);
+  });
+
+  /**
+   * The cost ceiling, wizard side (MARGINS.md "Nalaz #1"). What matters in each
+   * of these is that `uploadFile` is NOT called: the refusal has to land before
+   * 200 MB crosses the wire, not after.
+   */
+  describe('video is measured before it is uploaded', () => {
+    it('refuses a clip over 60s and never starts the upload', async () => {
+      const container = mountPage();
+      mocks.probeVideoFile.mockResolvedValue({ durationSec: 75, width: 1920, height: 1080 });
+      await dropFile(container, 'dug.mp4', 'video/mp4');
+
+      const alert = container.querySelector('[role="alert"]');
+      expect(alert).toBeInstanceOf(HTMLElement);
+      expect(alert!.textContent).toContain('60s');
+      expect(mocks.uploadFile).not.toHaveBeenCalled();
+      expect(findButton(container, 'Dalje').disabled).toBe(true);
+    });
+
+    it('refuses a source above 1080p and never starts the upload', async () => {
+      const container = mountPage();
+      mocks.probeVideoFile.mockResolvedValue({ durationSec: 10, width: 3840, height: 2160 });
+      await dropFile(container, 'veliki.mp4', 'video/mp4');
+
+      expect(container.querySelector('[role="alert"]')!.textContent).toContain('1080p');
+      expect(mocks.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('uploads a clip that fits', async () => {
+      const container = mountPage();
+      mocks.probeVideoFile.mockResolvedValue({ durationSec: 15, width: 1280, height: 720 });
+      mocks.uploadFile.mockResolvedValue({ url: 'https://files.example.com/ok.mp4', name: 'ok.mp4' });
+      await dropFile(container, 'ok.mp4', 'video/mp4');
+
+      expect(container.querySelector('[role="alert"]')).toBeNull();
+      expect(mocks.uploadFile).toHaveBeenCalledTimes(1);
+      expect(findButton(container, 'Dalje').disabled).toBe(false);
+    });
+
+    it('an image is never probed — only video is billed per second', async () => {
+      const container = mountPage();
+      mocks.uploadFile.mockResolvedValue({ url: 'https://files.example.com/a.png', name: 'a.png' });
+      await dropFile(container, 'a.png', 'image/png');
+
+      expect(mocks.probeVideoFile).not.toHaveBeenCalled();
+      expect(mocks.uploadFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('tells the user the video limits up front, in the dropzone hint', () => {
+      const container = mountPage();
+      expect(container.textContent).toContain('video do 60s i do 1080p');
+    });
   });
 
 });

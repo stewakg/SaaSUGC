@@ -32,6 +32,60 @@ export function probeDuration(videoPath: string): number {
   return Number((res.stdout || '').trim()) || 0;
 }
 
+/** What a video costs to process: how long it runs, how tall it is, how fast. */
+export interface VideoMeta {
+  durationSec: number;
+  width: number;
+  height: number;
+  fps: number;
+}
+
+/**
+ * Probe a video's duration, dimensions and frame rate. Accepts a local path OR
+ * a remote http(s) url — ffprobe reads only as much of the file as the headers
+ * need, so probing a stored clip does not download it.
+ *
+ * Returns zeros for anything it cannot read, and the caller decides what that
+ * means. For `enhance` it means REFUSE (see planEnhanceVideo): a clip whose
+ * size cannot be measured is a clip whose provider bill cannot be bounded.
+ *
+ * `avg_frame_rate` comes back as a rational string ('30000/1001'), which is why
+ * this parses rather than Number()s it — Number('30000/1001') is NaN, and a NaN
+ * fps silently reading as "not above 30" would skip the fps pin.
+ */
+export function probeVideoMeta(pathOrUrl: string): VideoMeta {
+  const empty: VideoMeta = { durationSec: 0, width: 0, height: 0, fps: 0 };
+  const res = spawnSync(
+    ffprobePath,
+    [
+      '-v', 'error',
+      '-select_streams', 'v:0',
+      '-show_entries', 'stream=width,height,avg_frame_rate:format=duration',
+      '-of', 'default=noprint_wrappers=1',
+      pathOrUrl,
+    ],
+    { encoding: 'utf8' },
+  );
+  if (res.status !== 0) return empty;
+
+  const fields = new Map<string, string>();
+  for (const line of (res.stdout || '').split(/\r?\n/)) {
+    const eq = line.indexOf('=');
+    if (eq > 0) fields.set(line.slice(0, eq).trim(), line.slice(eq + 1).trim());
+  }
+
+  const rate = fields.get('avg_frame_rate') ?? '';
+  const [num, den] = rate.split('/');
+  const fps = Number(den) > 0 ? Number(num) / Number(den) : Number(num) || 0;
+
+  return {
+    durationSec: Number(fields.get('duration')) || 0,
+    width: Number(fields.get('width')) || 0,
+    height: Number(fields.get('height')) || 0,
+    fps: Number.isFinite(fps) ? fps : 0,
+  };
+}
+
 /**
  * Pure: turn scene-change cut times + a total duration into shot ranges,
  * dropping any shorter than minShotSec. Boundaries are [0, ...cuts, duration].

@@ -12,6 +12,7 @@
     "./queue": "./src/queue.ts",
     "./types": "./src/types.ts",
     "./constants": "./src/constants.ts",
+    "./enhance-limits": "./src/enhance-limits.ts",
     "./storage-path": "./src/storage-path.ts",
     "./providers/*": "./src/providers/*.ts"
   },

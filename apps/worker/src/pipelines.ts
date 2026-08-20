@@ -11,13 +11,14 @@ import {
   DEFAULT_MATRIX_OUTRO_TEXT,
   DEFAULT_VOICE_MODEL,
   MAX_AD_SECONDS,
+  planEnhanceVideo,
   clampScriptForSpeech,
   scriptCharBudget,
   toAdSeconds,
 } from '@adgen/core';
 import type { MatrixAdProps, MatrixTransition, Renderer } from '@adgen/core';
 import type { AssetKind } from '@adgen/db';
-import { detectShots, downloadClip } from './scene-detect.ts';
+import { detectShots, downloadClip, probeVideoMeta } from './scene-detect.ts';
 import { buildMontage, type PoolShot } from './montage.ts';
 import { approvedScripts, speakerGenderOf } from './approved-scripts.ts';
 import { providers, matrixRenderer } from './providers.ts';
@@ -412,7 +413,11 @@ export async function runMediaEditPipeline(
   sourceUrl: string,
   params: Record<string, unknown>,
   // Injected for tests; defaults keep every caller unchanged.
-  deps: { mediaEdit: typeof providers.mediaEdit; persist: typeof persistRemoteAsset } = {
+  deps: {
+    mediaEdit: typeof providers.mediaEdit;
+    persist: typeof persistRemoteAsset;
+    probe?: typeof probeVideoMeta;
+  } = {
     mediaEdit: providers.mediaEdit,
     persist: persistRemoteAsset,
   },
@@ -470,7 +475,60 @@ export async function runMediaEditPipeline(
     return [{ kind: 'image', url, storageKey }];
   }
 
-  const { url: remoteUrl } = await mediaEdit.upscaleVideo(absoluteSource, { upscaleFactor });
+  /**
+   * VIDEO: measure the clip BEFORE spending, and send fal parameters that the
+   * measurement proves are affordable.
+   *
+   * This is the one path in the app where a customer's own file decides what we
+   * pay: Topaz bills per second and per output resolution, while `enhance`
+   * charges a flat 9 credits (MARGINS.md "Nalaz #1"). The rules live in
+   * `planEnhanceVideo` (@adgen/core) so the wizard can apply the same ones
+   * before the upload; this call is the authority, because a hand-written POST
+   * never runs the wizard's copy.
+   *
+   * The probe reads the source over the network (ffprobe fetches only the
+   * headers it needs) and falls back to downloading the clip if that fails —
+   * some storage responses do not support the range requests ffprobe wants, and
+   * an unreadable probe REFUSES the job rather than defaulting.
+   */
+  const probe = deps.probe ?? probeVideoMeta;
+  let meta = probe(absoluteSource);
+  let localCopy: string | null = null;
+  if (meta.durationSec <= 0 || meta.height <= 0) {
+    try {
+      localCopy = await downloadClip(absoluteSource);
+      meta = probe(localCopy);
+    } catch {
+      // Leave `meta` as the unreadable result — planEnhanceVideo turns that
+      // into the refusal below, which is the same outcome and one message.
+    } finally {
+      if (localCopy) {
+        await import('node:fs/promises')
+          .then((fs) => fs.unlink(localCopy as string))
+          .catch(() => {});
+      }
+    }
+  }
+
+  const plan = planEnhanceVideo(
+    { durationSec: meta.durationSec, height: meta.height, fps: meta.fps },
+    upscaleFactor,
+  );
+  if (!plan.ok) {
+    // `code: message` — the shape every other refusal in this file uses, and the
+    // shape the job-state layer's "not charged" paths already log.
+    throw new Error(`${plan.code}: ${plan.message}`);
+  }
+  console.log(
+    `[enhance] ${Math.round(meta.durationSec)}s ${meta.height}p @${Math.round(meta.fps)}fps ` +
+      `-> x${plan.upscaleFactor} (${plan.outputHeight}p${plan.targetFps ? `, ${plan.targetFps}fps` : ''}), ` +
+      `est. $${plan.estimatedUsd.toFixed(2)}`,
+  );
+
+  const { url: remoteUrl } = await mediaEdit.upscaleVideo(absoluteSource, {
+    upscaleFactor: plan.upscaleFactor,
+    targetFps: plan.targetFps,
+  });
   const { url, storageKey } = await deps.persist(remoteUrl, 'enhance');
   return [{ kind: 'video', url, storageKey }];
 }
