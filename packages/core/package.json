@@ -29,7 +29,7 @@
     "@remotion/lambda-client": "4.0.490",
     "@remotion/renderer": "4.0.490",
     "cheerio": "^1.0.0",
-    "ioredis": "^5.4.1",
+    "ioredis": "^6.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
