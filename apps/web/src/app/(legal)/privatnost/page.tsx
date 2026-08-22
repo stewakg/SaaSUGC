@@ -164,8 +164,11 @@ export default function PrivatnostPage() {
         <strong className="text-txt-hi">Ko sve to vidi.</strong> Klon nastaje na našem nalogu kod ElevenLabs-a, ne na
         tvom. To znači da <strong className="text-txt-hi">mi kao vlasnik naloga vidimo i klonove i istoriju
         izgovorenog teksta</strong>, i tehnički možemo da ih otvorimo — bez toga ne bismo mogli ni da napravimo klon
-        ni da ga obrišemo na tvoj zahtev. Ne koristimo ih ni za šta drugo osim za izradu tvojih reklama i za
-        otklanjanje kvara koji si prijavio, i ne prosleđujemo ih trećima osim ElevenLabs-u kao obrađivaču.
+        ni da ga obrišemo na tvoj zahtev. Uz to stoji i obećanje šta{' '}
+        <strong className="text-txt-hi">nikada nećemo raditi</strong>: klon nećemo koristiti za tuđe reklame, nećemo
+        ga ustupati, prodavati ni deliti sa drugim korisnicima, i nećemo ga koristiti za obučavanje modela — ni
+        naših, ni tuđih. Pristupamo mu samo radi izrade tvojih reklama i otklanjanja kvara koji si prijavio, a
+        prosleđuje se jedino ElevenLabs-u kao obrađivaču.
       </p>
       <p>
         <strong className="text-txt-hi">Gde se obrađuje i koliko ostaje.</strong> Snimak se šalje ElevenLabs-u u SAD.

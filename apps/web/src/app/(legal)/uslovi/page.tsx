@@ -121,8 +121,11 @@ export default function UsloviPage() {
         <strong className="text-txt-hi">
           mi kao vlasnik tog naloga vidimo listu klonova i istoriju izgovorenog teksta
         </strong>
-        , i tehnički možemo da ih otvorimo. Ne koristimo ih ni za šta osim za izradu tvojih reklama i za rešavanje
-        kvara koji si prijavio. Detalji su u{' '}
+        , i tehnički možemo da ih otvorimo. Zato govorimo i šta sa tim{' '}
+        <strong className="text-txt-hi">nikada nećemo raditi</strong>: tvoj klon nećemo koristiti ni za čije druge
+        reklame, nećemo ga davati, prodavati ni ustupati drugom korisniku, i nećemo ga koristiti za obučavanje
+        modela. Otvaramo ga samo da bismo napravili reklamu koju si naručio ili rešili kvar koji si prijavio.
+        Detalji su u{' '}
         <a href="/privatnost" className="focus-ring rounded text-accent-text hover:underline">
           Politici privatnosti
         </a>
