@@ -93,9 +93,35 @@ export class ElevenLabsVoiceProvider implements VoiceProvider {
       throw new Error(`ElevenLabs list voices failed (${res.status}): ${body}`);
     }
     const json = (await res.json()) as {
-      voices: { voice_id: string; name: string; labels?: { gender?: string } }[];
+      voices: {
+        voice_id: string;
+        name: string;
+        labels?: { gender?: string; language?: string; accent?: string; age?: string; use_case?: string };
+        verified_languages?: { language?: string }[];
+      }[];
     };
-    return json.voices.map((v) => ({ id: v.voice_id, name: v.name, gender: v.labels?.gender ?? 'unknown' }));
+    /**
+     * The labels are carried through rather than flattened away, because they
+     * are what tells a Serbian customer that an English voice will read their
+     * ad with an English accent (see curateVoices). Measured on the live
+     * account 2026-08-22: 38 of 58 voices are `en`, 10 are `de`, and only 5 are
+     * ours — which the picker had no way to show.
+     *
+     * `verified_languages` repeats a language once per sample, so it is
+     * de-duplicated here; callers only ever ask "is our language in there".
+     */
+    return json.voices.map((v) => ({
+      id: v.voice_id,
+      name: v.name,
+      gender: v.labels?.gender ?? 'unknown',
+      language: v.labels?.language,
+      accent: v.labels?.accent,
+      age: v.labels?.age,
+      useCase: v.labels?.use_case,
+      verifiedLanguages: [
+        ...new Set((v.verified_languages ?? []).map((l) => l.language).filter((l): l is string => Boolean(l))),
+      ],
+    }));
   }
 }
 

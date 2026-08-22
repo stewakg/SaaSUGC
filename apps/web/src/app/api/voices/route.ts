@@ -12,6 +12,7 @@
  */
 import { NextResponse } from 'next/server';
 import { createProviders } from '@adgen/core';
+import { curateVoices } from '@adgen/core/voices';
 import { createServerClient } from '@/lib/supabase/server';
 import { rateLimit } from '@/lib/rate-limit';
 
@@ -35,7 +36,13 @@ export async function GET() {
 
   try {
     const { voice } = createProviders();
-    const voices = await voice.listVoices();
+    /**
+     * Curated here rather than in the browser: the ranking is a product rule
+     * (native voices first, foreign accents last and labelled), and every
+     * wizard that lists voices must get the same order. Doing it client-side
+     * would leave each page free to disagree.
+     */
+    const voices = curateVoices(await voice.listVoices());
     return NextResponse.json({ provider: voice.name, voices });
   } catch (err) {
     console.error('[voices] list failed:', err);

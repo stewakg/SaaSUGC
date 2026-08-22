@@ -232,10 +232,16 @@ describe('ElevenLabsVoiceProvider', () => {
 
       const voices = await provider.listVoices();
 
-      expect(voices).toEqual([
+      // toMatchObject, not toEqual: since 2026-08-22 the mapper also carries the
+      // accent metadata (language/accent/age/useCase/verifiedLanguages) that
+      // lets the app warn a Serbian customer an English voice will read their ad
+      // with an English accent. Absent labels come back undefined, which the
+      // curation treats as "foreign" — the safe assumption.
+      expect(voices).toMatchObject([
         { id: 'v1', name: 'Ana', gender: 'female' },
         { id: 'v2', name: 'Marko', gender: 'unknown' },
       ]);
+      expect(voices).toHaveLength(2);
 
       const url = fetchMock.mock.calls[0][0] as string;
       expect(url.endsWith('/voices')).toBe(true);

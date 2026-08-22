@@ -93,7 +93,25 @@ export interface VoiceProvider {
     speed: number;
     language: string;
   }): Promise<{ audioUrl: string; durationSec?: number; words?: CaptionWord[] }>;
-  listVoices(): Promise<{ id: string; name: string; gender: string }[]>;
+  /**
+   * The account's voices. `language`/`accent`/`verifiedLanguages` are what let
+   * the app tell a Serbian customer that an English voice will read their ad
+   * with an American accent — see `curateVoices` in voices.ts. A provider that
+   * cannot report them omits them; the curation degrades to "foreign", which is
+   * the safe assumption for an unlabelled voice.
+   */
+  listVoices(): Promise<
+    {
+      id: string;
+      name: string;
+      gender: string;
+      language?: string;
+      accent?: string;
+      age?: string;
+      useCase?: string;
+      verifiedLanguages?: string[];
+    }[]
+  >;
 }
 
 /**

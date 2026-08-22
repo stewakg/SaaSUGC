@@ -328,13 +328,28 @@ describe('GET /api/voices', () => {
     expect(await res.json()).toEqual({ error: 'rate_limited', retryAfterSeconds: 30 });
   });
 
-  it('15. happy path ⇒ 200 with the provider voices', async () => {
+  it('15. happy path ⇒ 200 with the provider voices, ranked and labelled', async () => {
     const res = await listVoices();
 
     expect(res.status).toBe(200);
+    // The route curates before answering (2026-08-22): every voice gains a
+    // `fit` — how close it is to speaking Serbian natively — and a Serbian
+    // one-liner. A voice with no language label and no verified language is
+    // `foreign`, which is the safe assumption: on the live account 38 of 58
+    // voices are English and would read a Serbian ad with an English accent.
     expect(await res.json()).toEqual({
       provider: 'mock-voice',
-      voices: [{ id: 'v1', name: 'Voice 1', gender: 'female' }],
+      voices: [
+        {
+          id: 'v1',
+          name: 'Voice 1',
+          gender: 'female',
+          fit: 'foreign',
+          description: 'ženski',
+          // No verifiedLanguages key: the mock provider does not report one, and
+          // curateVoices must not invent fields a provider never supplied.
+        },
+      ],
     });
   });
 
