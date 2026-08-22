@@ -10,15 +10,15 @@
   },
   "dependencies": {
     "@adgen/core": "workspace:*",
-    "@remotion/google-fonts": "4.0.490",
+    "@remotion/google-fonts": "4.0.513",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "remotion": "4.0.490"
+    "remotion": "4.0.513"
   },
   "devDependencies": {
-    "@remotion/bundler": "4.0.490",
-    "@remotion/cli": "4.0.490",
-    "@remotion/renderer": "4.0.490",
+    "@remotion/bundler": "4.0.513",
+    "@remotion/cli": "4.0.513",
+    "@remotion/renderer": "4.0.513",
     "@types/node": "^22.9.0",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
