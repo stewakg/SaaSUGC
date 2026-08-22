@@ -20,10 +20,6 @@
  * the mock returns a platform-native absolute path and the assertions build
  * expected paths with path.join(ROOT, …) so the suite passes on Windows and
  * Linux alike.
- *
- * The route module under test (apps/web/src/app/api/storage/[...path]/route.ts)
- * is READ-ONLY. A failing test below is a finding to report, not a reason to
- * edit the route.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import path from 'node:path';
@@ -52,7 +48,14 @@ const { getUser, maybeSingle, readFileMock, resolveDirMock, eqSpy, createProvide
 
 vi.mock('node:fs/promises', () => ({ readFile: readFileMock }));
 vi.mock('@adgen/core/storage-path', () => ({ resolveLocalStorageDir: resolveDirMock }));
-vi.mock('@adgen/core', () => ({ createProviders: createProvidersMock }));
+// createProviders is overridden (which storage the route sees); everything
+// else stays REAL via importActual — the route also imports isExpired from
+// here, and a full-replacement mock would hand it `undefined`. Same spread
+// pattern as remaining-routes.test.ts / admin/users/routes.test.ts.
+vi.mock('@adgen/core', async (importActual) => {
+  const actual = await importActual<typeof import('@adgen/core')>();
+  return { ...actual, createProviders: createProvidersMock };
+});
 vi.mock('@/lib/supabase/server', () => ({
   createServerClient: async () => ({
     auth: { getUser },
@@ -63,11 +66,23 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 import { GET } from './route.ts';
+// Real despite the @adgen/core mock above (it spreads importActual): the
+// fixtures below are aged from the same constants the route checks against,
+// so a change to RETENTION_DAYS re-ages these tests instead of silently
+// disagreeing with the route.
+import { RETENTION_DAYS, RETENTION_MS } from '@adgen/core';
 
 // Same absolute root the route sees via resolveDirMock. Build expected file
 // paths with path.join(ROOT, …) rather than '/' literals, so the suite is
 // platform-agnostic.
 const ROOT = path.resolve('/srv/storage');
+
+/** One day in ms, derived from the retention constants rather than a second magic number. */
+const DAY_MS = RETENTION_MS / RETENTION_DAYS;
+/** A created_at at half of retention — comfortably inside, recomputed per call so the suite never ages out. */
+const freshCreatedAt = () => new Date(Date.now() - RETENTION_MS / 2).toISOString();
+/** A created_at one full day past the retention boundary — expired, never on the knife edge. */
+const staleCreatedAt = () => new Date(Date.now() - RETENTION_MS - DAY_MS).toISOString();
 
 /** Call GET with a given set of path segments. params is a Promise. */
 function get(segments: string[]) {
@@ -168,7 +183,9 @@ describe('GET /api/storage/[...path] — production auth + ownership', () => {
 
   it('8. production + a non-upload path WITH a matching asset row ⇒ 200', async () => {
     vi.stubEnv('NODE_ENV', 'production');
-    maybeSingle.mockResolvedValue({ data: { id: 'a1' } });
+    // created_at joined the select when retention landed; the fixture sits at
+    // half of retention so this test stays about ownership, not age.
+    maybeSingle.mockResolvedValue({ data: { id: 'a1', created_at: freshCreatedAt() } });
 
     const res = await get(['renders', 'job1.mp4']);
 
@@ -188,7 +205,7 @@ describe('GET /api/storage/[...path] — production auth + ownership', () => {
 
   it('10. the asset lookup is keyed by the request url (/api/storage/<segments>)', async () => {
     vi.stubEnv('NODE_ENV', 'production');
-    maybeSingle.mockResolvedValue({ data: { id: 'a1' } });
+    maybeSingle.mockResolvedValue({ data: { id: 'a1', created_at: freshCreatedAt() } });
 
     await get(['renders', 'job1.mp4']);
 
@@ -303,7 +320,7 @@ describe('GET /api/storage/[...path] — the signing branch (real R2/S3 storage)
   });
 
   it('4. a renders/… key that DOES match a visible assets row ⇒ 302', async () => {
-    maybeSingle.mockResolvedValue({ data: { id: 'a1' } });
+    maybeSingle.mockResolvedValue({ data: { id: 'a1', created_at: freshCreatedAt() } });
 
     const routeGet = await freshRoute();
     const res = await callGET(routeGet, ['renders', 'job1.mp4']);
@@ -397,7 +414,7 @@ describe('GET /api/storage/[...path] — the signing branch traversal guard (run
   it('3. a single .. elsewhere in the key (renders/../uploads/x.mp4) ⇒ 400 invalid_path, never signed', async () => {
     // Not an own-upload prefix, so authorise needs a visible assets row to
     // pass — the guard then refuses the key itself.
-    maybeSingle.mockResolvedValue({ data: { id: 'a1' } });
+    maybeSingle.mockResolvedValue({ data: { id: 'a1', created_at: freshCreatedAt() } });
 
     const routeGet = await freshRoute();
     const res = await callGET(routeGet, ['renders', '..', 'uploads', 'x.mp4']);
@@ -428,5 +445,91 @@ describe('GET /api/storage/[...path] — the signing branch traversal guard (run
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: 'invalid_path' });
     expect(signedDownloadUrl).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/storage/[...path] — retention (410 Gone once the bucket has aged a file out)', () => {
+  /**
+   * Same memoisation problem as the two describes above: getSigner() caches
+   * its result at module scope, so each test here re-imports the route after
+   * vi.resetModules() to observe a signing storage — the 302 assertions below
+   * need that branch. Same freshRoute + callGET pattern, verbatim.
+   */
+  const signedDownloadUrl = vi.fn();
+
+  /** A fresh route module bound to the signing storage above. */
+  async function freshRoute() {
+    vi.resetModules();
+    signedDownloadUrl.mockResolvedValue('https://signed.example/obj?sig=abc');
+    createProvidersMock.mockReturnValue({ storage: { signedDownloadUrl } });
+    return (await import('./route.ts')).GET;
+  }
+
+  function callGET(getFn: typeof GET, segments: string[]) {
+    const req = new Request('https://app.example/api/storage/' + segments.join('/')) as unknown as Parameters<typeof GET>[0];
+    return getFn(req, { params: Promise.resolve({ path: segments }) });
+  }
+
+  it('1. an assets row created 31 days ago ⇒ 410 { error: "expired" }, never signed', async () => {
+    // The lifecycle rule deleted the object; the row survives. Redirecting
+    // would hand the customer a Cloudflare XML error page — so the app answers.
+    maybeSingle.mockResolvedValue({ data: { id: 'a1', created_at: staleCreatedAt() } });
+
+    const routeGet = await freshRoute();
+    const res = await callGET(routeGet, ['renders', 'job1.mp4']);
+
+    expect(res.status).toBe(410);
+    expect(await res.json()).toEqual({ error: 'expired' });
+    expect(signedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it('2. an assets row 29 days old ⇒ still 302 to the signed url', async () => {
+    // One full day inside the boundary, never on the knife edge.
+    const created29dAgo = new Date(Date.now() - RETENTION_MS + DAY_MS).toISOString();
+    maybeSingle.mockResolvedValue({ data: { id: 'a1', created_at: created29dAgo } });
+
+    const routeGet = await freshRoute();
+    const res = await callGET(routeGet, ['renders', 'job1.mp4']);
+
+    expect(res.status).toBe(302);
+    expect(signedDownloadUrl).toHaveBeenCalledWith('renders/job1.mp4');
+  });
+
+  it('3. own upload whose key stamp is 31 days old ⇒ 410 (the key is the only witness — no assets row exists)', async () => {
+    const routeGet = await freshRoute();
+    const res = await callGET(routeGet, ['uploads', 'u1', `${Date.now() - RETENTION_MS - DAY_MS}.mp4`]);
+
+    expect(res.status).toBe(410);
+    expect(await res.json()).toEqual({ error: 'expired' });
+    expect(signedDownloadUrl).not.toHaveBeenCalled();
+  });
+
+  it('4. own upload stamped today ⇒ still 302, signed for the exact key', async () => {
+    const stamp = Date.now();
+
+    const routeGet = await freshRoute();
+    const res = await callGET(routeGet, ['uploads', 'u1', `${stamp}.mp4`]);
+
+    expect(res.status).toBe(302);
+    expect(signedDownloadUrl).toHaveBeenCalledWith(`uploads/u1/${stamp}.mp4`);
+  });
+
+  it('5. own upload with an UNPARSEABLE filename (nostamp.mp4) ⇒ still 302 — "cannot tell" must not become a refusal', async () => {
+    const routeGet = await freshRoute();
+    const res = await callGET(routeGet, ['uploads', 'u1', 'nostamp.mp4']);
+
+    expect(res.status).toBe(302);
+  });
+
+  it('6. previews/ never ages out: a preview whose NAME carries a 2020 stamp still 302s for any signed-in caller', async () => {
+    // Voice previews are catalogue content, deliberately excluded from the
+    // lifecycle rule — the expiry checks must not reach this branch even by
+    // accident of the filename looking like a stamp.
+    const routeGet = await freshRoute();
+    const res = await callGET(routeGet, ['previews', 'voices', '1578000000000.mp3']);
+
+    expect(res.status).toBe(302);
+    expect(signedDownloadUrl).toHaveBeenCalledWith('previews/voices/1578000000000.mp3');
+    expect(maybeSingle).not.toHaveBeenCalled();
   });
 });

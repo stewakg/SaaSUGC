@@ -25,9 +25,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { createProviders } from '@adgen/core';
+import { createProviders, isExpired } from '@adgen/core';
 import { resolveLocalStorageDir } from '@adgen/core/storage-path';
 import { createServerClient } from '@/lib/supabase/server';
+import { uploadKeyWrittenAtMs } from '@/lib/asset-expiry';
 
 const ROOT = resolveLocalStorageDir(process.env.LOCAL_STORAGE_DIR ?? './storage');
 
@@ -161,13 +162,41 @@ async function authorise(segments: string[]): Promise<NextResponse | null> {
   // prefix. Unauthenticated callers were already refused above.
   const isSharedPreview = segments[0] === 'previews';
   const isOwnUpload = segments[0] === 'uploads' && segments[1] === user.id;
+
+  // Own uploads have no `assets` row (assets.job_id is NOT NULL and no job
+  // exists at upload time), so the only witness to their age is the
+  // Date.now() stamp in the key itself. Answering 410 ourselves instead of
+  // letting the signed url 404 spares the customer a Cloudflare XML error
+  // page from a domain they do not recognise. A key that fails to parse is
+  // NOT a refusal: the bucket stays the authority on existence, and refusing
+  // would break a live upload whose name merely looks odd.
+  if (isOwnUpload) {
+    const writtenAtMs = uploadKeyWrittenAtMs(segments.join('/'));
+    if (writtenAtMs !== null && isExpired(writtenAtMs)) {
+      return NextResponse.json({ error: 'expired' }, { status: 410 });
+    }
+  }
+
   if (!isSharedPreview && !isOwnUpload) {
     // RLS ("assets_select_own") scopes this to the caller's own rows, so a
     // path belonging to another user's asset simply comes back empty.
     const requestedUrl = `/api/storage/${segments.join('/')}`;
-    const { data: asset } = await supabase.from('assets').select('id').eq('url', requestedUrl).maybeSingle();
+    const { data: asset } = await supabase
+      .from('assets')
+      .select('id, created_at')
+      .eq('url', requestedUrl)
+      .maybeSingle();
     if (!asset) {
       return NextResponse.json({ error: 'not_found' }, { status: 404 });
+    }
+    // Job outputs age out under the same 30-day rule; created_at is the row's
+    // own record of when the file was written. 410 Gone, not 404: the file
+    // existed and we deleted it on schedule — a different fact from "no such
+    // thing", and the one the legal pages promise. Answering here instead of
+    // letting the signed url 404 spares the customer a Cloudflare XML error
+    // page from a domain they do not recognise.
+    if (isExpired(asset.created_at)) {
+      return NextResponse.json({ error: 'expired' }, { status: 410 });
     }
   }
   return null;

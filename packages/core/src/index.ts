@@ -12,6 +12,7 @@ export * from './captions.ts';
 export * from './constants.ts';
 export * from './enhance-limits.ts';
 export * from './voices.ts';
+export * from './retention.ts';
 export { loadEnv, hasKey } from './env.ts';
 export type { Env } from './env.ts';
 export { createProviders, getAI, mockProviderSlots } from './providers/factory.ts';

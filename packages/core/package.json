@@ -14,6 +14,7 @@
     "./constants": "./src/constants.ts",
     "./enhance-limits": "./src/enhance-limits.ts",
     "./voices": "./src/voices.ts",
+    "./retention": "./src/retention.ts",
     "./storage-path": "./src/storage-path.ts",
     "./providers/*": "./src/providers/*.ts"
   },

@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { getJobDescriptor } from '@adgen/core/pricing';
 import { createServerClient } from '@/lib/supabase/server';
-import { costLabel, humanError } from '@/lib/job-display';
+import { costLabel, humanError, jobFileState, expiryCountdownLabel, fileStateLabel } from '@/lib/job-display';
 import { DeleteJobFiles } from '@/components/delete-job-files';
 import { ToolIcon } from '@/components/tool-icon';
 import { TIMEZONE_COOKIE, formatDateTime, resolveTimezone } from '@/lib/timezone';
@@ -68,7 +68,13 @@ export default async function ReklamePage() {
       ) : (
         <ul className="space-y-3">
           {jobs.map((job) => {
-            const assets = job.status === 'done' ? (job.result?.assets ?? []) : [];
+            // The decision — which files still exist and what the row may
+            // claim about them — is pure logic and lives unit-tested in
+            // job-display.ts; the page only renders it.
+            const fileState = jobFileState(job.status, job.created_at, job.result?.files_deleted);
+            const assets = fileState === 'available' ? (job.result?.assets ?? []) : [];
+            const countdown = fileState === 'available' ? expiryCountdownLabel(job.created_at) : null;
+            const stateLabel = fileStateLabel(fileState);
             return (
               <li key={job.id} className="card flex items-center justify-between gap-4">
                 <ToolIcon icon={getJobDescriptor(job.type).icon} className="shrink-0" />
@@ -86,6 +92,7 @@ export default async function ReklamePage() {
                     <span className="font-mono tabular">{costLabel(job.status, job.cost)}</span>
                     {job.status === 'error' && job.error ? ` · ${humanError(job.error)}` : ''}
                   </p>
+                  {countdown && <p className="mt-1 text-xs text-txt-low">{countdown}</p>}
                 </div>
                 {assets.length > 0 && (
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -103,8 +110,8 @@ export default async function ReklamePage() {
                     <DeleteJobFiles jobId={job.id} />
                   </div>
                 )}
-                {assets.length === 0 && job.result?.files_deleted && (
-                  <span className="shrink-0 text-xs text-txt-low">Fajlovi obrisani</span>
+                {assets.length === 0 && stateLabel && (
+                  <span className="shrink-0 text-xs text-txt-low">{stateLabel}</span>
                 )}
               </li>
             );

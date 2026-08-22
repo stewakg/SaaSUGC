@@ -11,13 +11,20 @@
  * these signatures. That needs a real bucket (RELEASE_PLAN L1.3).
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  GetBucketLifecycleConfigurationCommand,
+  PutBucketLifecycleConfigurationCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { Readable } from 'node:stream';
 import {
   S3CompatibleStorage,
   SIGNED_UPLOAD_TTL_SECONDS,
   SIGNED_URL_TTL_SECONDS,
 } from './storage.r2.ts';
+import { lifecycleRules } from '../retention.ts';
 
 /** Throwaway credentials — SigV4 does not care whether an account exists. */
 function storage() {
@@ -283,5 +290,58 @@ describe('delete — removes one object', () => {
   it('REJECTS when the SDK rejects — an error here must not be swallowed', async () => {
     send.mockRejectedValueOnce(new Error('AccessDenied'));
     await expect(storage().delete('renders/a.mp4')).rejects.toThrow('AccessDenied');
+  });
+});
+
+describe('lifecycle rules — the 30-day retention capability', () => {
+  /** Same prototype seam as the upload/delete suites above: the spy swallows the send, no socket opens. */
+  function createSendSpy() {
+    return vi.spyOn(S3Client.prototype, 'send').mockResolvedValue({} as never);
+  }
+  let send: ReturnType<typeof createSendSpy>;
+  beforeEach(() => {
+    send = createSendSpy();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('putLifecycleRules REPLACES the configuration with the exact rules, on the CONFIGURED bucket', async () => {
+    const rules = lifecycleRules();
+    await storage().putLifecycleRules(rules);
+
+    const cmd = send.mock.calls[0][0] as PutBucketLifecycleConfigurationCommand;
+    expect(cmd).toBeInstanceOf(PutBucketLifecycleConfigurationCommand);
+    // Both asserted on purpose, same as the delete suite: a lifecycle PUT in
+    // the wrong bucket is how some other bucket's files start disappearing.
+    expect(cmd.input.Bucket).toBe('adgen-test');
+    expect(cmd.input.LifecycleConfiguration?.Rules).toBe(rules);
+  });
+
+  it('getLifecycleRules returns the Rules array from the response', async () => {
+    const rules = [{ ID: 'some-legacy-rule', Status: 'Enabled' }];
+    send.mockResolvedValueOnce({ Rules: rules } as never);
+
+    await expect(storage().getLifecycleRules()).resolves.toBe(rules);
+
+    // Same bucket check as the PUT test: reading lifecycle rules from the
+    // wrong bucket makes the whole comparison below meaningless.
+    const cmd = send.mock.calls[0][0] as GetBucketLifecycleConfigurationCommand;
+    expect(cmd).toBeInstanceOf(GetBucketLifecycleConfigurationCommand);
+    expect(cmd.input.Bucket).toBe('adgen-test');
+  });
+
+  it('getLifecycleRules answers null for NoSuchLifecycleConfiguration — "none yet" is a normal state', async () => {
+    send.mockRejectedValueOnce(
+      Object.assign(new Error('The lifecycle configuration does not exist'), {
+        name: 'NoSuchLifecycleConfiguration',
+      }),
+    );
+    await expect(storage().getLifecycleRules()).resolves.toBeNull();
+  });
+
+  it('getLifecycleRules RETHROWS AccessDenied — a permissions failure must not masquerade as "no rules"', async () => {
+    send.mockRejectedValueOnce(Object.assign(new Error('Access Denied'), { name: 'AccessDenied' }));
+    await expect(storage().getLifecycleRules()).rejects.toThrow('Access Denied');
   });
 });

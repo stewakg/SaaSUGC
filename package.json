@@ -18,6 +18,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
     "db:seed": "pnpm --filter @adgen/db run seed",
+    "r2:lifecycle": "pnpm --filter @adgen/worker run r2:lifecycle",
     "supabase": "supabase",
     "services:up": "docker compose -f infra/docker-compose.yml up -d",
     "services:down": "docker compose -f infra/docker-compose.yml down",

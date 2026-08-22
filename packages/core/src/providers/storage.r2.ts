@@ -11,10 +11,13 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  GetBucketLifecycleConfigurationCommand,
+  PutBucketLifecycleConfigurationCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Readable } from 'node:stream';
 import type { Storage } from '../interfaces.ts';
+import type { LifecycleRule } from '../retention.ts';
 
 /**
  * How long a signed link stays usable. Long enough that a customer can start a
@@ -109,6 +112,48 @@ export class S3CompatibleStorage implements Storage {
    */
   async delete(key: string): Promise<void> {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.config.bucket, Key: key }));
+  }
+
+  /**
+   * What the BUCKET currently says its lifecycle rules are.
+   *
+   * Returns `null` when the bucket has no configuration at all — S3 and R2 answer that case with a
+   * `NoSuchLifecycleConfiguration` error rather than an empty list, and "none yet" is a normal
+   * state here, not a failure.
+   */
+  async getLifecycleRules(): Promise<unknown[] | null> {
+    try {
+      const res = await this.client.send(
+        new GetBucketLifecycleConfigurationCommand({ Bucket: this.config.bucket }),
+      );
+      return res.Rules ?? [];
+    } catch (err) {
+      // Catch ONLY the missing-configuration case, in both spellings the SDK
+      // uses (the error's `name` and the S3 `Code` field). Everything else —
+      // above all AccessDenied — must propagate: "no permission" reported as
+      // "no rules" is how an operator comes to believe a deletion rule exists
+      // that does not.
+      const e = err as { name?: unknown; Code?: unknown };
+      if (e?.name === 'NoSuchLifecycleConfiguration' || e?.Code === 'NoSuchLifecycleConfiguration') {
+        return null;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Replaces the bucket's lifecycle configuration with `rules`.
+   *
+   * PUT is a REPLACE, not a merge: any rule not in this array stops existing. That is deliberate —
+   * `lifecycleRules()` in retention.ts is meant to be the whole truth about what ages out.
+   */
+  async putLifecycleRules(rules: LifecycleRule[]): Promise<void> {
+    await this.client.send(
+      new PutBucketLifecycleConfigurationCommand({
+        Bucket: this.config.bucket,
+        LifecycleConfiguration: { Rules: rules },
+      }),
+    );
   }
 
   /**
