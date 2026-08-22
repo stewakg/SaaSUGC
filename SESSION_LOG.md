@@ -10,6 +10,112 @@ the oldest ones there. **The Review ledger below stays here regardless**; it is 
 
 ---
 
+## 2026-08-22 — The 30-day retention promise, made true in code — and the one thing that still blocks it on the bucket
+
+**Machine: the PRIMARY one** (`~/.cline/data/settings/providers.json` has an `openai-compatible`
+entry and no `zai-coding-plan`, so `-P openai-compatible` is correct here and CLAUDE.md's
+second-machine banner does not apply). `pnpm` is still not on PATH: every command below used
+`corepack pnpm`. Started clean at `95a19f5`, nothing behind, nothing ahead.
+
+The owner asked what was still open, then picked one item off the list: **TODO §5's ⛔ "30-day
+retention — the legal pages PROMISE it"**, and asked for it to go through Cline.
+
+### 1. What was actually wrong
+
+`/uslovi` §8 and `/privatnost` §4 both tell a customer that files are deleted automatically after
+30 days and cannot be recovered. There was no lifecycle rule on the R2 bucket, and nothing in the
+app knew a file could ever be gone — so the sentence was false in both directions: nothing was
+being deleted, and if it had been, "Moje reklame" would have gone on offering an „Otvori" link to
+an object that no longer existed.
+
+### 2. What was built (`31189ec`) — VERIFIED by tests, and the app half is done
+
+- **`packages/core/src/retention.ts`** — the single source of truth: `RETENTION_DAYS = 30`, the
+  six prefixes that age out (`uploads/ renders/ voice/ enhance/ remove-text/ image-ads/`), and
+  `previews/` as the one that must not. **S3/R2 lifecycle filters cannot express "everything
+  EXCEPT this prefix"**, so a whole-bucket rule would have deleted all 58 voice previews; the
+  catalogue is protected by being on no list, which is a fact a future reader has to be *told* —
+  hence the header comment and the guard below.
+- **A guard test that reads the real source files.** It scans the seven files that write storage
+  keys, extracts every prefix with two regexes, and fails if the app writes one that is on
+  neither list. A hand-copied list would have silently stopped matching the code the first time
+  someone added a pipeline; this one turns red instead.
+- **`isExpired` fails closed** — an unparseable date counts as expired, on the same reasoning
+  `enhance-limits.ts` refuses an unmeasurable file: a link that 404s is worse than an honest
+  "it is gone".
+- **`getLifecycleRules` / `putLifecycleRules`** on `S3CompatibleStorage`. `AccessDenied` is
+  rethrown, never folded into "this bucket has no rules" — that distinction is what stopped this
+  session from believing the bucket was fine (§4).
+- **`apps/worker/scripts/r2-lifecycle.ts`** — dry run by default; `--apply` warns, writes, then
+  **reads the configuration back**, because a 200 on the PUT only says the API accepted it.
+- **`/api/storage` answers 410 Gone** for an expired `assets` row or an aged `uploads/<uid>/…`
+  key, instead of redirecting to a signed url that 404s from a Cloudflare domain the customer
+  does not recognise. A key we merely failed to PARSE is let through — the bucket stays the
+  authority on existence, and refusing an odd filename would break a live upload.
+- **„Moje reklame"** stops offering the link, says why, and shows a final-week countdown. The
+  decision is pure logic in `lib/job-display.ts`.
+
+Gates: `pnpm -r typecheck` clean, `pnpm -r test` **1283 passed** (core 442, web 698, worker 143 —
+from 1238), `pnpm --filter @adgen/web build` clean with the dev server down.
+
+### 3. Four Cline runs, and what the audit caught that the reports did not
+
+Runs 56–59 in `CLINE_LOG.md`. Every one was mutation-tested rather than read: 15 deliberate
+breakages, each caught by the test named after it and nothing else. Two things came out of that
+which no diff-reading would have found:
+
+- **A real defect in run 57.** `expired` was computed from `job.created_at` for EVERY job
+  regardless of status, so a job that FAILED 31 days ago — the same row that says „nije
+  naplaćeno" — would tell the customer „Fajlovi obrisani — rok od 30 dana je istekao". It never
+  had files to delete. This is the same class of bug `costLabel` was written to prevent, in the
+  same file, which is why the fix moved the decision into `job-display.ts` and added the 15 tests
+  that page had never had.
+- **A defect in MY OWN spec.** I asked for the countdown to round days UP. Rounding up
+  over-promises: a file with 6 days 5 hours left would read „Ističe za 7 dana", the customer
+  returns on day 7 and finds it deleted — the exact dead link this feature exists to prevent. Run
+  59 corrected it to round DOWN, and four tests now pin that direction.
+- One mutation **survived**: removing the 10-digit floor in `uploadKeyWrittenAtMs` changed
+  nothing, because any number short enough to fail it already falls below the 2020 plausibility
+  floor. Not a hole — a mathematically unreachable branch, left in place as documentation of
+  intent, and recorded here so nobody re-discovers it as a gap.
+
+### 4. ⛔ The bucket half is NOT done, and the reason is worth reading
+
+The dry run was executed against the real bucket and answered:
+
+    r2-lifecycle failed: AccessDenied: Access Denied
+
+**The R2 API token in `.env` cannot read or write a bucket's lifecycle configuration** — it is an
+object-scoped token, and lifecycle is a bucket-level operation needing Admin Read & Write. So:
+**no rule has been applied, and the sentence on the legal pages is still false today.** The app
+now behaves correctly the moment the bucket starts deleting — it does not make the bucket delete.
+
+Note what did NOT happen here: the script printed the error instead of an empty rule list, which
+is precisely the behaviour the "AccessDenied must not masquerade as no rules" test was written
+for. Had that catch been broad, this session would have logged "no lifecycle configuration yet"
+and moved on believing the read had worked.
+
+**Two ways to close it, owner's call:** create an R2 API token with Admin Read & Write and re-run
+`--apply`, or enter six 30-day rules by hand in the Cloudflare dashboard (R2 → bucket → Settings →
+Object lifecycle rules) — one per prefix, and **`previews/` must not be among them**.
+
+`--apply` was deliberately never run, by me or by Cline: it makes R2 delete every object older
+than 30 days under those prefixes, irreversibly, including the stranded
+`renders/lambda-dqbz7jwul1.mp4` from the first live render.
+
+### 5. A trap for the next session
+
+**`pnpm r2:lifecycle` from the repo root fails on this machine** — the root script shells out to
+`pnpm --filter …`, and corepack runs pnpm 11 against a `packageManager` pinned to 10, which
+refuses to switch versions. Not this feature's bug (`db:seed` has the same shape). Run the script
+directly instead:
+
+    cd apps/worker && ./node_modules/.bin/tsx --env-file-if-exists=.env scripts/r2-lifecycle.ts
+
+**Nothing was left uncommitted.**
+
+---
+
 ## 2026-08-20 — The one ⛔ closed, prices cut 25% under the competitor, and the UI stops shouting money
 
 **Account A. Machine: the PRIMARY one** — `~/.cline/data/settings/providers.json` here has
@@ -597,6 +703,8 @@ Greppable review verdicts, newest first, each anchored to a commit. Before revie
 area, find its latest `REVIEWED:` line, then `git log <commit>..HEAD -- <paths>` — empty
 means nothing changed since, so skip. See CLAUDE.md → "Review reuse — never re-review
 unchanged code".
+
+REVIEWED: 30-day retention (packages/core/src/retention.{ts,test.ts} + providers/storage.r2.{ts,test.ts} + apps/worker/scripts/r2-lifecycle.ts + apps/web/src/lib/{asset-expiry,job-display}.{ts,test.ts} + apps/web/src/app/api/storage/[...path]/route.{ts,test.ts} + app/app/reklame/page.tsx) — CLEAN @ 31189ec (2026-08-22). Four Cline runs, all mutation-tested: 15 deliberate breakages, each caught by exactly the test named for it (previews/ added to the expiring list; the >= boundary; the fail-closed unparseable date; a prefix removed from the list, against the source-scanning guard; AccessDenied swallowed as "no rules"; both 410 branches; "cannot tell" turned into a refusal; the future-stamp bound; the status guard; the expiry-vs-deletion precedence; the 7-day window; and the rounding direction, twice). TWO findings FIXED rather than accepted: (1) the „Fajlovi obrisani — rok istekao" label rendered for jobs that never had files — a job that FAILED 31 days ago — so the decision moved into job-display.ts as pure functions with 15 new tests; (2) my own spec had the countdown rounding UP, which over-promises a file's remaining life, corrected to round DOWN. One mutation survived harmlessly (the 10-digit floor in uploadKeyWrittenAtMs is unreachable behind the 2020 plausibility floor). ⛔ THE BUCKET RULE IS NOT APPLIED: the dry run against the real bucket returned AccessDenied — the R2 token is object-scoped, and lifecycle is a bucket-level operation. The app half is VERIFIED by tests; the deletion half has NEVER run.
 
 REVIEWED: GDPR pass on the legal pages (apps/web/src/app/(legal)/privatnost/page.tsx; uslovi + impressum READ-ONLY) — CLEAN with one inaccuracy FIXED @ 5f82a0b (2026-08-18). The privacy page declared exactly two cookies while the app sets three: `adgen_tz` (profile timezone picker, `profil/page.tsx:95`, one year, set only on an explicit pick) was never added when it landed 2026-08-14 — found by grepping for cookie writes, not by re-reading the page. Also added: a stated retention period for server logs (≤30 days — enforcing it via Docker log rotation is a new TODO row). The other two pages were verified LLC-consistent and untouched — they were already re-founded on the Wyoming LLC @ 699d28c (2026-08-16), and the stale memory claiming otherwise was corrected. Retention truthfulness moved to TODO rather than softened in the text: /uslovi §8 and /privatnost §4 promise 30-day auto-delete, no R2 lifecycle rule exists, so the row is now a ⛔ launch blocker. Gates: typecheck clean on 5 projects, web 614/614, web build passes (core/worker untouched, not re-run).
 

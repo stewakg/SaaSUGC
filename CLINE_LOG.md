@@ -241,3 +241,22 @@ Kept here so they are not rediscovered as if new:
   `loadEnv({ ...process.env })` silently re-parses every call. A performance surprise, not a bug.
 - `computeJobCost` floors fractional counts and treats `0`/negative as `1`, so `count: 0` is
   charged as one output. Already documented and tested in `pricing.cost.test.ts`.
+
+## 2026-08-22 — 30-day retention (runs 56–59)
+
+One TODO item (§5's retention ⛔) split into four runs. All `-P openai-compatible` on the primary
+machine, one-line prompts pointing at a scratchpad spec. **Run 56 died first on a provider network
+error** — `"Unable to connect. Is the computer able to access the url?"` at iteration 11 after 4m47s,
+having written NOTHING (`git status` clean, so nothing to unwind). Relaunching the same spec
+unchanged worked: the same remedy as the timeouts above, and the same tell — check `git status`
+before assuming a half-applied edit.
+
+| # | Task | Files | Audit | Verdict | Commit |
+|---|---|---|---|---|---|
+| 56 | **Code change:** the retention rules, the lifecycle capability, and the apply script | NEW `packages/core/src/retention.{ts,test.ts}` + `providers/storage.r2.{ts,test.ts}` + NEW `apps/worker/scripts/r2-lifecycle.ts` + 3 `package.json`s + `index.ts` | Five mutations: `previews/` added to the expiring list (failed both preview tests — the ones that stop the voice catalogue being deleted), `>=` → `>` on the expiry boundary, deleting the fail-closed `Number.isFinite` guard, removing `enhance/` from the list (failed the source-SCANNING guard test, which is the whole point of it), and making `getLifecycleRules` swallow every error (failed the AccessDenied-rethrow test). Each failed exactly its own test and nothing else; restored, `git diff --stat` identical. | ✅ accepted | `31189ec` |
+| 57 | **Code change:** the app must never offer an expired file | NEW `apps/web/src/lib/asset-expiry.{ts,test.ts}` + `api/storage/[...path]/route.{ts,test.ts}` + `app/app/reklame/page.tsx` | Five mutations: both 410 branches removed (each failed its own test), turning "cannot tell" into a refusal (failed 7 tests, including the one that forbids it), and dropping the future-stamp bound. **One mutation SURVIVED**: the 10-digit floor in `uploadKeyWrittenAtMs` is unreachable — any number short enough to fail it already falls below the 2020 plausibility floor. Not a hole; left as documentation of intent. **The audit also found a real DEFECT the diff read fine as:** `expired` was computed for every job regardless of status, so a job that FAILED 31 days ago would tell the customer its files were deleted when retention expired. It never had files. Fixed in run 58. Cline's own fixture updates (adding `created_at` to four existing rows) were checked and are legitimate — the assertions are untouched. | ✅ accepted, with a defect referred to run 58 | `31189ec` |
+| 58 | **Code change:** move the row decision into `job-display.ts` and fix that defect | `apps/web/src/lib/job-display.{ts,test.ts}` + `app/app/reklame/page.tsx` + one stale comment | Four mutations: removing the `status !== 'done'` guard (failed the two tests named after the defect), putting `filesDeleted` ahead of expiry, widening the 7-day countdown window, and flipping the rounding — each failed exactly its own test. The page had NEVER had a test file; it now has 15, because the decision is pure logic in the same file `costLabel` lives in, and this was the same class of bug on the file side that `costLabel` was written to prevent on the money side. | ✅ accepted | `31189ec` |
+| 59 | **Code change:** the countdown rounds DOWN, not up | `apps/web/src/lib/job-display.{ts,test.ts}` | **A correction of MY spec, not of Cline's work.** Run 58 was told to round UP, which over-promises: 6 days 5 hours left would read „Ističe za 7 dana", the customer returns on day 7 and finds the file deleted — the exact dead link the feature exists to prevent. Mutation: `floor` → `ceil` fails four tests, all named after the downward direction. | ✅ accepted | `31189ec` |
+
+**What the audit is worth, in one line:** all four reports said "complete and verified", and the
+mutation pass still found one real customer-facing defect and one error in my own specification.
