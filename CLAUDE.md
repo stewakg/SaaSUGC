@@ -76,6 +76,18 @@ Verdict format (one line):
 
 ## Code changes go through Cline (CLI-automated, since 2026-07-21)
 
+> 📌 **2026-08-22 — OPEN QUESTION, assigned to the second machine.** The two blocks below
+> describe DIFFERENT machines and contradict each other on purpose, which is why a session that
+> reads the wrong one either names a provider id that does not exist or lands on the empty wallet.
+> Re-measured on the PRIMARY machine 2026-08-22: `providers.json` has `openai-compatible`, `zai`,
+> `sap`, `sapaicore` and **no `zai-coding-plan`**, `lastUsedProvider` is `openai-compatible`, and
+> four runs completed that way (`run_result`: `glm-5.2` / `openai-compatible` / `totalCost 0`).
+> The owner reports z.ai works well on the second machine. **Next session on the SECOND machine:
+> check its own `providers.json` + `globalState.json`, `cline --version`, and one scratchpad probe
+> run, then replace both blocks with a single per-machine table and report back so the two agree.**
+> The full checklist is in `SESSION_LOG.md`'s 2026-08-22 block, §6. **Report key NAMES and
+> non-secret fields only — never an apiKey value, masked or truncated.**
+
 > ⚠️ **2026-08-18 — SECOND MACHINE, and `-P openai-compatible` is now WRONG here.**
 > The rule below was written on the primary machine and does not survive the move. On the
 > second machine the CLI was installed fresh (`npm i -g cline` → **3.0.55**, Node 22.19.0) and

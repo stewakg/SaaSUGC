@@ -112,6 +112,52 @@ directly instead:
 
     cd apps/worker && ./node_modules/.bin/tsx --env-file-if-exists=.env scripts/r2-lifecycle.ts
 
+### 6. HANDOFF — for whoever runs the next session ON THE SECOND MACHINE
+
+The owner reports that **z.ai works well on the second machine**, and the two machines' notes about
+it currently disagree. That disagreement is not cosmetic: `CLAUDE.md`'s banner and this log both
+describe a provider setup that is machine-specific, and a session that follows the wrong half
+either invokes a provider id that does not exist or lands on the empty wallet. **So the second
+machine's next session should CHECK its own setup and report the findings back, so both machines'
+docs can be reconciled into one.**
+
+What this machine (the PRIMARY) is, measured today, 2026-08-22:
+
+- `~/.cline/data/settings/providers.json` holds `openai-compatible`, `zai`, `sap` and `sapaicore`
+  — and **no `zai-coding-plan` entry at all**; `lastUsedProvider` is `openai-compatible`.
+- Every one of this session's four runs used `-P openai-compatible` and completed; `run_result`
+  reported `model.id: glm-5.2`, `provider: openai-compatible`, `totalCost: 0`.
+- One run died on a provider network error (`"Unable to connect. Is the computer able to access
+  the url?"`) at iteration 11 having written nothing; the same spec re-run unchanged succeeded.
+
+What the second machine should establish and send back (**never print or paste an apiKey — not
+masked, not truncated, not the first characters; report only the KEY NAMES and non-secret fields**):
+
+1. Which provider ids exist in its `~/.cline/data/settings/providers.json`, and what
+   `lastUsedProvider` says.
+2. What `globalState.json` says for `actModeApiProvider` and the act-mode model. `CLAUDE.md`'s
+   banner claims these two files DISAGREE on that machine (`zai-coding-plan` vs `zai`/`glm-5.2`);
+   confirm whether that is still true, because it is the trap that sends a bare invocation to the
+   empty wallet.
+3. `cline --version` and `node --version` there.
+4. A probe run **in a scratchpad cwd, never the repo**, and what its `run_result` reports for
+   `model.id`, `provider`, `contextWindow` and `totalCost`. The banner records `glm-5.3` /
+   1,000,000 / 0 from 2026-08-18 — say whether that still holds.
+5. Whether the entry still sets `reasoning: { effort: "xhigh" }` while the provider advertises
+   only `["low","high","max"]`. That discrepancy has been UNKNOWN since 2026-08-18: nobody has
+   established whether `xhigh` maps to `max` or silently falls back. If it can be settled cheaply,
+   settle it; if not, say so and use `max` wherever the effort level has to be certain.
+
+Then write the answer into `CLAUDE.md`'s banner as a per-machine table rather than a warning
+appended to a warning — the current shape (a primary-machine rule with a second-machine banner
+bolted on top) is exactly why the two disagree — and add a `SESSION_LOG` line saying which machine
+measured what, and when.
+
+**One thing that does NOT travel with the repo:** `.env` and `apps/worker/.env` are gitignored
+(`.gitignore:12` and `:19`; only `.env.example` is tracked). So the R2 credentials are not on the
+second machine, and `scripts/r2-lifecycle.ts` cannot even do its read-only dry run there until
+they are copied over by hand.
+
 **Nothing was left uncommitted.**
 
 ---
