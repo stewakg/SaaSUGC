@@ -153,10 +153,13 @@ appended to a warning — the current shape (a primary-machine rule with a secon
 bolted on top) is exactly why the two disagree — and add a `SESSION_LOG` line saying which machine
 measured what, and when.
 
-**One thing that does NOT travel with the repo:** `.env` and `apps/worker/.env` are gitignored
-(`.gitignore:12` and `:19`; only `.env.example` is tracked). So the R2 credentials are not on the
-second machine, and `scripts/r2-lifecycle.ts` cannot even do its read-only dry run there until
-they are copied over by hand.
+**About `.env`, corrected by the owner the same day:** it is gitignored (`.gitignore:12` and
+`:19`; only `.env.example` is tracked), so it does not travel with the repo — **but the owner has
+already copied the keys across, and the file is identical on both machines.** So the second
+machine CAN run `scripts/r2-lifecycle.ts`. It will get the same answer: identical `.env` means the
+identical object-scoped R2 token, so the dry run there returns `AccessDenied` too. Re-running it
+on the other machine proves nothing and is not a diagnostic step — the token itself is what has to
+change (TODO §5).
 
 **Nothing was left uncommitted.**
 
