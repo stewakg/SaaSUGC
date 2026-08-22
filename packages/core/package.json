@@ -24,11 +24,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1090.0",
-    "@aws-sdk/s3-request-presigner": "^3.1090.0",
-    "@remotion/bundler": "4.0.490",
-    "@remotion/lambda-client": "4.0.490",
-    "@remotion/renderer": "4.0.490",
+    "@aws-sdk/client-s3": "^3.1113.0",
+    "@aws-sdk/s3-request-presigner": "^3.1113.0",
+    "@remotion/bundler": "4.0.513",
+    "@remotion/lambda-client": "4.0.513",
+    "@remotion/renderer": "4.0.513",
     "cheerio": "^1.0.0",
     "ioredis": "^5.4.1",
     "zod": "^3.23.8"
